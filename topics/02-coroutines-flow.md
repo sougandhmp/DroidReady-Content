@@ -1,134 +1,196 @@
 # Coroutines and Flow
 
-Coroutines are the most-asked senior topic. Know structured concurrency, cancellation, exception propagation and the hot/cold Flow distinction cold.
+Coroutines are the most-asked senior topic. Be ready to explain what suspension really is, structured concurrency, cancellation, exceptions, and the difference between cold and hot flows.
 
-### 2.1 Core concepts
+### 2.1 What a coroutine is
 
-- **Coroutine:** a suspendable computation. `suspend` functions can pause without blocking the thread; the compiler turns them into a state machine with a `Continuation` parameter (CPS transformation).
-- **CoroutineScope:** owns coroutines; cancelling the scope cancels all children. Android gives you `viewModelScope` (cancelled in `onCleared`) and `lifecycleScope` (cancelled on `DESTROYED`).
-- **CoroutineContext:** a set of elements: `Job`, `CoroutineDispatcher`, `CoroutineName`, `CoroutineExceptionHandler`.
-- **Builders:** `launch` (fire and forget, returns `Job`), `async` (returns `Deferred<T>`, use `await()`), `runBlocking` (blocks a thread; tests and `main` only), `withContext` (switch context and return a result).
+**In one line:** a coroutine is a piece of work that can pause (suspend) without blocking its thread, and resume later, possibly on another thread.
 
-### 2.2 Dispatchers
+**Say this in the interview:** "A coroutine is like a very lightweight thread. When it reaches a suspending call, such as a network request, it saves where it was and frees the thread, so the thread can do other work. When the result arrives, it resumes from the same point. The compiler makes this possible by turning every suspend function into a state machine with a `Continuation` parameter. That's why thousands of coroutines are cheap, while thousands of threads would run out of memory."
 
-| Dispatcher | Backed by | Use for |
-| --- | --- | --- |
-| `Dispatchers.Main` | Android main looper | UI updates, light work |
-| `Dispatchers.Main.immediate` | Main, no re-dispatch if already on main | Default in `viewModelScope` / `lifecycleScope` |
-| `Dispatchers.IO` | Shared pool, 64 threads (or more) | Blocking I/O: disk, network, Room without suspend |
-| `Dispatchers.Default` | Pool sized to CPU cores | CPU work: JSON parsing, sorting, diffing |
-| `Dispatchers.Unconfined` | Caller thread until first suspension | Rarely; tests |
-
-**Rule:** suspend functions should be **main-safe**. The function that does blocking work switches dispatcher itself, so callers never need to.
+**Example:**
 
 ```kotlin
-class ArticleRepository(
-    private val api: ArticleApi,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO  // injectable for tests
-) {
-    suspend fun fetch(id: String): Article = withContext(ioDispatcher) {
-        api.getArticle(id)
-    }
+suspend fun loadProfile(id: String): Profile {
+    val user = api.getUser(id)           // suspends here; the main thread is free meanwhile
+    val avatar = api.getAvatar(user)     // and here
+    return Profile(user, avatar)         // reads like normal sequential code
 }
 ```
 
-### 2.3 Structured concurrency and Job hierarchy
+**How it works:** the compiler adds a `Continuation` parameter and turns the function into a `when (label)` state machine that stores local variables in an object. At a suspension point the function returns the special value `COROUTINE_SUSPENDED`, releasing the thread; later the continuation is resumed and jumps to the saved label. A suspended coroutine is just a small object on the heap, not a 1 MB thread stack.
 
-A child failure cancels the parent and all siblings (with a normal `Job`). With `SupervisorJob` / `supervisorScope`, a child failure does not affect siblings.
+**Follow-ups:**
+
+- *Does `suspend` make code run in the background?* No. It only means the function can pause. Which thread it runs on depends on the dispatcher.
+- *Coroutine vs thread?* Many coroutines share a few threads; switching between them is cheap and doesn't involve the OS.
+
+### 2.2 Scopes, builders and structured concurrency
+
+**In one line:** every coroutine runs inside a scope, and a parent coroutine waits for, and can cancel, all of its children.
+
+**Say this in the interview:** "Structured concurrency means coroutines form a tree: a scope owns its coroutines, and cancelling the scope cancels everything in it. On Android I use `viewModelScope`, which is cancelled when the ViewModel is cleared, and `lifecycleScope` for UI. I start work with `launch` when I don't need a result and `async` when I need one, mostly for running calls in parallel inside `coroutineScope`. With a normal `Job`, one failing child cancels its siblings; with `SupervisorJob` or `supervisorScope`, children fail independently."
+
+**Example:**
 
 ```kotlin
-// Parallel calls; if one fails, the other is cancelled and the exception propagates
-suspend fun loadProfile(): Profile = coroutineScope {
+// Parallel calls; if one fails, the other is cancelled and the error is thrown here
+suspend fun loadDashboard(): Dashboard = coroutineScope {
     val user = async { api.user() }
-    val posts = async { api.posts() }
-    Profile(user.await(), posts.await())
+    val stats = async { api.stats() }
+    Dashboard(user.await(), stats.await())
 }
 
-// Independent tasks; one failing does not cancel the others
+// Independent jobs: one failing doesn't stop the other
 supervisorScope {
     launch { syncContacts() }
     launch { syncPhotos() }
 }
 ```
 
-### 2.4 Cancellation
+| Builder | Returns | Use for |
+| --- | --- | --- |
+| `launch` | `Job` | Fire-and-forget work |
+| `async` | `Deferred<T>` (call `await()`) | Parallel work that returns a result |
+| `withContext(d)` | The block's result | Switching thread for a block |
+| `coroutineScope { }` | The block's result | Grouping children; fails if any child fails |
+| `runBlocking` | The block's result | Tests and `main` only; it blocks the thread |
 
-- Cancellation is **cooperative**. Suspending functions from kotlinx (`delay`, `withContext`, `yield`) check for it. A tight CPU loop must check `isActive` or call `ensureActive()`.
-- Cancellation throws `CancellationException`. **Never swallow it.** A blanket `catch (e: Exception)` around a suspend call breaks cancellation; rethrow it.
-- Cleanup in `finally`; if cleanup must suspend, use `withContext(NonCancellable)`.
+**Follow-ups:**
+
+- *Why avoid `GlobalScope`?* It isn't tied to any lifecycle, so the work can leak and can't be cancelled or tested. For app-wide work, inject an application-scoped `CoroutineScope(SupervisorJob() + Dispatchers.Default)`.
+
+### 2.3 Dispatchers and main-safety
+
+**In one line:** a dispatcher decides which thread or thread pool a coroutine runs on.
+
+**Say this in the interview:** "`Dispatchers.Main` runs on the UI thread; `IO` is a large shared pool for blocking disk and network work; `Default` is sized to the CPU cores for heavy computation like parsing or sorting. My rule is that every suspend function should be main-safe: the function that does the blocking work switches with `withContext`, so callers never need to think about threads. I inject dispatchers so tests can replace them."
+
+**Example:**
 
 ```kotlin
-try {
-    repository.refresh()
-} catch (e: CancellationException) {
-    throw e
-} catch (e: IOException) {
-    _state.update { it.copy(error = e.message) }
+class ArticleRepository(
+    private val api: ArticleApi,
+    private val io: CoroutineDispatcher = Dispatchers.IO     // injectable for tests
+) {
+    suspend fun fetch(id: String): Article = withContext(io) { api.getArticle(id) }
 }
 ```
+
+**How it works:** `viewModelScope` and `lifecycleScope` use `Dispatchers.Main.immediate`, which runs straight away if already on the main thread. `IO` allows 64 threads (or more on many-core devices) because those threads mostly wait.
+
+**Follow-ups:**
+
+- *Do I need `withContext(IO)` around Room or Retrofit suspend functions?* No; they are already main-safe. Use it for your own blocking code.
+
+### 2.4 Cancellation
+
+**In one line:** cancellation is cooperative: a coroutine stops only at points where it checks for cancellation, such as suspending calls.
+
+**Say this in the interview:** "Cancelling a coroutine throws a `CancellationException` at its next suspension point. Library suspend functions like `delay` and `withContext` check for it, but a tight CPU loop must call `ensureActive()` itself. The big rule is never to swallow `CancellationException`: a blanket `catch (e: Exception)` around a suspend call breaks cancellation, so I either rethrow it or catch specific exceptions. Cleanup goes in `finally`, and if cleanup must suspend, I wrap it in `withContext(NonCancellable)`."
+
+**Example:**
+
+```kotlin
+viewModelScope.launch {
+    try {
+        repository.refresh()
+    } catch (e: CancellationException) {
+        throw e                                   // let cancellation continue
+    } catch (e: IOException) {
+        _state.update { it.copy(error = R.string.offline) }
+    }
+}
+```
+
+**Follow-ups:**
+
+- *Why is `runCatching` risky in coroutines?* It also catches `CancellationException`; rethrow it if you use it.
 
 ### 2.5 Exception handling
 
-- `launch`: exceptions propagate up to the parent; uncaught ones go to the `CoroutineExceptionHandler` (only works on root coroutines) or crash the app.
-- `async`: the exception is stored and rethrown on `await()`. But in a non-supervisor scope it **also** cancels the parent immediately.
-- `CoroutineExceptionHandler` is a last resort for logging; it does not let you recover.
-- `runCatching` around suspend code also catches `CancellationException`; be careful.
+**In one line:** an uncaught exception in a child coroutine travels up to its parent, cancels its siblings, and crashes the app unless something handles it.
 
-### 2.6 Flow basics: cold streams
+**Say this in the interview:** "With `launch`, an exception propagates up the job tree; if nothing catches it, it goes to the `CoroutineExceptionHandler` or crashes the app. With `async`, the exception is stored and rethrown at `await()`, but in a regular scope it also cancels the parent straight away. `viewModelScope` uses a `SupervisorJob`, so one failing `launch` doesn't cancel the others, but the exception still crashes the app if uncaught. So I catch errors inside the coroutine and turn them into UI state."
 
-A `Flow` is cold: the code in `flow {}` runs again for each collector, only when collected.
+**Example:**
 
 ```kotlin
-fun tickerFlow(periodMs: Long): Flow<Long> = flow {
-    var i = 0L
-    while (true) { emit(i++); delay(periodMs) }
-}
+try {
+    scope.launch { error("boom") }    // WRONG: launch returns at once; the error happens later
+} catch (e: Exception) { }
 
-repository.observeArticles()           // Flow<List<Article>> from Room
+scope.launch {
+    try { work() } catch (e: IOException) { showError() }   // RIGHT: catch inside the coroutine
+}
+```
+
+**Follow-ups:**
+
+- *What is `CoroutineExceptionHandler` for?* A last-resort logger for root coroutines; it can't recover the failed work.
+
+### 2.6 Flow: cold streams and operators
+
+**In one line:** a `Flow` is a cold stream of values: its code runs again for each collector, and only when collected.
+
+**Say this in the interview:** "A Flow is the coroutine version of a stream. It's cold, so nothing happens until someone calls `collect`, and each collector gets its own run. I build pipelines with operators like `map`, `filter`, `debounce`, `combine` and `flatMapLatest`, use `flowOn` to move upstream work to another dispatcher, and Room gives me Flows that re-emit whenever the table changes."
+
+**Example:**
+
+```kotlin
+repository.observeArticles()                    // Flow<List<Article>> from Room
     .map { list -> list.filter { it.isPublished } }
     .distinctUntilChanged()
-    .flowOn(Dispatchers.Default)        // upstream runs on Default
-    .catch { emit(emptyList()) }        // catches upstream errors only
+    .flowOn(Dispatchers.Default)                // the steps above run on Default
     .collect { render(it) }
 ```
 
-Key operators: `map`, `filter`, `onEach`, `debounce`, `distinctUntilChanged`, `combine` (latest of each), `zip` (pairs in order), `flatMapLatest` (cancel previous inner flow, perfect for search), `flatMapConcat`, `flatMapMerge`, `retry`/`retryWhen`, `buffer`, `conflate`, `stateIn`, `shareIn`.
+**How it works:** `flowOn` changes the context of everything above it. Inside `flow { }` you must not emit from another context (for example inside `withContext`); use `flowOn` or `channelFlow`.
 
-### 2.7 Hot flows: StateFlow and SharedFlow
+**Follow-ups:**
 
-|  | StateFlow | SharedFlow | Channel |
-| --- | --- | --- | --- |
-| Has current value | Yes, always | Optional (replay) | No |
-| Replays to new collectors | Latest value | `replay` count | No - each item goes to one receiver |
-| Equality conflation | Yes (skips equal values) | No | No |
-| Best for | UI state | Broadcast events to many | One-off events to one consumer |
+- *`combine` vs `zip`?* `combine` emits whenever any input changes, using the latest of each; `zip` pairs items in order, one from each.
+
+### 2.7 Hot flows: StateFlow, SharedFlow and Channel
+
+**In one line:** hot streams are active whether or not anyone collects: `StateFlow` always holds a current value, `SharedFlow` broadcasts events, and a `Channel` delivers each item to exactly one receiver.
+
+**Say this in the interview:** "For UI state I use `StateFlow`: it always has a value, gives the latest one to new collectors and skips duplicates, which matches what a screen needs. `SharedFlow` is for broadcasting to many collectors with a configurable replay. A `Channel` is a queue where each item is received once. To turn a cold Flow into a StateFlow in a ViewModel, I use `stateIn` with `SharingStarted.WhileSubscribed(5_000)`, which keeps the upstream alive for 5 seconds so a rotation doesn't restart the work, but stops it when the app goes to the background."
+
+**Example:**
 
 ```kotlin
-@HiltViewModel
-class SearchViewModel @Inject constructor(private val repo: SearchRepository) : ViewModel() {
-
-    private val query = MutableStateFlow("")
-
-    val results: StateFlow<SearchUiState> = query
-        .debounce(300)
-        .filter { it.length >= 2 }
-        .distinctUntilChanged()
-        .flatMapLatest { q -> repo.search(q).map<List<Result>, SearchUiState> { SearchUiState.Success(it) } }
-        .catch { emit(SearchUiState.Error(it)) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState.Idle)
-
-    fun onQueryChanged(q: String) { query.value = q }
-}
+val uiState: StateFlow<SearchUiState> = query
+    .debounce(300)
+    .filter { it.length >= 2 }
+    .flatMapLatest { repo.search(it) }
+    .map { SearchUiState.Results(it) }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState.Idle)
 ```
 
-`WhileSubscribed(5_000)` keeps the upstream alive for 5 s after the last collector leaves, so a rotation does not restart the work, but going to the background does stop it.
+| | StateFlow | SharedFlow | Channel |
+| --- | --- | --- | --- |
+| Current value | Always | Only with replay | No |
+| New collectors get | The latest value | `replay` items | Nothing old; each item goes to one receiver |
+| Skips equal values | Yes | No | No |
+| Use for | UI state | Broadcast events | Work queues, one consumer |
 
-### 2.8 Collecting safely in the UI
+**Follow-ups:**
+
+- *StateFlow vs LiveData?* StateFlow needs an initial value, is pure Kotlin (testable, works in KMP) and has all Flow operators; it isn't lifecycle-aware by itself, so collect it with the lifecycle.
+
+### 2.8 Collecting flows safely in the UI
+
+**In one line:** collect flows only while the screen is visible, using `repeatOnLifecycle` in Views or `collectAsStateWithLifecycle` in Compose.
+
+**Say this in the interview:** "If you collect a flow in `lifecycleScope.launch` directly, it keeps collecting in the background and can update a screen that isn't visible. `repeatOnLifecycle(STARTED)` starts collection when the screen starts and cancels it when it stops. In Compose, `collectAsStateWithLifecycle()` does the same."
+
+**Example:**
 
 ```kotlin
 // Views
-lifecycleScope.launch {
-    repeatOnLifecycle(Lifecycle.State.STARTED) {
+viewLifecycleOwner.lifecycleScope.launch {
+    viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
         viewModel.uiState.collect { render(it) }
     }
 }
@@ -137,281 +199,131 @@ lifecycleScope.launch {
 val state by viewModel.uiState.collectAsStateWithLifecycle()
 ```
 
-`launchWhenStarted` is deprecated: it only *paused* the coroutine, keeping upstream producers alive.
+**Follow-ups:**
 
-### 2.9 One-off events (navigation, snackbar)
+- *Why was `launchWhenStarted` deprecated?* It only paused the coroutine, so upstream producers kept running in the background.
 
-Options and trade-offs - a common senior discussion:
+### 2.9 One-off events (navigation, snackbars)
 
-- **`Channel(Channel.BUFFERED)` + `receiveAsFlow()`:** delivered once, buffered while there is no collector. Can still be lost in a narrow window if the collector is cancelled mid-delivery.
-- **`SharedFlow(replay = 0)`:** lost if nobody is collecting.
-- **Model events as state** (Google's current guidance): put `userMessage: String?` in `UiState`, and the UI calls `viewModel.messageShown()` after showing it. Survives process death and config change and is testable.
+**In one line:** one-off events are best modelled as state that the UI clears after handling, not as fire-and-forget messages.
 
-### 2.10 Testing coroutines
+**Say this in the interview:** "Events sent through a `SharedFlow` are lost if nobody is collecting, and even a `Channel` can lose one in a small window during configuration changes. Google's guidance, which I follow, is to put the event into the UI state, for example `userMessage: String?`, and have the UI call `messageShown()` after displaying it. It survives rotation and process death, and it's easy to test."
 
-```kotlin
-@Test
-fun `search emits results`() = runTest {
-    val vm = SearchViewModel(FakeSearchRepository())
-    vm.results.test {                     // Turbine library
-        assertEquals(SearchUiState.Idle, awaitItem())
-        vm.onQueryChanged("kotlin")
-        advanceTimeBy(301)
-        assertTrue(awaitItem() is SearchUiState.Success)
-    }
-}
-```
-
-`runTest` uses virtual time (`delay` is skipped). Replace `Dispatchers.Main` with `Dispatchers.setMain(StandardTestDispatcher())` in a JUnit rule, and inject dispatchers so they can be replaced.
-
-### 2.11 Deeper dive: the suspend state machine, step by step
-
-Consider this function:
+**Example:**
 
 ```kotlin
-suspend fun loadUser(id: String): UserProfile {
-    val user = api.getUser(id)          // suspension point 1
-    val avatar = api.getAvatar(user)    // suspension point 2
-    return UserProfile(user, avatar)
-}
+data class UiState(val items: List<Item> = emptyList(), val userMessage: Int? = null)
+fun messageShown() = _state.update { it.copy(userMessage = null) }
 ```
 
-The compiler rewrites it roughly like this (simplified):
+### 2.10 Flow errors, retry, flattening and backpressure
+
+**In one line:** `catch` handles only upstream errors, `retryWhen` re-runs a failed flow, the `flatMap` variants decide how inner flows overlap, and `buffer`/`conflate` handle slow collectors.
+
+**Say this in the interview:** "The `catch` operator only sees exceptions from operators above it, not from `collect`, so I put work in `onEach` before `catch` and use `launchIn`. For flaky streams I use `retryWhen` with backoff. For flattening, `flatMapLatest` cancels the previous inner flow, which is perfect for search; `flatMapConcat` runs them one by one; `flatMapMerge` runs them in parallel. If the collector is slow, `conflate` keeps only the latest value, and `collectLatest` cancels the old work when a new value arrives."
+
+**Example:**
 
 ```kotlin
-fun loadUser(id: String, cont: Continuation<UserProfile>): Any? {
-    val sm = cont as? LoadUserSM ?: LoadUserSM(cont)   // holds 'label' and local variables
-    when (sm.label) {
-        0 -> {
-            sm.label = 1
-            val r = api.getUser(id, sm)
-            if (r == COROUTINE_SUSPENDED) return COROUTINE_SUSPENDED   // thread is free now
-            sm.user = r as User
-        }
-        1 -> sm.user = sm.result as User                               // resumed here later
-    }
-    // ...label 2 does the same for getAvatar...
-}
+api.liveScores()
+    .retryWhen { cause, attempt -> (cause is IOException && attempt < 3).also { if (it) delay(1000L * (attempt + 1)) } }
+    .onCompletion { cause -> log("ended, cause=$cause") }   // runs on success, error or cancellation
+    .catch { emit(Scores.Unavailable) }                      // upstream errors only
+    .onEach { render(it) }
+    .launchIn(viewModelScope)
 ```
 
-What to say in the interview: one object per call holds the locals, the `label` says where to continue, and returning `COROUTINE_SUSPENDED` releases the thread. That is why thousands of coroutines are cheap compared to threads: a suspended coroutine is just a small object on the heap, not a 1 MB thread stack.
+| Operator | Behaviour | Use for |
+| --- | --- | --- |
+| `flatMapLatest` | Cancels the previous inner flow | Search as you type |
+| `flatMapConcat` | One inner flow at a time, in order | Ordered uploads |
+| `flatMapMerge` | Several at once (default 16) | Parallel downloads |
+| `buffer()` | Producer runs ahead of the collector | Overlap production and rendering |
+| `conflate()` | Slow collector gets only the latest | Progress, sensors |
 
-### 2.12 Deeper dive: exception scenarios traced
+### 2.11 Shared mutable state
 
-**Scenario 1: `launch` inside `viewModelScope`.** `viewModelScope` uses a `SupervisorJob`, so a failing child does not cancel siblings. But the exception is still uncaught and crashes the app, because nothing handles it.
+**In one line:** coroutines on `Default` or `IO` run on several threads, so shared mutable state needs atomics, a `Mutex`, or confinement to one thread.
 
-```kotlin
-viewModelScope.launch { error("boom") }      // crashes the app
-viewModelScope.launch { loadFeed() }         // was not cancelled, but the app is already dead
-```
+**Say this in the interview:** "If 1,000 coroutines on `Dispatchers.Default` each do `counter++`, you get fewer than 1,000, because the increment isn't atomic. For a single value I use `AtomicInteger` or `MutableStateFlow.update`, which is atomic. For a block that suspends, I use a coroutine `Mutex`, which suspends instead of blocking the thread. A common example is a token cache: ten callers at once should trigger only one refresh."
 
-Fix: catch inside the coroutine and turn the error into state.
-
-**Scenario 2: `async` in a regular scope.**
-
-```kotlin
-coroutineScope {
-    val a = async { error("A failed") }
-    val b = async { delay(1000); "B" }
-    // A fails -> the coroutineScope is cancelled -> b is cancelled -> the exception is rethrown here,
-    // even if you never call a.await()
-}
-```
-
-**Scenario 3: `try/catch` around `launch` does nothing.**
-
-```kotlin
-try {
-    scope.launch { error("boom") }   // the launch returns immediately; the error happens later
-} catch (e: Exception) { /* never reached */ }
-```
-
-The exception is thrown inside the coroutine, so the `try` must be inside the `launch` block.
-
-**Scenario 4: `supervisorScope` with `async`.**
-
-```kotlin
-supervisorScope {
-    val a = async { error("A failed") }
-    val b = async { "B" }
-    val resultA = runCatching { a.await() }   // failure surfaces only on await
-    val resultB = b.await()                   // still succeeds
-}
-```
-
-### 2.13 Deeper dive: shared mutable state
-
-Coroutines on `Dispatchers.Default` or `IO` run on several threads, so shared state needs protection.
-
-```kotlin
-var counter = 0
-coroutineScope {
-    repeat(1000) { launch(Dispatchers.Default) { counter++ } }
-}
-println(counter)   // often less than 1000: lost updates
-```
-
-Fixes, from simplest:
-
-- `AtomicInteger` / `AtomicReference` for single values.
-- `MutableStateFlow.update { }` is atomic (compare-and-set loop).
-- `Mutex` for a critical section that suspends. Unlike `synchronized`, it suspends instead of blocking a thread.
-- Confine the state to one thread (e.g. `Dispatchers.Default.limitedParallelism(1)`).
+**Example:**
 
 ```kotlin
 class TokenCache(private val api: AuthApi) {
     private val mutex = Mutex()
     private var token: Token? = null
-
     suspend fun get(): Token = mutex.withLock {
         token?.takeIf { !it.isExpired() } ?: api.refresh().also { token = it }
     }
 }
 ```
 
-Ten callers at once get one refresh call; the other nine wait on the lock and then read the cached token.
+### 2.12 Turning callbacks into coroutines
 
-### 2.14 Deeper dive: channels, producers and fan-out
+**In one line:** `suspendCancellableCoroutine` wraps a one-shot callback as a suspend function, and `callbackFlow` wraps a repeating callback as a Flow.
 
-A `Channel` is a coroutine-safe queue: `send` suspends when full, `receive` suspends when empty. Each item goes to exactly one receiver.
+**Say this in the interview:** "Many Android APIs are still callback-based. For a single result I use `suspendCancellableCoroutine` and remove the listener if the coroutine is cancelled. For repeated updates, like location, I use `callbackFlow`: register the listener, send values with `trySend`, and unregister in `awaitClose`, which runs when the collector stops."
 
-```kotlin
-val jobs = Channel<UploadJob>(capacity = 50)
-
-// producer
-launch { photos.forEach { jobs.send(UploadJob(it)) }; jobs.close() }
-
-// 3 workers share the queue (fan-out)
-repeat(3) { workerId ->
-    launch { for (job in jobs) upload(job, workerId) }   // loop ends when the channel is closed and empty
-}
-```
-
-Capacity choices: `RENDEZVOUS` (0, sender waits for a receiver), `BUFFERED` (64 by default), `CONFLATED` (keeps only the latest), `UNLIMITED` (risk of running out of memory).
-
-### 2.15 Deeper dive: callbackFlow for a real API
-
-Turning location updates into a Flow that stops listening when the collector goes away:
+**Example:**
 
 ```kotlin
-fun FusedLocationProviderClient.locationFlow(request: LocationRequest): Flow<Location> = callbackFlow {
+fun FusedLocationProviderClient.locations(request: LocationRequest): Flow<Location> = callbackFlow {
     val callback = object : LocationCallback() {
-        override fun onLocationResult(result: LocationResult) {
-            result.lastLocation?.let { trySend(it) }   // non-suspending send from a callback
-        }
+        override fun onLocationResult(result: LocationResult) { result.lastLocation?.let { trySend(it) } }
     }
     requestLocationUpdates(request, callback, Looper.getMainLooper())
-        .addOnFailureListener { close(it) }            // end the flow with an error
-    awaitClose { removeLocationUpdates(callback) }     // runs when the collector is cancelled
+    awaitClose { removeLocationUpdates(callback) }   // required: cleanup when collection stops
 }
 ```
 
-Forgetting `awaitClose` throws an `IllegalStateException`; it is how the library makes sure you clean up.
+### 2.13 Coroutines vs RxJava
 
-### 2.16 Deeper dive: backpressure in Flow
+**In one line:** both handle async streams; coroutines use sequential-looking code and structured concurrency, while RxJava uses operator chains and manual disposal.
 
-If the collector is slower than the producer, the producer suspends by default (each `emit` waits for the collector). Options:
+**Say this in the interview:** "Coroutines replaced RxJava in most Android code because the code reads top to bottom, cancellation is automatic through scopes instead of `CompositeDisposable`, and Jetpack libraries support them directly. The mapping is simple: `Single` becomes a suspend function, `Observable` becomes `Flow`, `BehaviorSubject` becomes `MutableStateFlow`, and `switchMap` becomes `flatMapLatest`. To migrate, I convert the data layer first and use the `kotlinx-coroutines-rx3` adapters at the boundaries."
 
-| Operator | Behaviour | Example use |
-| --- | --- | --- |
-| (none) | Producer waits for the collector | Default, safe |
-| `buffer(n)` | Producer runs ahead up to n items in a separate coroutine | Parse while previous item renders |
-| `conflate()` | Collector gets only the latest; skips intermediate values | Sensor readings, progress |
-| `collectLatest { }` | Cancels the slow collector block when a new value arrives | Re-render on each search result |
-| `sample(ms)` / `debounce(ms)` | Time-based dropping | UI updates from fast streams |
+**Example:**
 
 ```kotlin
-downloadProgress()          // emits every few ms
-    .conflate()
-    .collect { progressBar.progress = it }   // UI only draws the newest value
+val user: User = legacyRepo.getUser(id).await()                  // Single -> suspend
+val feed: Flow<List<Post>> = legacyRepo.observeFeed().asFlow()   // Observable -> Flow
+fun loadUserRx(id: String): Single<User> = rxSingle { newRepo.getUser(id) }   // suspend -> Single
 ```
 
-### 2.17 Flow error handling, completion and flattening
+### 2.14 Testing coroutines
 
-**`catch` only sees upstream errors.** It catches exceptions thrown by operators above it, and can emit a fallback value. An exception thrown inside `collect` is downstream and is not caught.
+**In one line:** use `runTest` with virtual time, replace `Dispatchers.Main` with a test dispatcher, and test flows with Turbine.
 
-```kotlin
-repository.observeFeed()                       // upstream
-    .map { it.toUi() }                         // upstream of catch
-    .catch { e -> emit(FeedUi.Error(e.toMessage())) }   // handles errors from the two lines above
-    .collect { render(it) }                    // an exception here is NOT caught by catch
-```
+**Say this in the interview:** "`runTest` skips delays with virtual time, so a test with `delay(5_000)` runs instantly. I replace the main dispatcher with `Dispatchers.setMain` in a JUnit rule and inject other dispatchers so they share the same scheduler. `StandardTestDispatcher` queues work until I advance it, which lets me check intermediate states like 'loading'; `UnconfinedTestDispatcher` runs eagerly. For flows I use Turbine's `test { awaitItem() }`."
 
-To handle collector errors too, move the work into `onEach` before `catch`, then call `collect()` with no arguments:
+**Example:**
 
 ```kotlin
-flow.onEach { render(it) }.catch { showError(it) }.launchIn(scope)
-```
-
-**Exception transparency.** A `flow { }` builder must not catch an exception from `emit` and keep going, and must not emit from another coroutine context (for example inside `withContext`). Use `flowOn` to change the upstream dispatcher, or `channelFlow` when you need to emit from several coroutines.
-
-**Completion and retry.**
-
-```kotlin
-api.liveScores()
-    .retryWhen { cause, attempt ->
-        val retry = cause is IOException && attempt < 3
-        if (retry) delay(1_000L * (attempt + 1))   // 1 s, 2 s, 3 s backoff
-        retry
+@Test fun `shows results after debounce`() = runTest {
+    val vm = SearchViewModel(FakeSearchRepository())
+    vm.uiState.test {
+        assertEquals(SearchUiState.Idle, awaitItem())
+        vm.onQueryChanged("kotlin")
+        advanceTimeBy(301)
+        assertTrue(awaitItem() is SearchUiState.Results)
     }
-    .onStart { emit(Scores.Loading) }
-    .onCompletion { cause -> if (cause == null) log("stream ended") }   // runs on success, error or cancellation
-    .catch { emit(Scores.Unavailable) }
-    .collect { show(it) }
+}
 ```
-
-`onCompletion` receives `null` on success and the exception otherwise; it does not swallow the exception. A tight loop that never suspends should call `ensureActive()` or use `.cancellable()` so cancellation is noticed.
-
-**Flattening operators compared.** Each turns every upstream value into an inner flow:
-
-| Operator | Inner flows run | When a new value arrives | Typical use |
-| --- | --- | --- | --- |
-| `flatMapConcat` | One at a time, in order | Waits for the current inner flow to finish | Ordered uploads |
-| `flatMapMerge(concurrency)` | Several at once (default limit 16) | Starts another inner flow | Parallel downloads |
-| `flatMapLatest` | Only the newest | Cancels the previous inner flow | Search-as-you-type, user ID changes |
-
-**`collect` vs `collectLatest`.** With `collect`, a slow block delays the next value. With `collectLatest`, a new value cancels the block that is still running for the old one, so only the newest value's work completes. Use it when only the latest result matters, such as re-rendering a preview.
-
-### 2.18 Coroutines vs RxJava
-
-Many established apps still contain RxJava, and interviewers ask how the two compare and how you would migrate.
-
-| RxJava | Coroutines / Flow |
-| --- | --- |
-| `Single<T>` | `suspend fun(): T` |
-| `Completable` | `suspend fun()` |
-| `Maybe<T>` | `suspend fun(): T?` |
-| `Observable<T>` / `Flowable<T>` | `Flow<T>` (cold) |
-| `BehaviorSubject` | `MutableStateFlow` |
-| `PublishSubject` | `MutableSharedFlow` |
-| `subscribeOn(Schedulers.io())` | `flowOn(Dispatchers.IO)` or `withContext(Dispatchers.IO)` |
-| `observeOn(AndroidSchedulers.mainThread())` | Collect in a main-thread scope (`viewModelScope`) |
-| `CompositeDisposable.clear()` | Scope cancellation (`viewModelScope` is cancelled for you) |
-| `switchMap` | `flatMapLatest` |
-| `debounce`, `distinctUntilChanged`, `combineLatest` | `debounce`, `distinctUntilChanged`, `combine` |
-
-Why teams move to coroutines: sequential-looking code instead of chains, structured concurrency (no forgotten `dispose()`), first-class support in Jetpack libraries (Room, Paging, DataStore, WorkManager, Lifecycle), and smaller method count. RxJava still has a larger operator set and mature backpressure handling with `Flowable`.
-
-**Migrating incrementally** with the `kotlinx-coroutines-rx3` adapters, one layer at a time:
-
-```kotlin
-// Old Rx repository, new coroutine ViewModel
-val user: User = legacyRepo.getUser(id).await()                 // Single -> suspend
-val feed: Flow<List<Post>> = legacyRepo.observeFeed().asFlow()  // Observable -> Flow
-
-// New coroutine code called from old Rx code
-fun loadUserRx(id: String): Single<User> = rxSingle { newRepo.getUser(id) }
-```
-
-A common order: convert the data layer to `suspend`/`Flow` first, use adapters at the boundaries, then migrate ViewModels screen by screen, and finally remove the adapters and the RxJava dependency.
 
 ### Interview questions
 
-1. **What happens when a suspend function suspends?** It saves local state into its continuation object, returns `COROUTINE_SUSPENDED`, and frees the thread. When resumed, the state machine continues from the saved label. {Hard}
-2. **`launch` vs `async`?** `launch` returns a `Job` for side effects; `async` returns a `Deferred` result. Use `async` only for parallel decomposition inside `coroutineScope`. {Easy}
-3. **Why does `GlobalScope` exist and why avoid it?** It is not bound to any lifecycle, so work leaks and cannot be cancelled or tested. For app-wide work, inject an application-scoped `CoroutineScope` with a `SupervisorJob`. {Easy}
-4. **StateFlow vs LiveData?** StateFlow needs an initial value, is pure Kotlin (testable, usable in KMP), supports operators, and is not lifecycle-aware by itself (use `repeatOnLifecycle`). LiveData is lifecycle-aware but Android-only and has a weak operator set. {Medium}
-5. **`flowOn` vs `withContext` inside `flow {}`?** You must not call `emit` from a different context inside `flow {}` (it violates context preservation and throws). Use `flowOn` to change the upstream context, or `channelFlow` if you need to emit from multiple coroutines. {Hard}
-6. **How do you convert a callback API to Flow?** `callbackFlow { val listener = ...; register(listener); awaitClose { unregister(listener) } }`. For a single callback, `suspendCancellableCoroutine`. {Medium}
-7. **Why didn't my `catch` operator catch an exception thrown in `collect`?** `catch` only handles upstream exceptions. Move the work into `onEach` before `catch` and use `launchIn`, or wrap `collect` in `try/catch`. {Medium}
-8. **What replaces `switchMap` and `BehaviorSubject` when moving from RxJava?** `flatMapLatest` and `MutableStateFlow`. Use the `kotlinx-coroutines-rx3` adapters (`await`, `asFlow`, `rxSingle`) to migrate one layer at a time. {Medium}
+1. **What actually happens when a suspend function suspends?** It saves its local variables and position in a continuation object, returns `COROUTINE_SUSPENDED` and frees the thread. When the result is ready, the continuation resumes at the saved point, possibly on another thread. {Medium}
+2. **When do you use `launch` and when `async`?** `launch` for work without a result; it returns a `Job`. `async` when you need a result; it returns a `Deferred` you `await`. Use `async` mainly for parallel calls inside `coroutineScope`. {Easy}
+3. **Why shouldn't you use `GlobalScope`?** It isn't tied to any lifecycle, so work can leak, can't be cancelled and is hard to test. Use `viewModelScope`, `lifecycleScope`, or an injected application scope with a `SupervisorJob`. {Easy}
+4. **What is the difference between `Job` and `SupervisorJob`?** With `Job`, a failing child cancels its parent and siblings. With `SupervisorJob`, children fail independently. `viewModelScope` uses a `SupervisorJob`. {Medium}
+5. **Why is catching `Exception` around a suspend call dangerous?** It also catches `CancellationException`, which stops cancellation from working. Rethrow it, or catch only the specific exceptions you expect. {Medium}
+6. **StateFlow, SharedFlow or Channel: which do you use for what?** StateFlow for UI state, because it always holds the latest value. SharedFlow to broadcast events to several collectors. Channel when each item must be handled exactly once by one receiver. {Medium}
+7. **What does `WhileSubscribed(5_000)` do in `stateIn`?** It keeps the upstream flow running for 5 seconds after the last collector leaves, so a rotation doesn't restart the work, while going to the background stops it. {Medium}
+8. **How do you collect a flow safely in an Activity or Fragment?** Inside `repeatOnLifecycle(STARTED)` on the (view) lifecycle owner, or `collectAsStateWithLifecycle()` in Compose, so collection stops when the screen isn't visible. {Easy}
+9. **How do you handle one-off events like navigation or a snackbar?** Put them into the UI state and have the UI report when it has handled them. This survives rotation and process death, unlike a SharedFlow event that can be lost. {Medium}
+10. **Why didn't my `catch` operator catch an exception thrown in `collect`?** `catch` only handles upstream exceptions. Move the work into `onEach` before `catch` and use `launchIn`, or wrap `collect` in `try/catch`. {Medium}
+11. **`flatMapLatest`, `flatMapConcat` or `flatMapMerge`?** `flatMapLatest` cancels the previous inner flow (search). `flatMapConcat` runs them one at a time in order. `flatMapMerge` runs several in parallel. {Medium}
+12. **How do you turn a callback API into a Flow?** Use `callbackFlow`: register the listener, send values with `trySend`, and unregister in `awaitClose`. For a single callback, use `suspendCancellableCoroutine`. {Medium}
+13. **How would you migrate an RxJava codebase to coroutines?** Convert the data layer to suspend functions and Flow first, use the rx3 adapters (`await`, `asFlow`, `rxSingle`) at boundaries, migrate ViewModels screen by screen, then remove RxJava. {Hard}
+14. **How do you test code that uses `delay` and `Dispatchers.Main`?** Use `runTest`, which skips delays with virtual time, replace Main with `Dispatchers.setMain(StandardTestDispatcher())`, inject other dispatchers, and test flows with Turbine. {Medium}

@@ -7,21 +7,21 @@
       "number": 0,
       "title": "How to use this guide",
       "path": "topics/00-how-to-use.md",
-      "sha256": "43030ae429c6231c4bd2ff01a4527f31d5a6439e554da43d1175b13159097660"
+      "sha256": "c5fe990f0ea72519b73cba67e3f4fb8a1939224acf9a57c5cf507c9383bc5173"
     },
     {
       "id": "kotlin",
       "number": 1,
-      "title": "Kotlin deep dive",
+      "title": "Kotlin",
       "path": "topics/01-kotlin.md",
-      "sha256": "ac7820ff4062f9d61941ec9a4c1110de4e3ab0ad7d6147b8dc1c5313d92b70ef"
+      "sha256": "16c882d304dc253a61647b462c20c6fd9da48a75d953e2c27b71ec7779ecfeb4"
     },
     {
       "id": "coroutines-flow",
       "number": 2,
       "title": "Coroutines and Flow",
       "path": "topics/02-coroutines-flow.md",
-      "sha256": "8dd46aa578e65d08ab92771bf44e2dc2a5420169542a576247ec9db19d2ed5a4"
+      "sha256": "1ec8e2601d0c52f46cf295b88374ea4bad0af49bf1fe8944ca80910fa5a7511d"
     },
     {
       "id": "android-fundamentals",
