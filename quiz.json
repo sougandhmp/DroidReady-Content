@@ -1600,6 +1600,76 @@
         "junior",
         "senior"
       ]
+    },
+    {
+      "id": "bug-adaptive-device-check",
+      "topic": "modern-platform",
+      "question": "A tablet user opens the app in split-screen and the two-pane layout clips awkwardly. Why?",
+      "code": "@Composable\nfun HomeRoute() {\n    val isTablet = LocalConfiguration.current.smallestScreenWidthDp >= 600\n    if (isTablet) TwoPaneHome() else SinglePaneHome()\n}",
+      "options": [
+        "LocalConfiguration cannot be read in Compose",
+        "smallestScreenWidthDp reflects the physical display, not the app's current window size in split-screen or multi-window mode",
+        "TwoPaneHome must run inside LaunchedEffect",
+        "600 dp is only for landscape phones"
+      ],
+      "answer": 1,
+      "explanation": "Use currentWindowAdaptiveInfo().windowSizeClass, which reflects the actual window width so split-screen and foldables adapt dynamically.",
+      "why": "Adaptive layouts break on tablets and foldables when developers check hardware traits instead of window size.",
+      "mistake": "Using smallestScreenWidthDp or an isTablet boolean instead of WindowSizeClass.",
+      "kind": "bug",
+      "bugLines": [
+        3
+      ],
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-security-pin-single-cert",
+      "topic": "security-privacy",
+      "question": "Users are locked out of the app when the server renews its TLS certificate. Why?",
+      "code": "val pinner = CertificatePinner.Builder()\n    .add(\"api.example.com\", \"sha256/CURRENT_LEAF_CERT_ONLY=\")\n    .build()\nval client = OkHttpClient.Builder().certificatePinner(pinner).build()",
+      "options": [
+        "CertificatePinner only works with HttpURLConnection",
+        "Only one pin is configured with no backup key, so rotating the certificate breaks all installed clients",
+        "OkHttp requires three pins minimum",
+        "sha256 pins are ignored on Android 13+"
+      ],
+      "answer": 1,
+      "explanation": "Always pin the SubjectPublicKeyInfo (SPKI) hash and include at least one backup pin (plus an expiration or remote kill switch) so rotation doesn't cause an outage.",
+      "why": "Pinning without a rotation plan is the most common real-world SSL pinning outage.",
+      "mistake": "Pinning a single leaf certificate without a backup pin.",
+      "kind": "bug",
+      "bugLines": [
+        2
+      ],
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-security-webview-js-bridge",
+      "topic": "security-privacy",
+      "question": "What is the security risk in this deep-link WebView?",
+      "code": "fun openHelp(webView: WebView, deepLink: Uri) {\n    webView.settings.javaScriptEnabled = true\n    webView.addJavascriptInterface(AuthBridge(), \"Android\")\n    webView.loadUrl(deepLink.getQueryParameter(\"url\") ?: return)\n}",
+      "options": [
+        "WebView cannot load https URLs",
+        "An attacker can pass an arbitrary URL in the deep link and call AuthBridge methods from JavaScript",
+        "addJavascriptInterface only works in Fragments",
+        "getQueryParameter returns null on Android 14+"
+      ],
+      "answer": 1,
+      "explanation": "Never load unvalidated URLs from deep links, and never expose a @JavascriptInterface to untrusted origins. Allow-list exact hosts/schemes or use a Custom Tab.",
+      "why": "Combining an unvalidated URL with a JS bridge exposes native app capabilities to untrusted web pages.",
+      "mistake": "Trusting query parameters in a deep link without host and scheme validation.",
+      "kind": "bug",
+      "bugLines": [
+        4
+      ],
+      "tracks": [
+        "senior"
+      ]
     }
   ]
 }

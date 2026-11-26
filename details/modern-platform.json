@@ -64,5 +64,22 @@
     "why": "They want you to weigh privacy, latency, cost and device support.",
     "mistake": "Assuming every device can run the model.",
     "followUp": "What is your fallback if the model is unavailable?"
+  },
+  "How do you handle foldable hinges and postures in an adaptive UI?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Foldables introduce split-pane boundaries and postures that standard responsive breakpoints miss.",
+    "mistake": "Letting dialogs or buttons render directly across the physical hinge.",
+    "followUp": "What is the difference between tabletop and book posture?"
+  },
+  "How do you prevent a phone layout from looking stretched on a tablet or desktop window?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Resizing a phone layout without max-width constraints or multi-pane scaffolds hurts usability.",
+    "mistake": "Using `fillMaxWidth()` everywhere without bounding line length or adding a secondary pane.",
+    "followUp": "Which Material 3 adaptive scaffold fits a feed-plus-reader screen?"
   }
 }

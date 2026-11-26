@@ -84,7 +84,7 @@
       "number": 11,
       "title": "Security and privacy",
       "path": "topics/11-security-privacy.md",
-      "sha256": "de3800b265e3475c9ea10a55d56c5352bad683ca45e97ddd6f43567c05a1c85d"
+      "sha256": "699cc04afa7ac4d45c1de39685b124b2d86015776276470c1aff2f2b40a17220"
     },
     {
       "id": "build-release",
@@ -105,7 +105,7 @@
       "number": 14,
       "title": "Modern platform topics",
       "path": "topics/14-modern-platform.md",
-      "sha256": "598abcfa1e69f386ff72ae5506a3690febdbd99c0df6f1f0836ff63abb5aabe5"
+      "sha256": "8bc045e5538f7a2e0f98dc9247c370843478fb2d594f75530d447a0a5f97c4dd"
     },
     {
       "id": "leadership",
@@ -138,6 +138,6 @@
   ],
   "quiz": {
     "path": "quiz.json",
-    "sha256": "c1af12f83dac0b1abec76696d8a84b5d3235cef0ab36259ab9b385c7d277f9b1"
+    "sha256": "87f939efc2272ea72b1c4b47b0f500920a7331feb7151d51450fa40959fc9dd9"
   }
 }

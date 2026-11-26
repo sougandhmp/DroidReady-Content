@@ -55,28 +55,38 @@ fun ChatScreen(messages: List<Message>, onSend: (String) -> Unit) {
 
 - *How do you keep a text field above the keyboard?* Apply IME insets, for example with `imePadding()`, and test with the keyboard open.
 
-### 14.3 Adaptive layouts
+### 14.3 Adaptive layouts across devices
 
-**In one line:** design for any window size, phones, foldables, tablets, desktop windows and ChromeOS, using window size classes rather than device types.
+**In one line:** design for any window size—phones, foldables, tablets, desktop windows and ChromeOS—using window size classes, adaptive scaffolds and hinge awareness rather than device types.
 
-**Say this in the interview:** "I never lock orientation or assume a phone screen; apps targeting the newest SDK can't opt out of resizing on large screens anyway. I pick the layout from the window size class, compact, medium or expanded, and use the Material 3 adaptive components: `NavigationSuiteScaffold` switches between bottom bar and rail, and `ListDetailPaneScaffold` shows list and detail side by side on wide screens. Resizing is a configuration change, so state must live in ViewModels or saved state. I also support keyboard, mouse and stylus, and foldable postures through `WindowInfoTracker`."
+**Say this in the interview:** "I never lock orientation or assume a phone screen; apps targeting Android 17 can't opt out of resizing on large screens anyway. I pick the layout from the current window size class—compact, medium or expanded—and use Material 3 adaptive components: `NavigationSuiteScaffold` switches between bottom bar, rail and drawer, `ListDetailPaneScaffold` shows list and detail side by side, and `SupportingPaneScaffold` keeps secondary content alongside the main pane. On foldables I read `FoldingFeature` from `WindowInfoTracker` so controls don't straddle a hinge and tabletop/book postures feel intentional. On wide screens I cap content line widths (around 600–840 dp) instead of stretching phone forms, keep state in ViewModels or `rememberSaveable` across resize configuration changes, and support keyboard shortcuts, `Tab` focus order, hover states and mouse/stylus input."
 
 **Example:**
 
+| Width class | Breakpoint | Navigation | Content layout |
+| --- | --- | --- | --- |
+| Compact | `< 600 dp` | Bottom `NavigationBar` | Single pane |
+| Medium | `600–839 dp` | `NavigationRail` | Single pane with wider margins or two columns |
+| Expanded | `>= 840 dp` | `NavigationRail` or permanent drawer | `ListDetailPaneScaffold` / `SupportingPaneScaffold` |
+
 ```kotlin
-val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
+val adaptiveInfo = currentWindowAdaptiveInfo()
+val sizeClass = adaptiveInfo.windowSizeClass
+val hingeBounds = adaptiveInfo.windowPosture.hingeList.firstOrNull()?.bounds
+
 if (sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)) {
-    ListDetailLayout()
+    ListDetailLayout(hingeBounds = hingeBounds)
 } else {
     SinglePaneLayout()
 }
 ```
 
-**Common mistake:** Deciding the layout by device type instead of the window's current size.
+**Common mistake:** Deciding the layout by device type (`isTablet`), or stretching a single-column phone form across the full width of a tablet.
 
 **Follow-ups:**
 
 - *Why size classes rather than "is this a tablet"?* A tablet in split-screen can be compact, and a foldable changes size when opened. The window size is what the layout actually has.
+- *How do you handle a foldable hinge?* Use `WindowInfoTracker` (or `currentWindowAdaptiveInfo().windowPosture`) to detect `FoldingFeature.State.HALF_OPENED` and avoid placing interactive controls across the hinge bounds.
 
 ### 14.4 Predictive back
 
@@ -269,3 +279,5 @@ AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fr")) 
 6. **How do you test accessibility?** TalkBack walk-throughs of key journeys, Accessibility Scanner, automated checks in UI tests, large font and display sizes, and contrast checks in design review. {Medium}
 7. **Why is `"$count items"` a localization bug?** Many languages have several plural forms and different word order. Use `<plurals>` with `pluralStringResource` or `getQuantityString`, and positional arguments. {Easy}
 8. **When would you use on-device AI instead of a server model?** When privacy, latency or offline use matters and the task fits a small model; check device support and keep a server fallback. {Medium}
+9. **How do you handle foldable hinges and postures in an adaptive UI?** Read `FoldingFeature` via `WindowInfoTracker` or `currentWindowAdaptiveInfo().windowPosture` to split panes cleanly around the hinge bounds and adapt to tabletop or book postures. {Medium}
+10. **How do you prevent a phone layout from looking stretched on a tablet or desktop window?** Constrain readable content with `widthIn(max = 600.dp)` or multi-column grids, and switch to `ListDetailPaneScaffold` or `SupportingPaneScaffold` at `Expanded` (`>= 840 dp`) width. {Easy}

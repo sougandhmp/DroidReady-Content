@@ -27,31 +27,49 @@ val key = keyGen.generateKey()     // stays inside the Keystore; the app gets on
 
 - *How would you protect an API key the app must use?* You can't fully. Move the call to your backend, restrict the key (package name and certificate for Google APIs), and verify requests with Play Integrity.
 
-### 11.2 Network security and certificate pinning
+### 11.2 Network security, SSL pinning and alternatives
 
-**In one line:** use HTTPS only, and optionally pin your server's public key so a fake or compromised certificate authority can't intercept traffic.
+**In one line:** enforce HTTPS, understand both declarative and programmatic SSL pinning with backup keys, and know when Certificate Transparency or mTLS is a better fit.
 
-**Say this in the interview:** "Cleartext traffic is blocked by default since Android 9, and I configure exceptions only in the network security config. For high-risk apps, like banking, I pin the public key of my server's certificate chain, so even a trusted-but-wrong certificate authority or a user-installed proxy can't read the traffic. The risk is locking users out when certificates rotate, so I pin a backup key too, set an expiry date on the pin set, and keep a remote way to turn pinning off."
+**Say this in the interview:** "Cleartext traffic is blocked by default since Android 9, and I allow exceptions only for local debugging in `network_security_config.xml`. For high-risk apps like banking, I pin the **SubjectPublicKeyInfo (SPKI)** hash rather than the leaf certificate so routine renewals with the same keypair don't break clients. I can configure pinning declaratively in `network_security_config.xml` (which covers OkHttp, `HttpURLConnection` and WebView) or programmatically via OkHttp's `CertificatePinner` (which makes remote pin updates and kill switches easier). Because static pinning risks locking users out if certificates rotate unexpectedly, I always include a backup pin, set an expiration date, and consider **Certificate Transparency (CT)** to catch misissued certificates without lockout risk—or **mutual TLS (mTLS)** with a Keystore-backed client certificate when the server must authenticate the device itself."
 
 **Example:**
 
 ```xml
+<!-- res/xml/network_security_config.xml: declarative SPKI pinning -->
 <network-security-config>
     <domain-config>
         <domain includeSubdomains="true">api.example.com</domain>
         <pin-set expiration="2027-06-30">
-            <pin digest="SHA-256">CURRENT_KEY_HASH_PLACEHOLDER=</pin>
-            <pin digest="SHA-256">BACKUP_KEY_HASH_PLACEHOLDER=</pin>
+            <pin digest="SHA-256">CURRENT_SPKI_HASH_PLACEHOLDER=</pin>
+            <pin digest="SHA-256">BACKUP_SPKI_HASH_PLACEHOLDER=</pin>
         </pin-set>
     </domain-config>
 </network-security-config>
 ```
 
-**Common mistake:** Pinning with no backup pin or recovery plan.
+```kotlin
+// Programmatic OkHttp pinning (easier to pair with remote config / kill switch)
+val pinner = CertificatePinner.Builder()
+    .add("api.example.com", "sha256/CURRENT_SPKI_HASH_PLACEHOLDER=")
+    .add("api.example.com", "sha256/BACKUP_SPKI_HASH_PLACEHOLDER=")
+    .build()
+val client = OkHttpClient.Builder().certificatePinner(pinner).build()
+```
+
+| Option | What it protects against | Operational risk & trade-offs |
+| --- | --- | --- |
+| `network_security_config.xml` | Rogue CAs, user-installed proxies across all stacks | Pin rotation requires an app release unless expired |
+| OkHttp `CertificatePinner` | Rogue CAs, proxies on OkHttp calls | Easier to toggle remotely; doesn't cover WebView |
+| Certificate Transparency (CT) | Misissued certs from compromised CAs | Zero lockout risk on rotation; requires CT logs/verifier |
+| Mutual TLS (mTLS) | Unauthorized clients & MITM | Strongest device auth, but adds client-cert provisioning/renewal |
+
+**Common mistake:** Pinning a single leaf certificate with no backup pin, expiration, or remote recovery plan.
 
 **Follow-ups:**
 
-- *What do you pin, and what is the backup for?* Pin public keys. A backup pin lets you change keys without cutting off installed apps.
+- *Why pin the public key (SPKI) instead of the leaf certificate?* If the server renews its certificate using the same keypair, the SPKI pin keeps working.
+- *Can SSL pinning stop a user on a rooted device?* No. Tools like Frida can hook `TrustManager` or `CertificatePinner` at runtime, so pair pinning with server-side Play Integrity checks.
 
 ### 11.3 Authentication
 
@@ -141,6 +159,28 @@ fun handleDeepLink(uri: Uri) {
 
 - *Where should a Play Integrity verdict be checked?* On your server, which then decides whether to allow the action.
 
+### 11.7 Tapjacking, screen capture and secure coding hygiene
+
+**In one line:** protect sensitive UI from overlay attacks and screenshots, scrub sensitive logs and clipboard entries, and treat client-side tamper checks as defense in depth.
+
+**Say this in the interview:** "Beyond storage and networking, I harden the UI and runtime surface. For tapjacking—where a malicious overlay tricks the user into tapping a hidden button—I set `filterTouchesWhenObscured = true` on sensitive views and `window.setHideOverlayWindows(true)` on Android 12+ for payment or permission flows. For banking or password screens, `FLAG_SECURE` blocks screenshots, screen recording, and the recent-apps thumbnail. In release builds I strip `Log.d`/`Log.v` with R8 `-assumenosideeffects` so tokens never leak to logcat, and I mark copied secrets with `ClipDescription.EXTRA_IS_SENSITIVE` on Android 13+ so the clipboard preview hides them. Client-side root or Frida checks only raise the bar; real enforcement stays on the server with Play Integrity."
+
+**Example:**
+
+```kotlin
+// Protect sensitive screen from screenshots, recents preview, and non-system overlays
+window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    window.setHideOverlayWindows(true)
+}
+```
+
+**Common mistake:** Leaving debug `Log` statements or sensitive screen thumbnails visible in release builds.
+
+**Follow-ups:**
+
+- *What does `FLAG_SECURE` prevent?* Screenshots, screen sharing/recording, and the system showing the screen's snapshot in the Recents overview.
+
 ### Interview questions
 
 1. **Where do you store a user's auth token securely?** Encrypted with a Keystore-held key (for example Tink with DataStore), in app-private storage, excluded from backups. Never in plain SharedPreferences or logs. {Medium}
@@ -151,3 +191,5 @@ fun handleDeepLink(uri: Uri) {
 6. **How do you handle deep links securely?** Allow-list hosts and paths, validate every parameter's type and format, never perform sensitive actions without confirmation, and never follow redirect URLs from a link. {Medium}
 7. **Is data in a Room database secure?** It's private to the app sandbox but readable on a rooted device or through backups. Encrypt sensitive data, for example with SQLCipher, and exclude it from backups. {Medium}
 8. **What is Play Integrity used for?** Your server checks a signed verdict that the request comes from your genuine app, installed from Play, on a genuine device, before trusting sensitive actions. {Medium}
+9. **When should you choose Certificate Transparency or mTLS instead of static SSL pinning?** Use Certificate Transparency to detect misissued certificates without risking client lockouts on key rotation; use mTLS when the server also needs cryptographic proof of the client's identity via a Keystore-backed certificate. {Hard}
+10. **How do you protect sensitive screens from tapjacking and screen-capture leaks?** Use `FLAG_SECURE` to block screenshots and recents thumbnails, `filterTouchesWhenObscured` or `setHideOverlayWindows(true)` (API 31+) against overlays, and `EXTRA_IS_SENSITIVE` for copied secrets. {Medium}

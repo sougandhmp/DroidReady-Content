@@ -65,5 +65,23 @@
     "why": "It shows how you protect server actions from tampered clients.",
     "mistake": "Checking the verdict only inside the app.",
     "followUp": "What should your server do if the verdict is bad?"
+  },
+  "When should you choose Certificate Transparency or mTLS instead of static SSL pinning?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It tests whether you know alternatives to static pinning and their trade-offs.",
+    "mistake": "Treating static SSL pinning as the only transport-security option.",
+    "followUp": "Why doesn't SSL pinning stop a hooked app on a rooted device?"
+  },
+  "How do you protect sensitive screens from tapjacking and screen-capture leaks?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "UI-level security leaks happen even when storage and networking are encrypted.",
+    "mistake": "Forgetting that recent-apps snapshots and clipboard previews can expose sensitive text.",
+    "followUp": "How do you hide copied passwords from the Android 13+ clipboard overlay?"
   }
 }
