@@ -14,6 +14,8 @@
       ],
       "answer": 1,
       "explanation": "== calls the generated equals(), so equal data matches. === checks whether both are the same object, and these are two instances.",
+      "why": "It checks that you can tell equal values apart from the same instance, a frequent source of Java-to-Kotlin bugs.",
+      "mistake": "Reading `==` as a reference check, as in Java. In Kotlin it calls `equals()`.",
       "tracks": [
         "junior",
         "senior"
@@ -32,6 +34,8 @@
       ],
       "answer": 2,
       "explanation": "apply exposes the object as this and returns it, which suits configuration. also returns the object too, but exposes it as it.",
+      "why": "Picking the right scope function shows you read and write everyday Kotlin fluently.",
+      "mistake": "Choosing `also` because it also returns the object. It passes the object as `it`, not `this`.",
       "tracks": [
         "junior"
       ]
@@ -49,6 +53,8 @@
       ],
       "answer": 2,
       "explanation": "val makes the reference read-only, not the object. The same mutable list is still changing, so its size is 3.",
+      "why": "It tests whether you separate a read-only reference from an immutable object.",
+      "mistake": "Believing `val` freezes the list. It only stops the variable from being reassigned.",
       "tracks": [
         "junior",
         "senior"
@@ -67,6 +73,8 @@
       ],
       "answer": 1,
       "explanation": "async returns Deferred<T>, which you await(). launch returns a Job for side effects.",
+      "why": "It confirms you know which builder to use when the caller needs a result back.",
+      "mistake": "Picking `withContext`. It returns the value itself after suspending, not a `Deferred`.",
       "tracks": [
         "junior"
       ]
@@ -83,6 +91,8 @@
       ],
       "answer": 1,
       "explanation": "A supervisor isolates failures: one child failing does not cancel its siblings. In coroutineScope it would.",
+      "why": "It checks that you can predict how far one failure spreads, which decides whether one bad request breaks a whole screen.",
+      "mistake": "Thinking a supervisor also handles the exception. It protects siblings, but the failure still needs handling.",
       "tracks": [
         "senior"
       ]
@@ -99,6 +109,8 @@
       ],
       "answer": 1,
       "explanation": "flowOn changes the upstream context. Emitting from another context inside flow {} breaks context preservation and throws.",
+      "why": "It shows whether you know how to change threads in a flow without breaking its rules.",
+      "mistake": "Wrapping `emit` in `withContext`, as you might in a suspend function. A `flow` builder throws if you do.",
       "tracks": [
         "senior"
       ]
@@ -115,6 +127,8 @@
       ],
       "answer": 2,
       "explanation": "flatMapLatest cancels the previous inner flow when a new value arrives.",
+      "why": "Search is the standard way to test whether you can cancel outdated work.",
+      "mistake": "Using `flatMapMerge`, which lets older requests finish and overwrite newer results.",
       "tracks": [
         "senior"
       ]
@@ -131,6 +145,8 @@
       ],
       "answer": 1,
       "explanation": "onDestroy is not guaranteed. Persist important data in onStop or as soon as it changes.",
+      "why": "Interviewers want to know you won't lose user data by saving it too late.",
+      "mistake": "Treating `onDestroy` as a guaranteed cleanup step. A killed process runs no more callbacks.",
       "tracks": [
         "junior",
         "senior"
@@ -148,6 +164,8 @@
       ],
       "answer": 1,
       "explanation": "The Bundle crosses Binder, whose buffer of about 1 MB is shared per process. Save IDs, not objects.",
+      "why": "This crash tends to appear only with real data, so they check you know what belongs in saved state.",
+      "mistake": "Treating the Bundle as general storage and saving whole lists or bitmaps in it.",
       "tracks": [
         "junior",
         "senior"
@@ -165,6 +183,8 @@
       ],
       "answer": 1,
       "explanation": "Compose tracks State reads through the snapshot system and recomposes the scopes that read a changed value.",
+      "why": "Almost every Compose performance and stale-screen bug comes back to this model.",
+      "mistake": "Expecting a change to a plain variable to update the UI. Compose only tracks reads of snapshot state.",
       "tracks": [
         "junior"
       ]
@@ -181,6 +201,8 @@
       ],
       "answer": 2,
       "explanation": "A changed key restarts the effect: the old coroutine is cancelled before the new one starts.",
+      "why": "It checks that you understand how effect keys control a coroutine's lifetime.",
+      "mistake": "Using a constant key such as `Unit` when the work depends on `userId`, so it never reloads.",
       "tracks": [
         "junior",
         "senior"
@@ -198,6 +220,8 @@
       ],
       "answer": 1,
       "explanation": "rememberSaveable survives recomposition, configuration changes and process death. remember only survives recomposition.",
+      "why": "Losing typed input on rotation is a visible bug, and they want to know you can prevent it.",
+      "mistake": "Assuming `remember` survives rotation. It is lost when the Activity is recreated.",
       "tracks": [
         "junior"
       ]
@@ -214,6 +238,8 @@
       ],
       "answer": 1,
       "explanation": "The database is the single source of truth. The network only writes into it.",
+      "why": "It tests whether you can design data flow that stays consistent with a poor or missing network.",
+      "mistake": "Showing the network response directly and treating the database as a backup cache.",
       "tracks": [
         "senior",
         "system-design"
@@ -231,6 +257,8 @@
       ],
       "answer": 1,
       "explanation": "A use case holds reusable business rules. A ViewModel manages screen state and UI events.",
+      "why": "They want to see where you put logic so that it can be reused and tested.",
+      "mistake": "Copying the rule into each ViewModel, where the copies drift apart.",
       "tracks": [
         "senior",
         "system-design"
@@ -248,6 +276,8 @@
       ],
       "answer": 1,
       "explanation": "@Binds is an abstract declaration that maps an interface to an implementation. @Provides is factory code you write.",
+      "why": "It shows whether you have written Hilt modules or only used ones that others wrote.",
+      "mistake": "Putting `@Binds` on a function with a body. It must be abstract, and code you write needs `@Provides`.",
       "tracks": [
         "junior",
         "senior"
@@ -265,6 +295,8 @@
       ],
       "answer": 1,
       "explanation": "Constructor injection makes dependencies visible, allows val fields and lets tests construct the class without the framework.",
+      "why": "It checks that you see dependency injection as a design choice, not just a library.",
+      "mistake": "Saying it is only shorter to write. The real gain is explicit dependencies and easy testing.",
       "tracks": [
         "junior",
         "senior"
@@ -282,6 +314,8 @@
       ],
       "answer": 1,
       "explanation": "Room re-emits on any change to the table. distinctUntilChanged() drops equal results; narrowing the query also helps.",
+      "why": "It tests whether you know why observable queries can cause extra UI work.",
+      "mistake": "Assuming Room emits only when your result changes. It re-runs the query when a table it reads changes.",
       "tracks": [
         "senior",
         "system-design"
@@ -299,6 +333,8 @@
       ],
       "answer": 2,
       "explanation": "A destructive fallback deletes data. Keep it for tables that are pure cache.",
+      "why": "Deleting user data in an update is hard to undo, so they check how careful you are with schema changes.",
+      "mistake": "Adding a destructive fallback to silence a migration crash, then shipping it.",
       "tracks": [
         "senior"
       ]
@@ -315,6 +351,8 @@
       ],
       "answer": 2,
       "explanation": "Periodic work has a 15-minute minimum, and execution can drift.",
+      "why": "It checks whether you know the platform limits before promising a sync schedule.",
+      "mistake": "Planning to use periodic work for updates every minute. Shorter intervals are raised to 15 minutes.",
       "tracks": [
         "junior"
       ]
@@ -331,6 +369,8 @@
       ],
       "answer": 2,
       "explanation": "Force-stop clears scheduled jobs and alarms until the user opens the app again.",
+      "why": "It helps explain \"my sync stopped working\" reports, and shows you know what the system won't let you do.",
+      "mistake": "Claiming WorkManager always runs. After a force-stop, nothing runs until the app is started again.",
       "tracks": [
         "junior",
         "senior"
@@ -348,6 +388,8 @@
       ],
       "answer": 1,
       "explanation": "It lets ART compile critical paths ahead of time, so early runs do not wait for JIT profiling.",
+      "why": "It is a common startup improvement, and they want to know what it actually changes.",
+      "mistake": "Describing it as a profiler or a size reducer. It tells ART which code to compile ahead of time.",
       "tracks": [
         "senior"
       ]
@@ -364,6 +406,8 @@
       ],
       "answer": 0,
       "explanation": "An input event with no response within about 5 s raises an ANR.",
+      "why": "It checks that you know which work freezes the app and which only drops a frame.",
+      "mistake": "Calling any slow frame an ANR. A slow frame is jank, while an ANR means the app stopped responding.",
       "tracks": [
         "junior",
         "senior"
@@ -381,6 +425,8 @@
       ],
       "answer": 1,
       "explanation": "Turbine's test { awaitItem() } checks emissions one at a time inside runTest.",
+      "why": "It shows whether you have tested streams that emit more than one value.",
+      "mistake": "Checking only the first emission, so later wrong values go unnoticed.",
       "tracks": [
         "junior",
         "senior"
@@ -398,6 +444,8 @@
       ],
       "answer": 0,
       "explanation": "Robolectric tests run on the JVM, so they are faster than instrumented tests on a device.",
+      "why": "It tests whether you can choose the cheapest test that still gives enough confidence.",
+      "mistake": "Treating a passing Robolectric test as proof that the feature works on real devices.",
       "tracks": [
         "junior"
       ]
@@ -414,6 +462,8 @@
       ],
       "answer": 2,
       "explanation": "Anything shipped in the app can be extracted. Moving the call behind your backend keeps the secret off the device.",
+      "why": "They want to know you treat everything inside the APK as public.",
+      "mistake": "Relying on obfuscation or encryption with a key in the app. An attacker can recover both.",
       "tracks": [
         "senior"
       ]
@@ -430,6 +480,8 @@
       ],
       "answer": 1,
       "explanation": "If a pinned certificate changes unexpectedly, the app cannot connect. Pin public keys and keep a backup pin.",
+      "why": "It checks that you weigh a security gain against the risk of locking users out.",
+      "mistake": "Pinning one certificate with no backup pin or recovery plan.",
       "tracks": [
         "senior"
       ]
@@ -446,6 +498,8 @@
       ],
       "answer": 1,
       "explanation": "implementation keeps a dependency internal, so consumers need not recompile when it changes.",
+      "why": "Dependency scope affects build speed and module boundaries in larger projects.",
+      "mistake": "Using `api` everywhere so that things compile, which leaks dependencies and widens rebuilds.",
       "tracks": [
         "junior"
       ]
@@ -462,6 +516,8 @@
       ],
       "answer": 1,
       "explanation": "Halt the rollout to limit impact, then triage, mitigate with a flag if possible and ship a tested fix.",
+      "why": "It tests how you respond to a release incident under pressure.",
+      "mistake": "Thinking a halt removes the update from people who have it. It only stops further distribution.",
       "tracks": [
         "senior"
       ]
@@ -478,6 +534,8 @@
       ],
       "answer": 1,
       "explanation": "On flaky networks a request may be retried. The key lets the server recognise it and not store the message twice.",
+      "why": "Safe retries are central to any design that sends data over an unreliable network.",
+      "mistake": "Preventing duplicates only by disabling the send button, which does nothing for automatic retries.",
       "tracks": [
         "senior",
         "system-design"
@@ -495,6 +553,8 @@
       ],
       "answer": 1,
       "explanation": "An unbound member reference takes the receiver as its first parameter, so `String::length` is a `(String) -> Int`.",
+      "why": "It checks that you can read function types, which appear throughout Kotlin APIs.",
+      "mistake": "Picking `() -> Int` because `length` takes no argument, and forgetting the receiver must come from somewhere.",
       "tracks": [
         "senior"
       ]
@@ -512,6 +572,8 @@
       ],
       "answer": 0,
       "explanation": "Each call to makeCounter creates its own captured `count`. `a` has been called three times, so it returns 3; `b` is called once and returns 1.",
+      "why": "It tests whether you understand what a lambda captures and how long that state lives.",
+      "mistake": "Assuming all counters share one `count`, or that it resets on each call.",
       "tracks": [
         "junior",
         "senior"
@@ -530,6 +592,8 @@
       ],
       "answer": 2,
       "explanation": "In a function type with a receiver, the receiver becomes the implicit `this`, which is how `buildString` and `apply` let you call its members directly.",
+      "why": "Receivers power Compose scopes and builder APIs, so they check you can follow what `this` means.",
+      "mistake": "Reading `this` as the enclosing class. Inside the lambda, the receiver takes priority.",
       "tracks": [
         "senior"
       ]
@@ -546,6 +610,8 @@
       ],
       "answer": 1,
       "explanation": "Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` would generate `draw(String)` as well.",
+      "why": "Mixed Java and Kotlin codebases make interop gaps a practical concern.",
+      "mistake": "Expecting Java to use Kotlin default values. Without the annotation, Java must pass every argument.",
       "tracks": [
         "junior"
       ]
@@ -562,6 +628,8 @@
       ],
       "answer": 1,
       "explanation": "Guard conditions, stable since Kotlin 2.2, let a branch of a `when` with a subject add an `if` condition.",
+      "why": "It shows whether you keep up with language changes.",
+      "mistake": "Confusing it with smart casts, which narrow the type but don't add a condition to a branch.",
       "tracks": [
         "junior"
       ]
@@ -579,6 +647,8 @@
       ],
       "answer": 1,
       "explanation": "`catch` only handles exceptions from upstream operators. `collect` is downstream, so the exception propagates. Move the work into `onEach` before `catch` to handle it.",
+      "why": "It checks that you know where flow error handling stops.",
+      "mistake": "Treating `.catch` as a try block around the whole chain, including `collect`.",
       "tracks": [
         "senior"
       ]
@@ -595,6 +665,8 @@
       ],
       "answer": 2,
       "explanation": "`flatMapLatest` cancels the previous inner flow whenever a new upstream value arrives.",
+      "why": "It checks that you can match an operator to what should happen to work already running.",
+      "mistake": "Using `flatMapConcat`, which makes every new query wait for the older ones to finish.",
       "tracks": [
         "senior"
       ]
@@ -611,6 +683,8 @@
       ],
       "answer": 2,
       "explanation": "Like a BehaviorSubject, `MutableStateFlow` always holds a current value and gives it to new collectors.",
+      "why": "Teams moving from RxJava need people who can map old types without changing behavior.",
+      "mistake": "Treating it as an exact swap. `MutableStateFlow` needs an initial value and drops equal updates.",
       "tracks": [
         "senior"
       ]
@@ -627,6 +701,8 @@
       ],
       "answer": 1,
       "explanation": "`ProcessLifecycleOwner` dispatches ON_STOP when the last activity stops and ON_START when the app returns. `Application.onTerminate` is never called on real devices.",
+      "why": "Analytics, app locks and refresh logic often depend on knowing when the whole app leaves the screen.",
+      "mistake": "Relying on one Activity's `onStop`, which also runs when you move to another screen in the app.",
       "tracks": [
         "junior",
         "senior"
@@ -644,6 +720,8 @@
       ],
       "answer": 2,
       "explanation": "`POST_NOTIFICATIONS` is a runtime permission for apps targeting Android 13 (API 33) and higher. Android 8.0 introduced notification channels.",
+      "why": "It checks that you know the platform changes that affect whether users see your notifications.",
+      "mistake": "Naming Android 8.0, which introduced notification channels, not the runtime permission.",
       "tracks": [
         "junior"
       ]
@@ -660,6 +738,8 @@
       ],
       "answer": 1,
       "explanation": "The Fragment Result API is designed for one-time results that fit in a Bundle. A shared ViewModel suits ongoing state.",
+      "why": "It tests whether you can pass data between screens without tying them to each other.",
+      "mistake": "Passing a callback between Fragments, which breaks when Android recreates them.",
       "tracks": [
         "junior",
         "senior"
@@ -677,6 +757,8 @@
       ],
       "answer": 2,
       "explanation": "Verification compares against the certificate that signs the installed app, which is Play's app signing key, not your upload key.",
+      "why": "Links that work in testing but fail from the Play Store are a real release problem.",
+      "mistake": "Listing only the upload key's fingerprint, so verification fails for installs from Play.",
       "tracks": [
         "senior"
       ]
@@ -693,6 +775,8 @@
       ],
       "answer": 1,
       "explanation": "`areItemsTheSame` asks whether two objects represent the same item, usually by ID. `areContentsTheSame` then checks whether its data changed.",
+      "why": "Wrong diffing causes flicker and bad animations in lists, a part of many apps.",
+      "mistake": "Comparing every field in `areItemsTheSame`, so an edited item looks like a new one.",
       "tracks": [
         "junior"
       ]
@@ -709,6 +793,8 @@
       ],
       "answer": 1,
       "explanation": "The database is the single source of truth. Writing to it makes every observer update, keeps data consistent across screens and works offline.",
+      "why": "It checks that you can keep data flowing in one direction as an app grows.",
+      "mistake": "Updating the database and also pushing the response to the UI, which creates two sources of truth.",
       "tracks": [
         "senior",
         "system-design"
@@ -726,6 +812,8 @@
       ],
       "answer": 2,
       "explanation": "Apps can add their own media through MediaStore without a permission. WRITE_EXTERNAL_STORAGE has no effect for apps targeting Android 11+.",
+      "why": "Asking for unneeded permissions hurts privacy and can cause Play policy problems.",
+      "mistake": "Requesting broad storage access out of habit from older Android versions.",
       "tracks": [
         "junior"
       ]
@@ -742,6 +830,8 @@
       ],
       "answer": 2,
       "explanation": "Capabilities such as NET_CAPABILITY_NOT_METERED can change while the network stays connected, and `onCapabilitiesChanged` reports it.",
+      "why": "It shows whether your app can adapt large downloads to the user's connection.",
+      "mistake": "Listening only for connect and disconnect, and missing changes on a network that stays connected.",
       "tracks": [
         "senior"
       ]
@@ -758,6 +848,8 @@
       ],
       "answer": 2,
       "explanation": "Removing public API is a breaking change, so it needs a MAJOR version bump.",
+      "why": "Library and SDK users rely on version numbers to know whether an upgrade is safe.",
+      "mistake": "Calling it a minor release because the function was deprecated first. Removing it can still break callers.",
       "tracks": [
         "senior"
       ]
@@ -774,6 +866,8 @@
       ],
       "answer": 1,
       "explanation": "Play generates per-device APKs from the bundle, containing only that device's screen density, CPU architecture and languages.",
+      "why": "It checks that you understand what happens between your build and the user's device.",
+      "mistake": "Saying users install the bundle itself. Google Play builds APKs from it.",
       "tracks": [
         "junior"
       ]
@@ -790,6 +884,8 @@
       ],
       "answer": 2,
       "explanation": "Many languages have more plural forms than English, such as few or many. Plural resources let each translation define its own forms.",
+      "why": "It tests whether you build for languages whose grammar differs from English.",
+      "mistake": "Choosing between two strings with `count == 1`, which fails in languages with more plural forms.",
       "tracks": [
         "junior"
       ]
@@ -806,6 +902,8 @@
       ],
       "answer": 1,
       "explanation": "AppCompat 1.6+ `setApplicationLocales` supports per-app languages on Android 13+ and, with AppCompatActivity, on older versions. LocaleManager exists only on Android 13+.",
+      "why": "Per-app language support has to work across old and new Android versions.",
+      "mistake": "Changing the default locale or resources by hand, which is unreliable across configuration changes.",
       "tracks": [
         "junior"
       ]
@@ -822,6 +920,8 @@
       ],
       "answer": 2,
       "explanation": "`@Volatile` gives visibility, not atomicity. `count++` is read-modify-write, so updates can be lost. Use AtomicInteger or a lock.",
+      "why": "It separates visibility from atomicity, the core of many threading bugs.",
+      "mistake": "Believing `@Volatile` makes `count++` thread-safe.",
       "tracks": [
         "junior",
         "senior"
@@ -839,6 +939,8 @@
       ],
       "answer": 2,
       "explanation": "Weakly reachable objects can be collected at the next GC. Soft references are kept until memory is low.",
+      "why": "It checks whether you know what a weak reference does before using one to fix a leak.",
+      "mistake": "Expecting it to last until memory runs low, which is closer to how a `SoftReference` behaves.",
       "tracks": [
         "senior"
       ]
@@ -855,6 +957,8 @@
       ],
       "answer": 1,
       "explanation": "Each interceptor handles the request and passes it along the chain with `chain.proceed()`, which is chain of responsibility.",
+      "why": "They want to see that you recognize patterns in libraries you use, not only recite definitions.",
+      "mistake": "Naming a pattern without explaining that each step can pass the request on, change it or answer it.",
       "tracks": [
         "junior",
         "senior"
@@ -872,6 +976,8 @@
       ],
       "answer": 1,
       "explanation": "Without volatile, the reference can be published before the constructor finishes. The volatile write creates the happens-before edge that prevents this.",
+      "why": "It tests whether you understand safe publication, not just how to copy a singleton snippet.",
+      "mistake": "Assuming `synchronized` is enough, although the first check reads the field outside the lock.",
       "tracks": [
         "senior"
       ]
@@ -888,6 +994,8 @@
       ],
       "answer": 1,
       "explanation": "The companion is compiled to a nested class with a static `Companion` field. Add `@JvmStatic` to allow `Foo.create()`.",
+      "why": "It shows whether you know how Kotlin code looks to Java callers.",
+      "mistake": "Assuming a companion function is a Java static. That needs `@JvmStatic`.",
       "tracks": [
         "senior"
       ]
@@ -905,6 +1013,8 @@
       ],
       "answer": 1,
       "explanation": "`also` returns the object it was called on, not the lambda's result. The lambda added 2, so x is the list [1, 2]. With `let`, x would be `true`, the result of add.",
+      "why": "Mixing up what scope functions return causes quiet bugs that still compile.",
+      "mistake": "Expecting the lambda's result. `also` ignores it and returns the original object.",
       "tracks": [
         "junior",
         "senior"
@@ -923,6 +1033,8 @@
       ],
       "answer": 2,
       "explanation": "`apply` gives the object as `this`, so you call its members directly, and returns the object itself, which suits configuration.",
+      "why": "They want you to choose a scope function for a reason, not by habit.",
+      "mistake": "Using `let` or `run` and forgetting to return the `Intent` as the lambda's last expression.",
       "tracks": [
         "junior"
       ]
@@ -940,6 +1052,8 @@
       ],
       "answer": 1,
       "explanation": "A lazy value is computed on first access, not where it is declared, and only once.",
+      "why": "It checks whether you know when delayed initialization actually runs.",
+      "mistake": "Expecting the block to run where the property is declared, or again on every read.",
       "kind": "output",
       "tracks": [
         "junior"
@@ -958,6 +1072,8 @@
       ],
       "answer": 2,
       "explanation": "copy() is shallow. Both carts hold the same list, so adding through one changes the other.",
+      "why": "Shared mutable state hidden inside a copy is an easy bug to miss in UI state.",
+      "mistake": "Assuming `copy()` also copies the objects that its properties refer to.",
       "kind": "output",
       "tracks": [
         "junior",
@@ -977,6 +1093,8 @@
       ],
       "answer": 1,
       "explanation": "equals() uses only primary-constructor properties, so the items are equal even though their quantities differ.",
+      "why": "It tests whether you know which properties the generated data class methods use.",
+      "mistake": "Expecting every property to count in `equals()`, including those declared in the class body.",
       "kind": "output",
       "tracks": [
         "junior",
@@ -996,6 +1114,8 @@
       ],
       "answer": 1,
       "explanation": "A sequence processes one element through the whole chain, and first() stops after the first result.",
+      "why": "It shows whether you understand lazy evaluation, not just that sequences exist.",
+      "mistake": "Tracing it like a list, with all of `map` running before `filter` starts.",
       "kind": "output",
       "tracks": [
         "senior"
@@ -1014,6 +1134,8 @@
       ],
       "answer": 1,
       "explanation": "Extensions are resolved from the declared type at compile time. The variable is declared as Animal.",
+      "why": "It checks that you know extensions don't behave like overridden methods.",
+      "mistake": "Expecting the object's runtime type to choose the extension.",
       "kind": "output",
       "tracks": [
         "senior"
@@ -1032,6 +1154,8 @@
       ],
       "answer": 2,
       "explanation": "The base constructor runs first and calls the override before Child has set name, even though its type is non-null.",
+      "why": "Calling overridable code during construction causes surprising nulls, even in null-safe Kotlin.",
+      "mistake": "Trusting the non-null type. The subclass property hasn't been assigned yet.",
       "kind": "output",
       "tracks": [
         "senior"
@@ -1050,6 +1174,8 @@
       ],
       "answer": 1,
       "explanation": "return@forEach leaves only the current lambda call, like continue in a loop.",
+      "why": "A return inside a lambda is easy to misread in everyday code.",
+      "mistake": "Treating `return@forEach` like `break`. The loop moves on to the next element.",
       "kind": "output",
       "tracks": [
         "junior"
@@ -1068,6 +1194,8 @@
       ],
       "answer": 1,
       "explanation": "launch only schedules the child here. The parent prints B, yield() lets the child run, then C follows.",
+      "why": "It tests whether you can trace what runs and when on a single thread.",
+      "mistake": "Assuming `launch` runs its block immediately, before the next line.",
       "kind": "output",
       "tracks": [
         "junior",
@@ -1087,6 +1215,8 @@
       ],
       "answer": 1,
       "explanation": "A failing async child cancels its coroutineScope even if await() is never called, and the scope rethrows the error.",
+      "why": "Exception handling with `async` is where structured concurrency often surprises people.",
+      "mistake": "Believing the exception stays inside the `Deferred` until someone calls `await()`.",
       "kind": "output",
       "tracks": [
         "senior"
@@ -1105,6 +1235,8 @@
       ],
       "answer": 1,
       "explanation": "StateFlow does not emit a value equal to the current one, so setting 1 again does nothing.",
+      "why": "It matters whenever an update seems to go missing from observed state.",
+      "mistake": "Assuming every assignment emits, even when the new value equals the current one.",
       "kind": "output",
       "tracks": [
         "senior"
@@ -1123,6 +1255,8 @@
       ],
       "answer": 1,
       "explanation": "Cancellation is delivered as an exception. Catching it lets the loop continue. Rethrow CancellationException or catch narrower types.",
+      "why": "Broad catch blocks can quietly break cancellation in production code.",
+      "mistake": "Assuming `cancel()` forces a coroutine to stop. Cancellation is cooperative and can be swallowed.",
       "kind": "bug",
       "tracks": [
         "senior"
@@ -1141,6 +1275,8 @@
       ],
       "answer": 1,
       "explanation": "Publish a new list instead: state.update { it + \"new\" }, with an immutable List type.",
+      "why": "A screen that doesn't update is a common debugging task with `StateFlow`.",
+      "mistake": "Reassigning the same list after changing it and expecting that to force an update.",
       "kind": "bug",
       "tracks": [
         "junior",
@@ -1160,6 +1296,8 @@
       ],
       "answer": 1,
       "explanation": "callbackFlow requires awaitClose, which keeps the flow open and is where you unregister the listener.",
+      "why": "Wrapping callback APIs is common, and cleanup is the part that causes leaks.",
+      "mistake": "Ending the block after registering the callback, with nothing to keep the flow open or unregister it.",
       "kind": "bug",
       "tracks": [
         "senior"
@@ -1178,6 +1316,8 @@
       ],
       "answer": 1,
       "explanation": "Flows preserve context. Change where upstream code runs with flowOn instead of switching around emit.",
+      "why": "It checks that you know the threading rule behind `flow`, not only the operator names.",
+      "mistake": "Assuming a `flow` builder allows the same context switches as any suspend function.",
       "kind": "bug",
       "tracks": [
         "senior"
@@ -1196,6 +1336,8 @@
       ],
       "answer": 1,
       "explanation": "Never change a property used by equals() or hashCode() while the object is a key or set element. Prefer val and copy().",
+      "why": "It tests whether you understand how hash-based collections find objects.",
+      "mistake": "Assuming a set rechecks every element. It first looks in the bucket for the current hash.",
       "kind": "bug",
       "tracks": [
         "junior",
@@ -1215,6 +1357,8 @@
       ],
       "answer": 1,
       "explanation": "Use viewLifecycleOwner.lifecycleScope with repeatOnLifecycle(Lifecycle.State.STARTED).",
+      "why": "Lifecycle-unsafe collection can cause crashes and wasted work that are hard to trace.",
+      "mistake": "Thinking `lifecycleScope` alone is safe. It cancels only when the Fragment is destroyed and doesn't pause in the background.",
       "kind": "bug",
       "tracks": [
         "junior",
@@ -1234,6 +1378,8 @@
       ],
       "answer": 1,
       "explanation": "Wrap it in remember, or rememberSaveable to also keep it across rotation.",
+      "why": "It is a quick check that you understand how composables keep state.",
+      "mistake": "Thinking `mutableStateOf` keeps its value by itself. It must also be remembered.",
       "kind": "bug",
       "tracks": [
         "junior"
@@ -1252,6 +1398,8 @@
       ],
       "answer": 1,
       "explanation": "Store activity.applicationContext, or pass a Context only when needed.",
+      "why": "Context leaks are a classic Android memory problem, and they check you can spot one in review.",
+      "mistake": "Thinking `private` or `lateinit` prevents the leak. What matters is how long the reference lives.",
       "kind": "bug",
       "tracks": [
         "junior",

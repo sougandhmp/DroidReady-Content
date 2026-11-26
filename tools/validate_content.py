@@ -44,8 +44,8 @@ QUESTION = {"id": str, "topic": str, "text": str, "answer": str, "level": Option
             "tracks": list, "why": str, "mistake": str, "reviewed": Optional(str),
             "followUp": Optional(str), "code": Optional(str)}
 QUIZ = {"id": str, "topic": str, "question": str, "code": Optional(str),
-        "options": list, "answer": int, "explanation": str, "tracks": list,
-        "kind": Optional(str)}
+        "options": list, "answer": int, "explanation": str, "why": str, "mistake": str,
+        "tracks": list, "kind": Optional(str)}
 
 
 def load_json(data: bytes, name: str, errors: list):

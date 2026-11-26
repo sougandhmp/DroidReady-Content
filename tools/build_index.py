@@ -37,8 +37,10 @@ def quiz_entry(topic_ids: set) -> dict:
             sys.exit(f"{label}: needs 2 to 6 options")
         if not 0 <= q["answer"] < len(q["options"]):
             sys.exit(f"{label}: answer is not an option index")
-        if not q["question"] or not q["explanation"]:
-            sys.exit(f"{label}: question and explanation are required")
+        missing = [key for key in ("question", "explanation", "why", "mistake")
+                   if not str(q.get(key, "")).strip()]
+        if missing:
+            sys.exit(f"{label}: {', '.join(missing)} required")
     return {"path": "quiz.json", "sha256": hashlib.sha256(data).hexdigest()}
 
 
