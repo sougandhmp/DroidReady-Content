@@ -1,0 +1,135 @@
+{
+  "Is `onDestroy` always called?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks that your data safety doesn't depend on a callback that may never run.",
+    "mistake": "Saving user data in `onDestroy`.",
+    "followUp": "Which lifecycle callback is the safer place to save?"
+  },
+  "What survives a rotation, and what survives process death?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Process death causes bugs that never show up on a developer's own phone.",
+    "mistake": "Assuming a ViewModel keeps data after the system kills the process.",
+    "followUp": "How would you test process death?"
+  },
+  "Why is the `onSaveInstanceState` Bundle size limited?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "To see whether you know the system limit behind a common crash.",
+    "mistake": "Putting whole lists or bitmaps into the Bundle.",
+    "followUp": "What would you save instead of a large list?"
+  },
+  "Why must fragments use `viewLifecycleOwner` for UI work?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It's a classic source of leaks and crashes in apps that use fragments.",
+    "mistake": "Collecting with the fragment's lifecycle in `onViewCreated`.",
+    "followUp": "What happens if you use view binding after `onDestroyView`?"
+  },
+  "How do two fragments share data?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To check that you keep components decoupled.",
+    "mistake": "Casting the host Activity or another fragment and calling its methods.",
+    "followUp": "How do you scope a ViewModel to a navigation graph?"
+  },
+  "How does a ViewModel survive rotation?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It separates knowing what a ViewModel does from knowing how.",
+    "mistake": "Saying the ViewModel is saved in the Bundle.",
+    "followUp": "When is `onCleared` called?"
+  },
+  "How do you detect that the whole app went to the background?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests whether you know the app lifecycle beyond single screens.",
+    "mistake": "Counting activities by hand in lifecycle callbacks.",
+    "followUp": "Why can `ProcessLifecycleOwner` deliver `ON_STOP` with a delay?"
+  },
+  "What is a PendingIntent, and why must you set mutability?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Mutable PendingIntents are a real security risk.",
+    "mistake": "Choosing `FLAG_MUTABLE` just to silence the error.",
+    "followUp": "What is a mutable PendingIntent needed for?"
+  },
+  "Your App Link opens a chooser instead of your app. Why?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They want to see that you can debug a release-only integration problem.",
+    "mistake": "Registering only the debug or upload certificate when Play App Signing re-signs the app.",
+    "followUp": "How do you check App Link verification on a device?"
+  },
+  "What causes an ANR?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "ANRs hurt users and store ranking, so you need to know their causes.",
+    "mistake": "Thinking any coroutine is safe even when it runs blocking work on the main dispatcher.",
+    "followUp": "How would you find the cause of an ANR from a trace?"
+  },
+  "Application context or Activity context?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Using the wrong one causes leaks or theming crashes.",
+    "mistake": "Storing an Activity context in a singleton.",
+    "followUp": "Why can a dialog crash with the application context?"
+  },
+  "Parcelable or Serializable?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A basic check of how data moves between components.",
+    "mistake": "Using `Serializable` by default because it needs less code.",
+    "followUp": "What can't you put in a `Parcelable` Bundle safely?"
+  },
+  "Started service, bound service or foreground service?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see that you know which tool Android expects for each kind of work.",
+    "mistake": "Assuming a service runs on a background thread.",
+    "followUp": "What are foreground service types?"
+  },
+  "Why did my notification not show on Android 13?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks that you've handled the runtime permission in a real app.",
+    "mistake": "Requesting nothing and expecting notifications to appear as on older versions.",
+    "followUp": "What should you do if the user denies it twice?"
+  },
+  "`ListAdapter` with `DiffUtil` or `notifyDataSetChanged()`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "List performance is part of almost every app.",
+    "mistake": "Comparing item identity and content with the same check.",
+    "followUp": "What is `areContentsTheSame` for?"
+  },
+  "What's the difference between `invalidate()` and `requestLayout()` in a custom view?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It shows whether you understand the View drawing pass.",
+    "mistake": "Calling `requestLayout()` for a colour change, which does needless work.",
+    "followUp": "When do you need to override `onMeasure`?"
+  }
+}

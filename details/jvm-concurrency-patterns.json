@@ -1,0 +1,70 @@
+{
+  "What is a GC root, and how does it relate to memory leaks?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests whether you can explain leaks from first principles.",
+    "mistake": "Saying anything with a reference to it is leaked.",
+    "followUp": "Is an object referenced only by a dead object a leak?"
+  },
+  "When would you use `WeakReference`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They want to know if you see it as a fallback, not a fix.",
+    "mistake": "Wrapping references in `WeakReference` instead of unregistering them.",
+    "followUp": "How is `SoftReference` different?"
+  },
+  "Is `@Volatile var count` enough for a thread-safe counter?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It exposes confusion between visibility and atomicity.",
+    "mistake": "Saying volatile makes `count++` thread-safe.",
+    "followUp": "When is `synchronized` still the right tool?"
+  },
+  "Why does double-checked locking need `@Volatile`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "A classic test of the memory model.",
+    "mistake": "Saying the lock alone is enough.",
+    "followUp": "Why is a Kotlin `object` or `lazy` simpler?"
+  },
+  "How do you avoid deadlocks?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It shows practical concurrency experience.",
+    "mistake": "Adding more locks without a fixed order.",
+    "followUp": "How would you detect a deadlock?"
+  },
+  "Why are coroutines cheaper than threads?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To check the mental model behind coroutines.",
+    "mistake": "Calling coroutines lightweight threads without explaining suspension.",
+    "followUp": "When can a coroutine still block a thread?"
+  },
+  "Which design patterns do you see in Android?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "They want patterns tied to real APIs.",
+    "mistake": "Reciting definitions with no Android example.",
+    "followUp": "Which pattern would you avoid overusing?"
+  },
+  "Explain dependency inversion with an example.": {
+    "tracks": [
+      "junior",
+      "senior",
+      "system-design"
+    ],
+    "why": "It tests whether you can apply a principle rather than name it.",
+    "mistake": "Confusing the principle with using a DI library.",
+    "followUp": "Which other SOLID principle does this support?"
+  }
+}

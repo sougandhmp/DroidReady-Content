@@ -1,0 +1,88 @@
+{
+  "Why use kotlinx.serialization or Moshi instead of Gson?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It shows whether you know how serialization can break Kotlin's guarantees.",
+    "mistake": "Assuming a non-null Kotlin property can't end up null after Gson parses it.",
+    "followUp": "How do you handle unknown JSON fields?"
+  },
+  "How do you refresh an expired token when several requests fail with 401 at once?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It combines concurrency, networking and failure handling in a real scenario.",
+    "mistake": "Letting every failed request start its own refresh, or retrying forever.",
+    "followUp": "What is the difference between an Authenticator and an Interceptor here?"
+  },
+  "How do you make an API call survive the user leaving the screen?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "To check that you match work to the right lifetime.",
+    "mistake": "Using `GlobalScope` to keep the request alive.",
+    "followUp": "How would the UI learn the result later?"
+  },
+  "Why is DataStore preferred over SharedPreferences?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A basic check of safe local storage.",
+    "mistake": "Thinking `apply()` makes SharedPreferences completely safe for the main thread.",
+    "followUp": "When would you still use SharedPreferences?"
+  },
+  "How does an offline-first write work?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It's the heart of offline-first design.",
+    "mistake": "Retrying without an idempotency key and creating duplicates.",
+    "followUp": "How would you show a permanently failed sync?"
+  },
+  "How do you avoid two screens sending the same request?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "They're testing whether you spot wasted work and race conditions.",
+    "mistake": "Using a boolean \"loading\" flag that two coroutines can both pass.",
+    "followUp": "How would you cancel the shared request safely?"
+  },
+  "How do you handle a Room migration safely?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "A failed migration destroys user data.",
+    "mistake": "Reaching for destructive migration to make the crash go away.",
+    "followUp": "How do you test a migration from an old version?"
+  },
+  "Why prefer cursor pagination over offset pagination?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It tests API design knowledge that matters for feeds.",
+    "mistake": "Mentioning speed but missing duplicated and skipped items.",
+    "followUp": "How does Paging 3 combine a database and a cursor?"
+  },
+  "Where would you save an exported PDF, a thumbnail cache and a photo for the gallery?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Scoped storage rules trip up many apps.",
+    "mistake": "Asking for broad storage permission for all three.",
+    "followUp": "What does `MANAGE_EXTERNAL_STORAGE` require on Play?"
+  },
+  "How do you know the device is online?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see that you handle unreliable networks realistically.",
+    "mistake": "Checking connectivity once and assuming the request will succeed.",
+    "followUp": "Why can a connected network still fail requests?"
+  }
+}

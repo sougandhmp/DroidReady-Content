@@ -1,0 +1,119 @@
+{
+  "What actually happens when a suspend function suspends?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "To find out whether you understand coroutines or only use the keywords.",
+    "mistake": "Saying the thread blocks or sleeps until the result arrives.",
+    "followUp": "Which thread does a coroutine resume on?"
+  },
+  "When do you use `launch` and when `async`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It's the quickest check of whether you can start coroutines correctly.",
+    "mistake": "Using `async` without ever awaiting it, or just to start work that has no result.",
+    "followUp": "What happens to an exception inside `async` that nobody awaits?",
+    "code": "suspend fun load(): String = coroutineScope {\n    launch { logOpened() }                      // no result needed\n    val user = async { fetchUser() }            // both run in parallel\n    val posts = async { fetchPosts() }\n    \"${user.await()}: ${posts.await()}\"\n}"
+  },
+  "Why shouldn't you use `GlobalScope`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see that you think about lifecycle, cancellation and testing.",
+    "mistake": "Replacing it with a new `CoroutineScope()` that nothing ever cancels.",
+    "followUp": "How would you create an application-wide scope?"
+  },
+  "What is the difference between `Job` and `SupervisorJob`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Failure propagation is a common source of production bugs.",
+    "mistake": "Passing `SupervisorJob()` to `launch` and expecting its children to be supervised.",
+    "followUp": "When would you use `supervisorScope`?"
+  },
+  "Why is catching `Exception` around a suspend call dangerous?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It reveals whether you've debugged cancellation problems in real code.",
+    "mistake": "Logging the exception and carrying on, which keeps a cancelled coroutine running.",
+    "followUp": "How would you handle errors without catching cancellation?",
+    "code": "suspend fun refresh() {\n    try {\n        sync()\n    } catch (e: CancellationException) {\n        throw e                                 // let cancellation work\n    } catch (e: Exception) {\n        report(e)\n    }\n}"
+  },
+  "StateFlow, SharedFlow or Channel: which do you use for what?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Choosing the wrong one causes lost or repeated events, so they want your reasoning.",
+    "mistake": "Using `StateFlow` for events and then wondering why identical events are dropped.",
+    "followUp": "How do you stop a `SharedFlow` from losing events?"
+  },
+  "What does `WhileSubscribed(5_000)` do in `stateIn`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "To check that you understand why this exact value appears in so much Android code.",
+    "mistake": "Using `SharingStarted.Eagerly` or `Lazily` for screen state, so upstream work never stops.",
+    "followUp": "Why 5 seconds and not zero?"
+  },
+  "How do you collect a flow safely in an Activity or Fragment?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Leaked collection wastes battery and can crash, so this is a basic safety check.",
+    "mistake": "Collecting in `lifecycleScope.launch` alone, which keeps running in the background.",
+    "followUp": "What does `flowWithLifecycle` do?"
+  },
+  "How do you handle one-off events like navigation or a snackbar?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests how you model state and whether you consider process death.",
+    "mistake": "Sending events through a `SharedFlow` with no replay and losing them while nothing collects.",
+    "followUp": "What can go wrong if the UI never reports the event as handled?"
+  },
+  "Why didn't my `catch` operator catch an exception thrown in `collect`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "To see whether you know the direction in which flow exceptions travel.",
+    "mistake": "Expecting `catch` to handle everything, wherever it sits in the chain.",
+    "followUp": "How does `retryWhen` fit into error handling?",
+    "code": "fun observe(items: Flow<String>, scope: CoroutineScope) {\n    items\n        .onEach { render(it) }                  // now upstream of catch\n        .catch { showError(it) }\n        .launchIn(scope)\n}"
+  },
+  "`flatMapLatest`, `flatMapConcat` or `flatMapMerge`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Picking the right operator shows you understand ordering and cancellation.",
+    "mistake": "Using `flatMapMerge` for search, so an old response can overwrite a newer one.",
+    "followUp": "What does `debounce` add to a search flow?"
+  },
+  "How do you turn a callback API into a Flow?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Wrapping callback APIs is everyday work with Android SDKs and older libraries.",
+    "mistake": "Leaving out `awaitClose`, so the listener is never removed and the builder throws.",
+    "followUp": "What happens if `trySend` fails?",
+    "code": "fun ticks(clock: Clock): Flow<Long> = callbackFlow {\n    val listener = ClockListener { time -> trySend(time) }\n    clock.register(listener)\n    awaitClose { clock.unregister(listener) }\n}"
+  },
+  "How would you migrate an RxJava codebase to coroutines?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They want a safe, incremental plan rather than enthusiasm for a rewrite.",
+    "mistake": "Proposing to convert everything at once.",
+    "followUp": "How would you keep both libraries working during the migration?"
+  },
+  "How do you test code that uses `delay` and `Dispatchers.Main`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Code that can't be tested deterministically suggests the design wasn't thought through.",
+    "mistake": "Using `Thread.sleep` or real delays and hard-coding dispatchers.",
+    "followUp": "How does `advanceUntilIdle` work?"
+  }
+}

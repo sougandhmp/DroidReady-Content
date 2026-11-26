@@ -1,0 +1,283 @@
+{
+  "`val` vs `const val`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A fast check of Kotlin basics.",
+    "mistake": "Saying they're interchangeable.",
+    "followUp": "Where can you declare a `const val`?"
+  },
+  "`lateinit` on an `Int`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks that you know where `lateinit` can't be used.",
+    "mistake": "Trying `lateinit var count: Int`.",
+    "followUp": "How do you check whether a `lateinit` property is set?"
+  },
+  "`==` vs `===`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Equality mistakes cause subtle bugs.",
+    "mistake": "Assuming `==` compares references, as it does for Java objects.",
+    "followUp": "When do two data class instances satisfy `==`?"
+  },
+  "`Any`, `Unit` and `Nothing`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "These types appear throughout Kotlin signatures.",
+    "mistake": "Treating `Nothing` and `Unit` as the same.",
+    "followUp": "Where does the compiler use `Nothing`?"
+  },
+  "What is a `suspend` function under the hood?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "A short probe of whether you understand suspension.",
+    "mistake": "Saying it always runs on a background thread.",
+    "followUp": "What is a continuation?"
+  },
+  "`Job` vs `SupervisorJob`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Failure handling is a frequent follow-up.",
+    "mistake": "Thinking a supervisor catches the exception for you.",
+    "followUp": "Where have you used a `SupervisorJob`?"
+  },
+  "`coroutineScope` vs `supervisorScope`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It checks that you can apply supervision inside a suspend function.",
+    "mistake": "Expecting `supervisorScope` to ignore a failure in its own body.",
+    "followUp": "What happens to the exception in each?"
+  },
+  "`StateFlow` vs `SharedFlow`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Using the wrong one loses or repeats events.",
+    "mistake": "Treating `StateFlow` as an event stream.",
+    "followUp": "How do you configure replay?"
+  },
+  "Cold vs hot Flow?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It underpins how you reason about Flow work.",
+    "mistake": "Assuming a cold flow shares one execution between collectors.",
+    "followUp": "How do you turn a cold flow into a hot one?"
+  },
+  "When do you use `flatMapLatest`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It checks that you can match an operator to a use case.",
+    "mistake": "Using it for work that must not be cancelled, such as saving.",
+    "followUp": "How is it different from `collectLatest`?"
+  },
+  "`collectAsStateWithLifecycle` vs `collectAsState`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It shows lifecycle awareness in Compose.",
+    "mistake": "Using `collectAsState` for flows that do expensive work.",
+    "followUp": "Why does the difference matter for battery?"
+  },
+  "`remember` vs `rememberSaveable`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A basic Compose state check.",
+    "mistake": "Expecting `remember` to survive rotation.",
+    "followUp": "What types can't be saved without a `Saver`?"
+  },
+  "What is `derivedStateOf` for?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests targeted performance knowledge.",
+    "mistake": "Using it simply to combine two values.",
+    "followUp": "When is it the wrong tool?"
+  },
+  "What makes a type stable in Compose?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Stability explains many recomposition questions.",
+    "mistake": "Thinking `val` alone makes a type stable.",
+    "followUp": "What does `@Immutable` promise?"
+  },
+  "Does a ViewModel survive process death?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks the most common ViewModel misunderstanding.",
+    "mistake": "Answering yes because it survives rotation.",
+    "followUp": "How do you restore state after it?"
+  },
+  "What limits the size of a saved-state Bundle?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "A limit behind real crashes.",
+    "mistake": "Assuming the whole 1 MB is available to one screen.",
+    "followUp": "How would you find a transaction that is too large?"
+  },
+  "`Serializable` vs `Parcelable`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A quick IPC basics check.",
+    "mistake": "Saying there's no difference on Android.",
+    "followUp": "What does `@Parcelize` generate?"
+  },
+  "LiveData `setValue` vs `postValue`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It catches lost updates in older codebases.",
+    "mistake": "Expecting every `postValue` to be delivered.",
+    "followUp": "Which should a background thread use?"
+  },
+  "SharedPreferences `commit()` vs `apply()`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It connects storage APIs to ANRs.",
+    "mistake": "Believing `apply()` can never block the main thread.",
+    "followUp": "When would you use DataStore instead?"
+  },
+  "`Service` vs WorkManager?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To check you pick modern background tools.",
+    "mistake": "Still proposing `IntentService`.",
+    "followUp": "When do you need a foreground service?"
+  },
+  "`Dispatchers.IO` vs `Default`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Choosing wrongly can starve threads.",
+    "mistake": "Running blocking I/O on `Default`.",
+    "followUp": "How would you inject dispatchers for tests?"
+  },
+  "What are the ANR thresholds?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A quick check of ANR knowledge.",
+    "mistake": "Giving one number for every kind of ANR.",
+    "followUp": "What does the system do when one happens?"
+  },
+  "What is a baseline profile?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "A short test of modern performance tooling.",
+    "mistake": "Saying it's generated by R8 at runtime.",
+    "followUp": "How is a baseline profile generated?"
+  },
+  "What does R8 do?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks release-build basics.",
+    "mistake": "Saying it only obfuscates.",
+    "followUp": "When do you need a keep rule?"
+  },
+  "`@Binds` vs `@Provides`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "A standard Dagger and Hilt check.",
+    "mistake": "Swapping the two.",
+    "followUp": "When must you use `@Provides`?"
+  },
+  "Hilt scope for an object shared only within one screen's ViewModel?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests precise scoping.",
+    "mistake": "Choosing `@Singleton` for screen-only state.",
+    "followUp": "Which component does that scope live in?"
+  },
+  "Why must `exported` be declared?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A platform security change you should know.",
+    "mistake": "Setting every component to exported.",
+    "followUp": "Which components need it?"
+  },
+  "`PendingIntent` mutability flag?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It's a required security decision.",
+    "mistake": "Defaulting to mutable.",
+    "followUp": "When would `FLAG_MUTABLE` be needed?"
+  },
+  "Why did libraries use a `ContentProvider`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It shows you understand some history behind app startup.",
+    "mistake": "Adding more providers for initialisation today.",
+    "followUp": "What does App Startup change?"
+  },
+  "What does `Looper.prepare()` do?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It probes how Android's main thread machinery works.",
+    "mistake": "Thinking every thread already has a looper.",
+    "followUp": "Which threads already have a Looper?"
+  },
+  "What is Doze?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks power management basics.",
+    "mistake": "Assuming alarms and jobs always fire on time.",
+    "followUp": "How do you test behaviour in Doze?"
+  },
+  "Why does the 16 KB page size matter?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It checks awareness of a recent compatibility requirement.",
+    "mistake": "Thinking pure Kotlin or Java apps need native rebuilds.",
+    "followUp": "How do you check a native library's alignment?"
+  },
+  "Companion object vs top-level function?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A Kotlin design basics check.",
+    "mistake": "Putting every utility in a companion object.",
+    "followUp": "When does a companion object implement an interface?"
+  },
+  "`let` vs `apply`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A quick scope function check.",
+    "mistake": "Mixing up what each returns.",
+    "followUp": "When would you use `also` instead?"
+  }
+}

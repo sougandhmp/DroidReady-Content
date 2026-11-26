@@ -11,9 +11,9 @@ BUNDLE = {
     "version": 2,
     "topics": [{"id": "kotlin", "number": 1, "title": "Kotlin", "notes": "# Kotlin"}],
     "questions": [{"id": "q1", "topic": "kotlin", "text": "Why?", "answer": "Because.",
-                   "level": "Easy"}],
+                   "level": "Easy", "tracks": ["junior"], "why": "W.", "mistake": "M."}],
     "quiz": [{"id": "z1", "topic": "kotlin", "question": "Which?", "options": ["a", "b"],
-              "answer": 1, "explanation": "b."}],
+              "answer": 1, "explanation": "b.", "tracks": ["senior"]}],
 }
 
 
@@ -55,10 +55,26 @@ class BundleTest(unittest.TestCase):
             "answer out of range": lambda b: b["quiz"][0].update(answer=2),
             "wrong schema": lambda b: b.update(schemaVersion=2),
             "item not an object": lambda b: b["questions"].append("text"),
+            "no why": lambda b: b["questions"][0].pop("why"),
+            "follow-up not text": lambda b: b["questions"][0].update(followUp=["x"]),
+            "empty mistake": lambda b: b["questions"][0].update(mistake=" "),
+            "no tracks": lambda b: b["questions"][0].update(tracks=[]),
+            "badly written track": lambda b: b["questions"][0].update(tracks=["System Design"]),
+            "quiz without tracks": lambda b: b["quiz"][0].pop("tracks"),
+            "unknown kind": lambda b: b["quiz"][0].update(kind="riddle"),
+            "code question without code": lambda b: b["quiz"][0].update(kind="output"),
+            "badly written review date":
+                lambda b: b["questions"][0].update(reviewed="27/11/2026"),
+            "review date in the future":
+                lambda b: b["questions"][0].update(reviewed="2999-01-01"),
         }
         for name, change in changes.items():
             with self.subTest(name):
                 self.assertTrue(self.errors_after(change))
+
+    def test_new_tracks_and_past_review_dates_are_allowed(self):
+        self.assertEqual([], self.errors_after(
+            lambda b: b["questions"][0].update(tracks=["acme-set-1"], reviewed="2026-01-31")))
 
     def test_checksum_and_version_must_match(self):
         self.assertTrue(validate_bundle(*encode(BUNDLE, sha256="0" * 64)))

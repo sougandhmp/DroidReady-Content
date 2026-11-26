@@ -1,0 +1,78 @@
+{
+  "Your clean build takes 12 minutes. What do you do?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Slow builds cost the whole team, so they test your diagnostic method.",
+    "mistake": "Changing random Gradle flags without profiling.",
+    "followUp": "How do you read a Build Scan?"
+  },
+  "What does your CI pipeline look like?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It shows what quality gates you consider necessary.",
+    "mistake": "Describing only a build step, with no tests or release stages.",
+    "followUp": "How do you keep CI fast as the app grows?"
+  },
+  "How do you release safely?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "A mobile release can't be pulled back from phones already updated.",
+    "mistake": "Relying on a quick hotfix instead of staged rollout and a kill switch.",
+    "followUp": "Which metrics would stop a rollout?"
+  },
+  "A crash appears in 0.5% of users after a release. What's your process?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They're testing how you behave during an incident.",
+    "mistake": "Debugging for hours while the rollout keeps going.",
+    "followUp": "What would you put in the post-mortem?"
+  },
+  "Why does an app crash only in release builds?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Almost every shipping team meets this bug.",
+    "mistake": "Turning off shrinking permanently.",
+    "followUp": "Why shouldn't you add a broad keep rule?"
+  },
+  "APK or App Bundle?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A basic check of Android publishing.",
+    "mistake": "Thinking users download the whole bundle.",
+    "followUp": "What does Play generate from a bundle?"
+  },
+  "When would you use an on-demand dynamic feature module?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests whether you weigh complexity against the size saving.",
+    "mistake": "Using dynamic modules only to organise code.",
+    "followUp": "How does a user get the module the first time?"
+  },
+  "How do you avoid breaking apps that use your SDK?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "Library authors can break many apps at once.",
+    "mistake": "Removing or changing public APIs in a minor release.",
+    "followUp": "How do you detect an accidental API break?"
+  },
+  "`api` or `implementation` in Gradle?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It affects build speed and the shape of module APIs.",
+    "mistake": "Using `api` everywhere so that compile errors go away.",
+    "followUp": "How does `api` affect incremental builds?"
+  }
+}

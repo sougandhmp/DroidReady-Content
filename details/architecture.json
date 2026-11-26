@@ -1,0 +1,92 @@
+{
+  "Describe the architecture you would use for a new Android app.": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "They want to hear a coherent design and the reasons behind each choice.",
+    "mistake": "Listing libraries without explaining how data and events flow.",
+    "followUp": "What would you change for a very small app?"
+  },
+  "Walk me through what happens, layer by layer, when a user taps \"like\".": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It shows whether your layers are real or only folder names.",
+    "mistake": "Skipping where the write is saved and how the UI learns about it.",
+    "followUp": "What happens if the network call fails?"
+  },
+  "Why should the database, not the network, be the single source of truth?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It tests whether you understand offline-first design.",
+    "mistake": "Saying only \"for offline support\" and missing consistency between screens.",
+    "followUp": "How do you tell the user their change has not synced yet?"
+  },
+  "Why shouldn't the ViewModel pass the network response straight to the UI?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "They're probing for the bugs that multiple sources of truth create.",
+    "mistake": "Adding the database as a side cache while the UI still renders the response.",
+    "followUp": "When is it acceptable to skip the database?"
+  },
+  "MVVM or MVI?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "To see whether you choose patterns by trade-off rather than fashion.",
+    "mistake": "Declaring one pattern always better.",
+    "followUp": "Where would you put a one-off event in MVI?"
+  },
+  "What belongs in a ViewModel and what in a use case?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It checks that you put logic where it can be tested and reused.",
+    "mistake": "Creating a use case for every repository method.",
+    "followUp": "How do you test a use case?"
+  },
+  "How do you share state between two screens?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Sharing state badly leads to stale screens and hidden coupling.",
+    "mistake": "Passing large objects through navigation arguments or global variables.",
+    "followUp": "When is a navigation-graph ViewModel the wrong choice?"
+  },
+  "Why keep separate models per layer?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "To check you understand why layers need their own boundaries.",
+    "mistake": "Using the network DTO as the UI model to save typing.",
+    "followUp": "When is mapping between layers not worth it?"
+  },
+  "How do feature modules navigate to each other without depending on each other?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "Large teams depend on it, so it tests your modularisation experience.",
+    "mistake": "Letting one feature module depend directly on another.",
+    "followUp": "How would you stop feature modules from depending on each other?"
+  },
+  "How do you introduce a new architecture into a large legacy app?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "Senior roles require changing systems safely, not just designing new ones.",
+    "mistake": "Proposing a rewrite without a pilot, measurements or buy-in.",
+    "followUp": "How would you measure whether the migration is working?"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "Describe your testing strategy for an Android app.": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "They want priorities and reasons, not a list of tools.",
+    "mistake": "Relying mostly on slow end-to-end tests.",
+    "followUp": "Which tests run on every pull request?"
+  },
+  "Fakes or mocks?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Your choice shows whether tests will survive refactoring.",
+    "mistake": "Mocking everything and verifying internal calls.",
+    "followUp": "How would you build a fake repository?"
+  },
+  "How do you test a ViewModel that uses `viewModelScope`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It's the most common coroutine testing problem.",
+    "mistake": "Forgetting to replace `Dispatchers.Main`, or adding real delays.",
+    "followUp": "What does `Dispatchers.resetMain` protect against?"
+  },
+  "`StandardTestDispatcher` or `UnconfinedTestDispatcher`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It checks that you understand virtual time and execution order.",
+    "mistake": "Using the unconfined dispatcher and then expecting to observe the loading state.",
+    "followUp": "How do you assert a loading state?"
+  },
+  "What does MockWebServer catch that a fake doesn't?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "To see that you know what each test level can and can't prove.",
+    "mistake": "Assuming a fake repository tests the network contract.",
+    "followUp": "How would you simulate a slow or broken network?"
+  },
+  "How do you test process death?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Process death bugs are missed unless someone tests for them.",
+    "mistake": "Testing only rotation.",
+    "followUp": "What state would you lose without `SavedStateHandle`?"
+  },
+  "What makes tests flaky, and how do you fix it?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Flaky tests destroy trust in CI.",
+    "mistake": "Adding retries or sleeps instead of removing the cause.",
+    "followUp": "How do you find which test is flaky?"
+  },
+  "Do you practise TDD?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "They're looking for honesty and judgement.",
+    "mistake": "Claiming you always do it when you don't.",
+    "followUp": "When do you not write the test first?"
+  },
+  "What code coverage do you aim for?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It reveals whether you value useful tests over numbers.",
+    "mistake": "Chasing 100% with tests that assert nothing.",
+    "followUp": "How do you find important untested code?"
+  }
+}

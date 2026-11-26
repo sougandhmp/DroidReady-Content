@@ -1,0 +1,65 @@
+{
+  "How do you approach a mobile system design question?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "They assess structure and communication as much as the design.",
+    "mistake": "Jumping into classes and libraries before clarifying requirements.",
+    "followUp": "What would you ask first for a news feed app?"
+  },
+  "How do you make sending a chat message reliable on a flaky network?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "Reliability under failure is the core of mobile design.",
+    "mistake": "Sending directly from the screen with no local record or idempotency key.",
+    "followUp": "How would you order messages from two devices?"
+  },
+  "Why use cursor pagination for a feed?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It tests data consistency in a very common feature.",
+    "mistake": "Giving offset pagination with a larger page size as the fix.",
+    "followUp": "How does the server build the next cursor?"
+  },
+  "REST, GraphQL or gRPC for a mobile app?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "They want trade-offs tied to a context.",
+    "mistake": "Naming a favourite without asking about the clients and backend.",
+    "followUp": "When would you add a backend-for-frontend?"
+  },
+  "How would you resolve conflicts when two devices edit the same note offline?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "Conflict handling shows whether you've thought about data loss.",
+    "mistake": "Applying last-write-wins to the whole record and silently losing edits.",
+    "followUp": "When would you use CRDTs?"
+  },
+  "How would you design an app that 10 teams contribute to?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It probes whether you can design for organisations, not only code.",
+    "mistake": "Talking only about folder structure.",
+    "followUp": "How do you keep app startup fast with so many teams?"
+  },
+  "How do you keep real-time updates battery-friendly?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It tests whether you weigh freshness against battery and data use.",
+    "mistake": "Keeping a socket open in the background or polling every few seconds.",
+    "followUp": "How would you handle messages missed while disconnected?"
+  }
+}
