@@ -1,15 +1,14 @@
 # DroidReady content
 
-Study material for the DroidReady Android app. The app reads `index.json` from the
-`main` branch, then downloads the Markdown files it lists. Changing content here
-does not need an app release.
+Study material for the DroidReady Android app, served by GitHub Pages. Changing
+content here does not need an app release.
 
 ## Website
 
 <https://sougandh.dev/DroidReady-Content/> shows the same content in a
-browser. GitHub Pages serves it from the root of `main`, with no build step:
+browser. GitHub Pages serves it from the root of `develop`, with no build step:
 `index.html` and `assets/` read `index.json`, `topics/` and `quiz.json` directly,
-so pushing content to `main` updates the site too. Progress and bookmarks are
+so merging content into `develop` updates the site too. Progress and bookmarks are
 saved in each visitor's browser and don't sync with the app.
 
 To preview locally, run `python3 -m http.server` and open <http://localhost:8000>.
@@ -18,15 +17,54 @@ To preview locally, run `python3 -m http.server` and open <http://localhost:8000
 
 1. Edit or add files in `topics/`, or edit `quiz.json`. Name them `NN-slug.md`; the first line is `# Title`.
 2. Run `python3 tools/build_index.py`.
-3. Commit the Markdown and `index.json` together, then push to `main`.
+3. Commit your changes **and the generated files** together on a new branch.
+4. Open a pull request into `develop`. Direct pushes are blocked.
+5. Merge once the **validate-content** check passes. Merging publishes the change.
 
-The app checks each file against the SHA-256 in `index.json`. If you skip step 2,
-the app rejects the update and keeps showing its saved copy. GitHub's raw file
-cache can delay a change by a few minutes.
+The script writes `questions.json`, `version.json` and `index.json`. Don't edit
+them by hand.
+
+The app reads the small `version.json` first, and downloads `questions.json` only
+when the version is higher than the one it has. It then checks the file against
+the SHA-256 in `version.json`. Two consequences:
+
+- If you skip step 2, the app doesn't see your change.
+- To undo a change, revert it and run the script again. That publishes the old
+  text under a **new, higher** version. Never lower the version.
+
+GitHub Pages can take a few minutes to serve a change. `index.json` is only for
+older builds of the app, which read this repository's raw files.
 
 - The slug (`kotlin` in `01-kotlin.md`) identifies a topic. Renaming it resets
   that topic's "done" mark. Changing only the number reorders topics.
 - Keep line endings as LF.
+
+## Pull request checks
+
+CI runs `tools/validate_content.py` and blocks the merge if:
+
+- `questions.json` or `version.json` doesn't match the structure the app reads:
+  a missing or misspelt field, a wrong type, a duplicate id, an unknown topic or
+  level, a quiz answer that isn't one of its options, or a wrong checksum.
+- Content changed without a higher version, so apps would never download it.
+- The Markdown would silently lose content, for example a badly formatted
+  interview question, or uses something the app can't show.
+- The generated files are out of date.
+
+Run the same checks before you push:
+
+```sh
+python3 -m unittest discover -s tools -p 'test_*.py'
+python3 tools/validate_content.py --base-ref origin/develop
+python3 tools/build_index.py --check
+```
+
+If another pull request merges first, update your branch and run
+`tools/build_index.py` again. If `version.json` or `questions.json` conflicts,
+take the version from `develop`, then run the script.
+
+The rules follow the app's `data/remote/Dtos.kt` and `ContentMapper.kt`. Change
+the validator whenever the app's structure changes.
 
 ## Supported Markdown
 
@@ -36,7 +74,7 @@ single level. Images, nested lists, block quotes and HTML are not rendered.
 
 ## Interview questions
 
-The app builds its question list from two patterns:
+The script builds the question list from two patterns:
 
 - Under a heading containing `Interview questions`, each numbered item written as
   `1. **Question?** Answer. {Medium}`
