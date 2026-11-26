@@ -7,8 +7,8 @@ content here does not need an app release.
 
 <https://sougandh.dev/DroidReady-Content/> shows the same content in a
 browser. GitHub Pages serves it from the root of `develop`, with no build step:
-`index.html` and `assets/` read `index.json`, `topics/` and `quiz.json` directly,
-so merging content into `develop` updates the site too. Progress and bookmarks are
+`index.html` and `assets/` read `questions.json`, the same file as the app, so
+merging content into `develop` updates the site too. Progress and bookmarks are
 saved in each visitor's browser and don't sync with the app.
 
 To preview locally, run `python3 -m http.server` and open <http://localhost:8000>.
@@ -85,6 +85,8 @@ The level is `Easy`, `Medium` or `Hard`, and is optional. Editing a question's
 text makes it a new question, so its progress and bookmark reset. Changing only
 the answer or level keeps them.
 
+Run the build script before previewing a change, so that `questions.json` includes it.
+
 ## Question details
 
 Every interview question also needs an entry in `details/<topic-slug>.json`, keyed by
@@ -98,8 +100,7 @@ question (usually after the question was reworded).
     "why": "Why an interviewer asks this.",
     "mistake": "A common wrong answer.",
     "followUp": "What the interviewer may ask next.",
-    "code": "fun example() = Unit",
-    "reviewed": "2026-11-27"
+    "code": "fun example() = Unit"
   }
 }
 ```
@@ -109,12 +110,14 @@ question (usually after the question was reworded).
   update. Quiz questions need `tracks` too.
 - `followUp` and `code` are optional. `code` is Kotlin shown under the answer; compile it
   before you publish it.
-- `reviewed` is optional. Add it **only after a person has checked the answer** against
-  current Android documentation. The app shows it as "Last reviewed". Update it each
-  time you check again.
+- "Last reviewed" in the app and on the website is set by the build script: **the day the
+  question's answer or details last changed**. A new or edited question gets that day's
+  date, and unchanged questions keep theirs. It does not by itself mean the answer was
+  fact-checked. To set a date by hand, for example after checking an unchanged answer,
+  add `"reviewed": "YYYY-MM-DD"` to its entry. Remove that line the next time you edit
+  the question, or the old date stays.
 
-The first set of tracks, reasons, common mistakes, follow-ups and code samples was drafted with AI help and has no
-review dates yet.
+The first set of tracks, reasons, common mistakes, follow-ups and code samples was drafted with AI help.
 
 ## Quiz
 

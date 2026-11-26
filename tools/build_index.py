@@ -10,6 +10,7 @@ Run after every content change. It writes:
 
 Use --check to verify the generated files are up to date without writing them.
 """
+import datetime
 import hashlib
 import json
 import pathlib
@@ -130,6 +131,29 @@ def details_for(topic_id: str, questions: list) -> list:
     return [q | details.get(q["text"], {}) for q in questions]
 
 
+def date_questions(questions: list, old_bundle: pathlib.Path) -> None:
+    """Sets each question's "reviewed" date: the day its content last changed.
+
+    A date written in details/<topic>.json wins. Otherwise a question keeps its
+    date until its answer or details change, and then gets today's.
+    """
+    previous = {}
+    if old_bundle.exists():
+        old = json.loads(old_bundle.read_text(encoding="utf-8"))
+        previous = {q["id"]: q for q in old["questions"]}
+
+    def content(question):
+        return {key: value for key, value in question.items() if key != "reviewed"}
+
+    today = datetime.date.today().isoformat()
+    for question in questions:
+        if question.get("reviewed"):
+            continue
+        before = previous.get(question["id"])
+        unchanged = before is not None and content(before) == content(question)
+        question["reviewed"] = (unchanged and before.get("reviewed")) or today
+
+
 def build_bundle(index: dict) -> dict:
     """Returns the contents of questions.json and version.json."""
     topics, questions = [], []
@@ -139,6 +163,7 @@ def build_bundle(index: dict) -> dict:
         questions += details_for(entry["id"], questions_in(entry["id"], markdown))
     if not questions:
         sys.exit("no interview questions found")
+    date_questions(questions, ROOT / "questions.json")
     quiz = json.loads((ROOT / "quiz.json").read_text(encoding="utf-8"))["questions"]
     body = {"topics": topics, "questions": questions, "quiz": quiz}
 

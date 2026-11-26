@@ -32,30 +32,95 @@
     });
   }
 
+  // questions.json is the file the app reads too, so both show the same details.
   function load() {
-    return getText('index.json').then(JSON.parse).then(function (index) {
-      return Promise.all([
-        Promise.all(index.topics.map(function (t) { return getText(t.path); })),
-        getText(index.quiz.path).then(JSON.parse)
-      ]).then(function (res) {
-        topics = index.topics.slice().sort(function (a, b) { return a.number - b.number; });
-        var source = {};
-        index.topics.forEach(function (t, i) { source[t.id] = res[0][i]; });
-        topics.forEach(function (t) {
-          // The first line is the title, which the page header already shows.
-          t.body = source[t.id].replace(/^# .*\n/, '');
-          t.questions = Markdown.questions(source[t.id]).map(function (q) {
-            q.id = t.id + '-' + hash(q.question);
-            q.topic = t;
-            qById[q.id] = q;
-            questions.push(q);
-            return q;
-          });
-          byId[t.id] = t;
-        });
-        quiz = res[1].questions;
+    return getText('questions.json').then(JSON.parse).then(function (data) {
+      topics = data.topics.slice().sort(function (a, b) { return a.number - b.number; });
+      topics.forEach(function (t) {
+        // The first line is the title, which the page header already shows.
+        t.body = t.notes.replace(/^# .*\n/, '');
+        t.questions = [];
+        byId[t.id] = t;
       });
+      data.questions.forEach(function (item) {
+        var topic = byId[item.topic];
+        if (!topic) return;
+        var q = {
+          // The id the site has always used, so saved progress and links keep working.
+          id: topic.id + '-' + hash(item.text),
+          appId: item.id,
+          question: item.text,
+          answer: item.answer,
+          level: item.level || '',
+          tracks: item.tracks || [],
+          why: item.why,
+          mistake: item.mistake,
+          followUp: item.followUp,
+          code: item.code,
+          reviewed: item.reviewed,
+          topic: topic
+        };
+        topic.questions.push(q);
+        qById[q.id] = q;
+        questions.push(q);
+      });
+      quiz = data.quiz || [];
     });
+  }
+
+  // ---- Tracks. Known ones come first; a new one in the content gets a filter by itself.
+  var KNOWN_TRACKS = ['junior', 'senior', 'system-design'];
+  var track = { home: '', topic: '', quiz: '' };
+
+  function tracksOf(list) {
+    var found = [];
+    list.forEach(function (item) {
+      (item.tracks || []).forEach(function (t) { if (found.indexOf(t) === -1) found.push(t); });
+    });
+    function rank(t) { var i = KNOWN_TRACKS.indexOf(t); return i === -1 ? KNOWN_TRACKS.length : i; }
+    return found.sort(function (a, b) { return rank(a) - rank(b) || a.localeCompare(b); });
+  }
+  function trackLabel(t) { t = t.replace(/-/g, ' '); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function inTrack(list, t) {
+    return !t ? list : list.filter(function (item) { return (item.tracks || []).indexOf(t) !== -1; });
+  }
+  // The chosen track if this list has it, otherwise all of them.
+  function usableTrack(list, t) { return tracksOf(list).indexOf(t) === -1 ? '' : t; }
+
+  function trackChips(list, selected) {
+    var found = tracksOf(list);
+    if (!found.length) return '';
+    return '<div class="row" role="group" aria-label="Filter by track">' + [''].concat(found).map(function (t) {
+      return '<button type="button" class="chip" data-track="' + esc(t) + '" aria-pressed="' + (t === selected) + '">' + (t ? esc(trackLabel(t)) : 'All tracks') + '</button>';
+    }).join('') + '</div>';
+  }
+  // Calls pick with the chosen track, and shows which chip is selected.
+  function bindTrackChips(root, pick) {
+    root.querySelectorAll('[data-track]').forEach(function (b) {
+      b.onclick = function () {
+        root.querySelectorAll('[data-track]').forEach(function (o) { o.setAttribute('aria-pressed', o === b); });
+        pick(b.dataset.track);
+      };
+    });
+  }
+
+  var REPORT = 'https://github.com/sougandhmp/DroidReady-Content/issues/new';
+  // The issue holds only what identifies the question.
+  function reportLink(id, topicTitle, text) {
+    var body = '**Question:** ' + text + '\n**Topic:** ' + topicTitle + '\n**ID:** `' + id + '`\n\n**What is wrong?**\n';
+    var url = REPORT + '?title=' + encodeURIComponent('Problem with question ' + id) + '&body=' + encodeURIComponent(body);
+    return '<a class="report" href="' + esc(url) + '" target="_blank" rel="noopener">Report a problem</a>';
+  }
+
+  // "2026-11-27" as "27 Nov 2026", or nothing if it isn't a date.
+  function reviewedOn(day) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day || '');
+    var month = m && 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')[Number(m[2]) - 1];
+    return month ? Number(m[3]) + ' ' + month + ' ' + m[1] : '';
+  }
+
+  function note(title, text, kind) {
+    return text ? '<div class="card note ' + kind + '"><span class="eyebrow">' + title + '</span><p>' + inline(text) + '</p></div>' : '';
   }
 
   function learnedCount(list) { return list.filter(function (q) { return state.learned[q.id]; }).length; }
@@ -73,6 +138,7 @@
 
   // Each page returns { tab, title, html, wide, bind }.
   function home() {
+    track.home = usableTrack(questions, track.home);
     var last = byId[state.last] || topics[0];
     var done = learnedCount(last.questions);
     var days = streak();
@@ -84,12 +150,27 @@
         bar(done, last.questions.length) + '<span class="meta"><span>' + (last.questions.length ? done + ' of ' + last.questions.length + ' learned' : 'Study notes') + '</span><b>Open →</b></span></a>' +
         '<a class="card" href="#/practice/daily"><h2>Daily 5</h2><p class="muted">Five mixed quiz questions, new every day.</p></a></div>' +
         '<div class="row between"><h2>Topics</h2><span class="muted small">' + topics.length + ' topics · ' + questions.length + ' questions</span></div>' +
-        '<div class="grid">' + topics.map(function (t) {
-          var d = learnedCount(t.questions);
-          return '<a class="card" href="#/topic/' + t.id + '"><b>' + esc(t.title) + '</b><span class="muted small">' + (t.questions.length ? d + ' / ' + t.questions.length + ' learned' : 'Study notes') + '</span>' + bar(d, t.questions.length) + '</a>';
-        }).join('') + '</div>' +
-        '<footer class="muted small">Your progress is saved in this browser only. <a href="https://github.com/sougandhmp/DroidReady-Content">Content on GitHub</a></footer></div>'
+        trackChips(questions, track.home) +
+        '<div class="grid" id="topic-grid">' + topicCards(track.home) + '</div>' +
+        '<footer class="muted small">Your progress is saved in this browser only. <a href="https://github.com/sougandhmp/DroidReady-Content">Content on GitHub</a></footer></div>',
+      bind: function () {
+        bindTrackChips(view, function (t) {
+          track.home = t;
+          document.getElementById('topic-grid').innerHTML = topicCards(t);
+        });
+      }
     };
+  }
+
+  // With a track chosen, counts cover that track and other topics are left out.
+  function topicCards(chosen) {
+    return topics.map(function (t) {
+      var list = inTrack(t.questions, chosen);
+      if (chosen && !list.length) return '';
+      var d = learnedCount(list);
+      // Opening a card carries the track on to the topic's questions.
+      return '<a class="card" href="#/topic/' + t.id + (chosen ? '/questions' : '') + '"><b>' + esc(t.title) + '</b><span class="muted small">' + (list.length ? d + ' / ' + list.length + ' learned' : 'Study notes') + '</span>' + bar(d, list.length) + '</a>';
+    }).join('');
   }
 
   function topic(id, tab) {
@@ -108,15 +189,29 @@
     var pager = '<div class="row between">' + (prev ? '<a class="btn" href="#/topic/' + prev.id + '">← Previous</a>' : '<span></span>') + (next ? '<a class="btn" href="#/topic/' + next.id + '">Next topic →</a>' : '') + '</div>';
     var page = { tab: 'home', title: t.title };
     if (asking) {
-      page.html = '<div class="stack">' + head + '<div class="row" role="group" aria-label="Filter by difficulty">' +
-        ['All', 'Easy', 'Medium', 'Hard'].map(function (l) { return '<button type="button" class="chip" data-level="' + l + '" aria-pressed="' + (l === 'All') + '">' + l + '</button>'; }).join('') +
-        '</div><div id="results">' + questionList(t.questions) + '</div></div>';
+      var level = 'All';
+      // A track chosen on the home page applies here too.
+      track.topic = usableTrack(t.questions, track.home);
+      var shown = function () {
+        var list = inTrack(t.questions, track.topic).filter(function (q) { return level === 'All' || q.level === level; });
+        return list.length ? questionList(list) : '<p class="muted">No questions match these filters.</p>';
+      };
+      page.html = '<div class="stack">' + head + trackChips(t.questions, track.topic) +
+        '<div class="row" role="group" aria-label="Filter by difficulty">' +
+        ['All', 'Easy', 'Medium', 'Hard'].map(function (l) { return '<button type="button" class="chip" data-level="' + l + '" aria-pressed="' + (l === 'All') + '">' + (l === 'All' ? 'All levels' : l) + '</button>'; }).join('') +
+        '</div><div id="results">' + shown() + '</div></div>';
       page.bind = function () {
+        var redraw = function () { document.getElementById('results').innerHTML = shown(); };
+        bindTrackChips(view, function (chosen) {
+          // The question pages step through the same selection.
+          track.topic = track.home = chosen;
+          redraw();
+        });
         view.querySelectorAll('[data-level]').forEach(function (b) {
           b.onclick = function () {
             view.querySelectorAll('[data-level]').forEach(function (o) { o.setAttribute('aria-pressed', o === b); });
-            var list = t.questions.filter(function (q) { return b.dataset.level === 'All' || q.level === b.dataset.level; });
-            document.getElementById('results').innerHTML = list.length ? questionList(list) : '<p class="muted">No questions at this level.</p>';
+            level = b.dataset.level;
+            redraw();
           };
         });
       };
@@ -138,7 +233,9 @@
   function question(id) {
     var q = qById[id];
     if (!q) return missing();
-    var list = q.topic.questions, at = list.indexOf(q), next = list[at + 1];
+    var filtered = inTrack(q.topic.questions, track.home);
+    var list = filtered.indexOf(q) === -1 ? q.topic.questions : filtered;
+    var at = list.indexOf(q), next = list[at + 1];
     var after = next ? '#/question/' + next.id : '#/topic/' + q.topic.id + '/questions';
     return {
       tab: 'home', title: q.topic.title,
@@ -146,7 +243,12 @@
         '<button type="button" class="btn" id="bookmark" aria-pressed="' + !!state.saved[id] + '">Bookmark</button></div>' +
         '<div class="row"><span class="pill">' + esc(q.topic.title) + '</span>' + pill(q.level) + '</div><h1>' + inline(q.question) + '</h1>' +
         '<div class="card reveal" id="hidden"><p class="muted">Say your answer out loud first, like you would in the interview.</p><button type="button" class="btn solid" id="reveal">Show answer</button></div>' +
-        '<div class="card" id="answer" hidden tabindex="-1"><span class="eyebrow">Answer</span><p>' + inline(q.answer) + '</p></div>' +
+        '<div class="stack" id="answer" hidden tabindex="-1"><div class="card"><span class="eyebrow">Answer</span><p>' + inline(q.answer) + '</p>' +
+        (q.code ? '<pre tabindex="0"><code>' + esc(q.code) + '</code></pre>' : '') +
+        (q.followUp ? '<p class="muted small">Follow-up they may ask: ' + inline(q.followUp) + '</p>' : '') + '</div>' +
+        note('Why they ask this', q.why, 'why') + note('Common mistake', q.mistake, 'mistake') +
+        (reviewedOn(q.reviewed) ? '<p class="muted small">Last reviewed ' + reviewedOn(q.reviewed) + '</p>' : '') + '</div>' +
+        reportLink(q.appId, q.topic.title, q.question) +
         '<div class="cards2"><button type="button" class="btn" id="learning">Still learning</button><button type="button" class="btn primary" id="known">✓ I know this</button></div></div>',
       bind: function () {
         document.getElementById('reveal').onclick = function () {
@@ -174,35 +276,60 @@
     };
   }
 
+  function topicSets(chosen) {
+    var rows = topics.map(function (t) {
+      var n = inTrack(quiz.filter(function (q) { return q.topic === t.id; }), chosen).length;
+      return n ? '<li><a class="item" href="#/practice/' + t.id + '"><span class="title">' + esc(t.title) + '</span><span class="muted small">' + n + (n === 1 ? ' question' : ' questions') + '</span></a></li>' : '';
+    }).join('');
+    return rows || '<li class="muted">No quiz questions in this track.</li>';
+  }
+
   function practiceHome() {
+    track.quiz = usableTrack(quiz, track.quiz);
     return {
       tab: 'practice', title: 'Practice',
-      html: '<div class="stack"><h1>Practice</h1><a class="card hero" href="#/practice/daily"><span class="eyebrow">Daily 5</span><span class="display" style="font-size:21px">Five mixed questions</span></a><h2>By topic</h2><ul class="list">' +
-        topics.map(function (t) {
-          var n = quiz.filter(function (q) { return q.topic === t.id; }).length;
-          return n ? '<li><a class="item" href="#/practice/' + t.id + '"><span class="title">' + esc(t.title) + '</span><span class="muted small">' + n + (n === 1 ? ' question' : ' questions') + '</span></a></li>' : '';
-        }).join('') + '</ul></div>'
+      html: '<div class="stack"><h1>Practice</h1>' + trackChips(quiz, track.quiz) +
+        '<a class="card hero" href="#/practice/daily"><span class="eyebrow">Daily 5</span><span class="display" style="font-size:21px">Five mixed questions</span></a><h2>By topic</h2><ul class="list" id="sets">' +
+        topicSets(track.quiz) + '</ul></div>',
+      bind: function () {
+        bindTrackChips(view, function (t) {
+          track.quiz = t;
+          document.getElementById('sets').innerHTML = topicSets(t);
+        });
+      }
     };
   }
+
+  var KINDS = { output: 'Predict the output', bug: 'Find the bug' };
 
   function run(set) {
     var daily = set === 'daily';
     var today = dayKey(new Date());
+    var chosen = usableTrack(quiz, track.quiz);
+    var bank = inTrack(quiz, chosen);
     // Daily 5 is ordered by a hash of the date, so it stays the same all day.
     var pool = daily
-      ? quiz.slice().sort(function (a, b) { return hash(today + a.id).localeCompare(hash(today + b.id)); }).slice(0, 5)
-      : quiz.filter(function (q) { return q.topic === set; });
+      ? bank.slice().sort(function (a, b) { return hash(today + a.id).localeCompare(hash(today + b.id)); }).slice(0, 5)
+      : bank.filter(function (q) { return q.topic === set; });
+    // A direct link to a topic with nothing in the chosen track shows all of it.
+    if (!pool.length && chosen) {
+      chosen = '';
+      pool = quiz.filter(function (q) { return q.topic === set; });
+    }
     if (!pool.length) return missing();
-    var label = daily ? 'Daily 5' : byId[set].title;
+    var label = (daily ? 'Daily 5' : byId[set].title) + (chosen ? ' · ' + trackLabel(chosen) : '');
     var at = 0, score = 0;
     function draw() {
       var q = pool[at];
       var box = document.getElementById('quiz');
       box.innerHTML = '<div class="row" style="flex-wrap:nowrap"><div class="steps" aria-hidden="true">' + pool.map(function (_, i) { return '<i class="' + (i < at ? 'done' : i === at ? 'now' : '') + '"></i>'; }).join('') + '</div><b class="small">' + (at + 1) + '/' + pool.length + '</b></div>' +
-        '<span class="eyebrow">' + esc(label) + (daily && byId[q.topic] ? ' · ' + esc(byId[q.topic].title) : '') + '</span><h1 tabindex="-1" style="font-size:22px">' + inline(q.question) + '</h1>' +
+        '<span class="eyebrow">' + esc(label) + (daily && byId[q.topic] ? ' · ' + esc(byId[q.topic].title) : '') + '</span>' +
+        (KINDS[q.kind] ? '<div><span class="pill Medium">' + KINDS[q.kind] + '</span></div>' : '') +
+        '<h1 tabindex="-1" style="font-size:22px">' + inline(q.question) + '</h1>' +
         (q.code ? '<pre tabindex="0"><code>' + esc(q.code) + '</code></pre>' : '') +
         '<div class="options">' + q.options.map(function (o, i) { return '<button type="button" class="option" data-i="' + i + '"><b>' + 'ABCDEF'[i] + '</b><span>' + inline(o) + '</span></button>'; }).join('') + '</div>' +
-        '<div id="feedback" aria-live="polite"></div>';
+        '<div id="feedback" aria-live="polite"></div>' +
+        reportLink('quiz-' + q.id, byId[q.topic] ? byId[q.topic].title : '', q.question);
       box.querySelectorAll('.option').forEach(function (b) {
         b.onclick = function () {
           var pick = Number(b.dataset.i), right = pick === q.answer;

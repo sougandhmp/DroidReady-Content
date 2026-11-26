@@ -374,7 +374,7 @@ class Tracker @JvmOverloads constructor(          // Java gets Tracker(String), 
 
 **Follow-ups:**
 
-- *Why does a custom View need `@JvmOverloads`?* The framework calls Java-style constructors (`Context`, `AttributeSet`); default arguments alone don't create them.
+- *Why do custom Views often use `@JvmOverloads`?* The framework calls Java-style constructors (`Context`, `AttributeSet`), and default arguments alone don't create them. You can also write the constructors yourself, which is safer when the parent class applies a default style.
 - *What happens if Java passes null to a non-null Kotlin parameter?* An immediate `NullPointerException` naming the parameter.
 
 ### 1.14 What's new in Kotlin 2.2 and 2.3
@@ -410,7 +410,7 @@ for (batch in batches) batch.items.forEach { if (it.isCorrupt) continue; upload(
 6. **What is a higher-order function, and why is it better than a Java callback interface?** A function that takes or returns a function. Kotlin has real function types, so you don't need an interface per callback, lambdas are short, and `inline` removes the allocation. {Easy}
 7. **What is a lambda with a receiver, and where have you used one?** Its type is `A.() -> R`, so inside the lambda `this` is the receiver. It powers `apply`, `buildString`, Compose scopes like `LazyListScope`, and the Gradle Kotlin DSL. {Medium}
 8. **How can a lambda leak an Activity?** It captures the Activity or `this`. If a longer-lived object keeps the lambda, such as a singleton listener or a delayed Handler callback, the Activity can't be garbage collected. {Medium}
-9. **What does `@JvmOverloads` do?** Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates the shorter overloads; custom View constructors need it. {Easy}
+9. **What does `@JvmOverloads` do?** Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates the shorter overloads. It's a common shortcut for custom View constructors, but check that each one still calls the right superclass constructor, or the view can lose its default style. {Easy}
 10. **What are guard conditions in `when`?** Since Kotlin 2.2, a branch of a `when` with a subject can add an `if`, like `is Failed if state.canRetry ->`, instead of nesting another `if`. {Easy}
 11. **What is a companion object, and how is it different from Java `static`?** One object per class, created when the class loads, whose members you call through the class name. Unlike statics it is a real object that can implement interfaces; use `const`, `@JvmField` or `@JvmStatic` for true statics. {Easy}
 12. **How do you choose between `let`, `run`, `with`, `apply` and `also`?** Ask two questions: do I want the object back (`apply` to configure, `also` for side effects) or a result (`let` for nullable values, `run` or `with` to compute)? And does `this` or `it` read better? {Easy}

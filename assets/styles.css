@@ -114,6 +114,13 @@ tr:last-child td { border-bottom: 0; }
 .week div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; font-size: 11px; color: var(--muted); }
 .week i { width: 100%; max-width: 28px; border-radius: 6px; background: #A9D8BC; }
 .week div:last-child i { background: var(--primary); }
+.note p { margin: 8px 0 0; }
+.note.why .eyebrow { color: var(--on-soft); }
+.note.mistake .eyebrow { color: var(--on-warn); }
+#answer[hidden] { display: none; }
+#answer:focus { outline: none; }
+.report { align-self: center; font-size: 14px; font-weight: 600; padding: 10px; }
+.chip { min-height: 44px; }
 footer { margin-top: 40px; }
 
 @media (max-width: 640px) {
