@@ -81,5 +81,13 @@
     "why": "It tests the concept apart from any library.",
     "mistake": "Calling any object registry dependency injection.",
     "followUp": "How would you spot a service locator in code review?"
+  },
+  "How do you inject dependencies into a class Hilt doesn't support directly, like a `ContentProvider`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It checks whether you know how Hilt bridges into non-Hilt classes and SDKs.",
+    "mistake": "Storing a dependency in a static field on `Application` instead of using an `@EntryPoint`.",
+    "followUp": "Which component should that `@EntryPoint` be installed in?"
   }
 }

@@ -49,7 +49,7 @@
       "number": 6,
       "title": "Dependency injection",
       "path": "topics/06-dependency-injection.md",
-      "sha256": "f93b7e5d3befeaf7046dbe9bcc2776e07d18400452d309737de6472e4e896bf1"
+      "sha256": "679fbbad9223b38bc34104f486154d3bde713bcec8e3f45cc1fe6c7701e75817"
     },
     {
       "id": "data-layer",
@@ -70,7 +70,7 @@
       "number": 9,
       "title": "Performance",
       "path": "topics/09-performance.md",
-      "sha256": "318b365f292041b7cbf4739980d8f22e3f2bf5c58c839648f02bfa1e55b92d9a"
+      "sha256": "e226464086baa28f6ef88de33aaa37b326c567a0e7bb74ef338ae7bea75476cc"
     },
     {
       "id": "testing",
@@ -98,7 +98,7 @@
       "number": 13,
       "title": "Mobile system design",
       "path": "topics/13-system-design.md",
-      "sha256": "c1b5435308c11b50fd42fba423b46a41324be7b53a7dbfc2de6371b960f72f7e"
+      "sha256": "7444c156329ecb0cbdb9bd6a7a94dfddbdca65679c0b47f8bd5d2d1b908ee859"
     },
     {
       "id": "modern-platform",
@@ -126,7 +126,7 @@
       "number": 17,
       "title": "Rapid-fire Q&A and final checklist",
       "path": "topics/17-rapid-fire.md",
-      "sha256": "4c0f3a836bab4125fbf3123a5225791b1129213bc6e5a1def572121a3520b794"
+      "sha256": "aa3dc802a6a9dbf42a0bec16fa872e9fb99ad98703520dee97287ed44818dd28"
     },
     {
       "id": "jvm-concurrency-patterns",
@@ -138,6 +138,6 @@
   ],
   "quiz": {
     "path": "quiz.json",
-    "sha256": "08d68f648eab1c3904e0364d4f9e7083dc135a608124c4bf89bafc1b3b8b75ce"
+    "sha256": "c1af12f83dac0b1abec76696d8a84b5d3235cef0ab36259ab9b385c7d277f9b1"
   }
 }

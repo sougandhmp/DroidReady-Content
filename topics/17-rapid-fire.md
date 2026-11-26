@@ -17,7 +17,6 @@ Some interviews open with quick questions to check the basics. Answer in one sen
 | Cold vs hot Flow? | A cold flow starts fresh for each collector; a hot flow runs whether or not anyone collects | Easy |
 | When do you use `flatMapLatest`? | Search as you type: a new query cancels the previous search | Medium |
 | `collectAsStateWithLifecycle` vs `collectAsState`? | The lifecycle version stops collecting when the app goes to the background | Easy |
-| `remember` vs `rememberSaveable`? | `remember` survives recomposition; `rememberSaveable` also survives rotation and process death | Easy |
 | What is `derivedStateOf` for? | State computed from other state that changes less often than its inputs, so it avoids extra recompositions | Medium |
 | What makes a type stable in Compose? | It's immutable, or it tells Compose when it changes; all public properties are `val` and stable themselves | Medium |
 | Does a ViewModel survive process death? | No; use `SavedStateHandle` for small UI state and a database for real data | Easy |
@@ -28,7 +27,6 @@ Some interviews open with quick questions to check the basics. Answer in one sen
 | `Service` vs WorkManager? | A `Service` runs on the main thread and you manage its work and lifetime; WorkManager is for deferrable work that must be guaranteed; `IntentService` is deprecated | Easy |
 | `Dispatchers.IO` vs `Default`? | `IO` is for blocking I/O and has many threads; `Default` is for CPU work and has one thread per core | Easy |
 | What are the ANR thresholds? | About 5 seconds for input and about 10 seconds for a foreground broadcast receiver | Easy |
-| What is a baseline profile? | A list of critical code paths shipped with the app so they're compiled ahead of time, making startup and scrolling faster | Medium |
 | What does R8 do? | It shrinks, obfuscates and optimises code; anything used by reflection needs keep rules | Easy |
 | `@Binds` vs `@Provides`? | `@Binds` maps an interface to an implementation with no code; `@Provides` is a function you write to build the object | Medium |
 | Hilt scope for an object shared only within one screen's ViewModel? | `@ViewModelScoped` | Medium |

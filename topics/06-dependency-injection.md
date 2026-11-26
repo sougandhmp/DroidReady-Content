@@ -136,6 +136,28 @@ abstract class FakeDataModule {
 
 - *Do unit tests need Hilt?* Usually not. With constructor injection, the test creates the class and passes fakes.
 
+### 6.6 Entry points and WorkManager
+
+**In one line:** use `@EntryPoint` when a class Hilt can't inject directly needs something from the graph, and `@HiltWorker` for WorkManager workers.
+
+**Say this in the interview:** "Hilt can't generate code for classes it doesn't control, such as a `ContentProvider`, an App Startup `Initializer`, or a third-party library class. For those, I define an `@EntryPoint` interface installed in the right component, usually `SingletonComponent`, and fetch it with `EntryPointAccessors.fromApplication`. For WorkManager, I annotate the worker with `@HiltWorker`, use `@AssistedInject`, and configure `HiltWorkerFactory` in the Application class."
+
+**Example:**
+
+```kotlin
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface SyncEntryPoint { fun repository(): ArticleRepository }
+
+val repo = EntryPointAccessors.fromApplication(context, SyncEntryPoint::class.java).repository()
+```
+
+**Common mistake:** Creating a custom `Worker` with `@Inject constructor` without `@HiltWorker` and `@AssistedInject`, so `Context` and `WorkerParameters` fail to bind.
+
+**Follow-ups:**
+
+- *When do you need `EntryPointAccessors`?* Whenever a class outside Hilt's supported Android types needs to pull a dependency from a Hilt component.
+
 ### Interview questions
 
 1. **What is dependency injection, and what problem does it solve?** A class receives its dependencies instead of creating them. It makes code testable (swap in fakes), reusable, and gives clear control over object lifetimes. {Easy}
@@ -148,3 +170,4 @@ abstract class FakeDataModule {
 8. **How do you replace a dependency with a fake in Hilt tests?** Use `@TestInstallIn(replaces = [...])` or `@UninstallModules` plus a test module that binds the fake. {Medium}
 9. **Hilt or Koin?** Hilt (Dagger) checks the graph at compile time and is fast at runtime but needs code generation. Koin is simpler and multiplatform but resolves at runtime, so errors appear when the app runs. {Medium}
 10. **What is the difference between DI and a service locator?** DI pushes dependencies in, so they're visible in the constructor. A service locator is pulled from inside the class, which hides dependencies and makes testing harder. {Easy}
+11. **How do you inject dependencies into a class Hilt doesn't support directly, like a `ContentProvider`?** Define an `@EntryPoint` interface installed in `SingletonComponent` and retrieve it via `EntryPointAccessors.fromApplication(context, ...)`. {Medium}

@@ -167,6 +167,25 @@ override fun onDraw(canvas: Canvas) { canvas.drawText(label, x, y, paint) }
 
 - *Why batch network and background work?* Fewer wake-ups let the radio and processor stay idle longer, which saves battery.
 
+### 9.8 Bitmaps, image loading and 16 KB page sizes
+
+**In one line:** decode images at the size the screen actually displays, reuse caches via Coil, and align native libraries for 16 KB memory pages.
+
+**Say this in the interview:** "A 12-megapixel photo decoded at full size takes ~48 MB of RAM in ARGB_8888, even in a 100 dp thumbnail. I use Coil, which downsamples to the target view size, caches bitmaps in an LRU memory and disk cache, and cancels requests when a composable or view leaves the screen. On native performance and compatibility, newer Android devices use 16 KB memory pages instead of 4 KB, so any NDK or third-party `.so` library must be built with 16 KB ELF alignment."
+
+**Example:**
+
+```kotlin
+// Coil automatically sizes the decode to the composable's layout constraints
+AsyncImage(model = ImageRequest.Builder(context).data(url).crossfade(true).build(), contentDescription = null)
+```
+
+**Common mistake:** Decoding raw bitmaps with `BitmapFactory.decodeFile` without `inSampleSize` or target bounds.
+
+**Follow-ups:**
+
+- *Why does a 4000x3000 JPEG use ~48 MB in memory even if the file is 2 MB?* JPEG is compressed on disk; in memory each pixel needs 4 bytes (`ARGB_8888`).
+
 ### Interview questions
 
 1. **How would you investigate a slow screen?** Reproduce on a low-end device with a release build, record a Perfetto trace or check Compose recomposition counts, find the long frames and what runs in them, fix it, then add a Macrobenchmark frame-timing test so it doesn't regress. {Medium}
@@ -178,3 +197,4 @@ override fun onDraw(canvas: Canvas) { canvas.drawText(label, x, y, paint) }
 7. **What does R8 do, and what can go wrong?** It removes unused code, renames and optimises the rest. Code accessed by reflection can be removed or renamed by mistake, so it needs keep rules; upload the mapping file to read crash reports. {Medium}
 8. **An SDK adds 300 ms to startup. What do you do?** Measure it alone, initialise it lazily or after the first frame on a background thread, talk to the vendor, or remove it, and show the before and after numbers. {Hard}
 9. **What is the difference between a memory leak and high memory use?** A leak grows over time because unneeded objects stay reachable. High use can be legitimate, like big caches or bitmaps, and is fixed by sizing them, not by breaking references. {Medium}
+10. **Why can loading a full-resolution photo cause an `OutOfMemoryError`, and how do you prevent it?** Compressed JPEGs expand to 4 bytes per pixel in memory (`ARGB_8888`). Downsample to the target display size using an image loader like Coil or `BitmapFactory.Options.inSampleSize`. {Medium}
