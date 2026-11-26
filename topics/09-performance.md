@@ -152,6 +152,15 @@ override fun onDraw(canvas: Canvas) { canvas.drawText(label, x, y, paint) }
 
 **Say this in the interview:** "For size I publish an App Bundle so each device gets only what it needs, turn on R8 and resource shrinking, use vector or WebP images, and move rarely used features into dynamic modules. For network I paginate, compress, cache with ETags and batch requests. For battery I let WorkManager batch background work, avoid wakelocks, and request location at the lowest accuracy and frequency that works."
 
+**Example, an illustrative plan for "our app uses too much data and battery":**
+
+1. **Measure first:** record bytes per session, request count and background wake-ups on a release build.
+2. **Polling every 30 seconds:** replace it with a push message that schedules a sync.
+3. **Full-size images:** request the size the screen shows, and cache the result.
+4. **One huge list response:** page it with a cursor.
+5. **Frequent high-accuracy location:** lower the accuracy and frequency, and stop updates when the feature isn't in use.
+6. **Verify:** repeat the same measurements, then watch Android vitals after release.
+
 **Common mistake:** Polling on a short timer when a push or batched background work would do.
 
 **Follow-ups:**

@@ -126,6 +126,15 @@ fun handleDeepLink(uri: Uri) {
 
 **Say this in the interview:** "For sensitive actions I send a Play Integrity token to my server, which verifies the app and device are genuine before trusting the request. Obfuscation with R8 and root detection only raise the bar. On privacy, I request the fewest permissions at the moment they're needed, prefer the Photo Picker and approximate location, fill in Play's Data safety form accurately including SDKs, support account and data deletion, and respect consent rules like GDPR."
 
+**Example, checking a purchase with a standard Play Integrity request:**
+
+1. Early on, the app prepares an integrity token provider, so later requests are quick.
+2. When the user buys, the app hashes the request details and asks for a token with that `requestHash`.
+3. The app sends the token and the purchase request to your server.
+4. The server has Google Play decrypt and verify the token.
+5. The server checks that the package name and request hash match, then reads the verdicts.
+6. The server decides: allow, ask for another check, or refuse.
+
 **Common mistake:** Checking the integrity result only on the device, where it can be tampered with.
 
 **Follow-ups:**

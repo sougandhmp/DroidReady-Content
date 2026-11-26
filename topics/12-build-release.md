@@ -28,6 +28,18 @@ android { namespace = "com.example.feature.settings" }
 
 **Say this in the interview:** "I start with a Build Scan or the Build Analyzer to see whether time goes into configuration or execution. Then I enable the configuration cache and build cache, including a remote cache for CI, replace kapt with KSP, use non-transitive R classes, give Gradle enough memory, and split large modules so a change recompiles fewer of them. I track build time as a team metric."
 
+**Example:** common settings in `gradle.properties`. Change one at a time and measure:
+
+```properties
+org.gradle.configuration-cache=true
+org.gradle.caching=true
+org.gradle.parallel=true
+org.gradle.jvmargs=-Xmx4g
+android.nonTransitiveRClass=true
+```
+
+Run `./gradlew :app:assembleDebug --profile` before and after, and compare the local reports.
+
 **Common mistake:** Changing many settings at once without profiling, so you can't tell what helped.
 
 **Follow-ups:**
@@ -103,6 +115,25 @@ if (flags.isEnabled(Flag.NEW_CHECKOUT)) NewCheckoutScreen() else LegacyCheckoutS
 
 **Say this in the interview:** "With an App Bundle, each device downloads only its density, CPU architecture and languages, so installs are smaller, and bundles are required for new apps on Play. For a large, rarely used feature I can use an on-demand dynamic feature module, accepting more complex navigation and testing. The in-app updates API gives flexible updates in the background or immediate full-screen updates for critical fixes. The in-app review API shows Play's rating sheet, but Play limits how often it appears, so I ask after a positive moment and never from a 'rate us' button."
 
+**Example, starting a flexible in-app update:**
+
+```kotlin
+fun offerUpdate(activity: Activity, launcher: ActivityResultLauncher<IntentSenderRequest>) {
+    val updates = AppUpdateManagerFactory.create(activity)
+    updates.appUpdateInfo.addOnSuccessListener { info ->
+        if (info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
+            info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+        ) {
+            updates.startUpdateFlowForResult(
+                info, launcher, AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build()
+            )
+        }
+    }
+}
+```
+
+A flexible update downloads in the background. Listen for the downloaded state, then ask the user to restart and call `completeUpdate()`.
+
 **Common mistake:** Assuming a module downloaded on demand is always available. The download can fail.
 
 **Follow-ups:**
@@ -135,6 +166,28 @@ public object Analytics {
 **In one line:** measure the app in production: crashes, ANRs, performance and key user journeys.
 
 **Say this in the interview:** "I use Crashlytics or Sentry for crashes and non-fatal errors with context, Play vitals for ANRs and startup, custom traces around key journeys, and structured analytics events. Each release has a dashboard, and we alert when crash-free users drop below our target, for example 99.8 percent."
+
+**Example:**
+
+```kotlin
+// A small interface keeps the vendor SDK out of feature code
+interface CrashReporter {
+    fun setKey(name: String, value: String)
+    fun recordNonFatal(error: Throwable)
+}
+
+class Checkout(private val reporter: CrashReporter, private val pay: suspend (Int) -> Unit) {
+    suspend fun submit(totalCents: Int, itemCount: Int) {
+        reporter.setKey("item_count", itemCount.toString())   // context, with no personal data
+        try {
+            pay(totalCents)
+        } catch (e: IOException) {
+            reporter.recordNonFatal(e)                        // handled, but worth counting
+            throw e
+        }
+    }
+}
+```
 
 **Common mistake:** Collecting logs and crashes with no alerts or owner, or putting personal data in them.
 

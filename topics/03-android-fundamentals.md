@@ -105,6 +105,30 @@ class SignUpViewModel @Inject constructor(private val state: SavedStateHandle) :
 
 **Say this in the interview:** "`ComponentActivity` hands its `ViewModelStore` to the new instance during a configuration change, so `by viewModels()` returns the same object. When the Activity really finishes, `onCleared()` is called and `viewModelScope` is cancelled. Because the ViewModel outlives the Activity, it must never hold a reference to an Activity, Fragment, View or Context, or it leaks them."
 
+**Example:**
+
+```kotlin
+class CounterViewModel : ViewModel() {
+    var launches = 0
+
+    override fun onCleared() {
+        Log.d("Counter", "cleared")
+    }
+}
+
+class CounterActivity : ComponentActivity() {
+    private val viewModel: CounterViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        viewModel.launches++
+        Log.d("Counter", "activity ${hashCode()}, viewModel ${viewModel.hashCode()}, ${viewModel.launches}")
+    }
+}
+```
+
+Rotate the screen: the log shows a different Activity hash, the same ViewModel hash and a higher count. Call `finish()`, and `onCleared()` runs.
+
 **Common mistake:** Passing an Activity or View into a ViewModel, which keeps it alive after the screen is recreated.
 
 **Follow-ups:**
@@ -157,6 +181,31 @@ startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Opera+House")))   
 
 **Say this in the interview:** "`standard` creates a new instance every time; `singleTop` reuses the activity if it's already on top and calls `onNewIntent`; `singleTask` keeps one instance per task and clears what's above it; `singleInstance` puts it alone in its own task. In a modern single-activity app, these matter mainly for deep links and notifications, where `singleTop` avoids stacking duplicate screens."
 
+**Example:** what happens to a back stack (the top is on the right):
+
+| Stack before | Start | Launch mode of the started activity | Stack after |
+| --- | --- | --- | --- |
+| A, B | B | `standard` | A, B, B |
+| A, B | B | `singleTop` | A, B (`onNewIntent`) |
+| A, B, C | B | `singleTask`, same task affinity | A, B (`onNewIntent`, C is removed) |
+
+```kotlin
+fun orderIntent(context: Context, orderId: String): Intent =
+    Intent(context, OrdersActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)   // reuse it if it is already on top
+        .putExtra("orderId", orderId)
+
+class OrdersActivity : ComponentActivity() {
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)                            // so getIntent() returns the new one
+        intent.getStringExtra("orderId")?.let(::openOrder)
+    }
+
+    private fun openOrder(id: String) { /* show the order */ }
+}
+```
+
 **Common mistake:** Choosing `singleTask` to stop duplicate screens without checking what it removes from the back stack.
 
 **Follow-ups:**
@@ -168,6 +217,25 @@ startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Opera+House")))   
 **In one line:** the main thread runs a `Looper` that processes a queue of messages: input events, lifecycle callbacks and frame drawing.
 
 **Say this in the interview:** "Everything UI-related runs on the main thread, one message at a time. If I block it, input stops responding; about 5 seconds of that gives an ANR, and even 16 ms per frame causes visible jank at 60 Hz. A `Handler` posts work to a specific looper's queue, and `Dispatchers.Main` uses this under the hood. A `postDelayed` runnable that captures an Activity is a classic leak, so I prefer coroutines tied to a lifecycle."
+
+**Example:**
+
+```kotlin
+fun showReportWithHandler(textView: TextView) {
+    val mainHandler = Handler(Looper.getMainLooper())
+    thread {
+        val report = buildReport()                    // slow work off the main thread
+        mainHandler.post { textView.text = report }   // touch the UI on the main thread
+    }
+}
+
+// The same with a coroutine, which is cancelled when the lifecycle is destroyed
+fun LifecycleOwner.showReport(textView: TextView) {
+    lifecycleScope.launch {
+        textView.text = withContext(Dispatchers.Default) { buildReport() }
+    }
+}
+```
 
 **Common mistake:** Thinking `Handler.post` runs work in the background. It runs on the handler's looper, often the main thread.
 
@@ -181,6 +249,22 @@ startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Opera+House")))   
 
 **Say this in the interview:** "There are two main kinds. The application context lives as long as the process, so it's safe for singletons, Room or DataStore. An Activity context has the theme and is needed for UI, dialogs and inflation, but it dies with the screen, so storing it in anything long-lived leaks the whole Activity."
 
+**Example:**
+
+```kotlin
+// Long-lived: keep only the application context
+class FileStore(context: Context) {
+    private val appContext = context.applicationContext
+
+    fun cachedFile(name: String) = File(appContext.cacheDir, name)
+}
+
+// UI: use the Activity, which carries the theme and the window
+fun confirmDelete(activity: Activity) {
+    AlertDialog.Builder(activity).setMessage("Delete this item?").show()
+}
+```
+
 **Common mistake:** Using the application context to inflate themed UI or show a dialog.
 
 **Follow-ups:**
@@ -192,6 +276,26 @@ startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Opera+House")))   
 **In one line:** Binder is Android's mechanism for calls between processes, and `Parcelable` is the fast format for sending data across it.
 
 **Say this in the interview:** "Each app runs in its own process, so even `startActivity` is a Binder call to the system server. Data crossing Binder is written to a `Parcel`, which is why intent extras must be `Parcelable` or primitives; I generate it with `@Parcelize`. Binder calls are synchronous by default, so a slow system service called on the main thread can cause an ANR. For my own cross-app APIs I'd use a bound service with AIDL or a `Messenger`."
+
+**Example:**
+
+```kotlin
+@Parcelize   // needs the kotlin-parcelize Gradle plugin
+data class SearchFilter(val query: String, val maxPrice: Int) : Parcelable
+
+fun openResults(context: Context, filter: SearchFilter) {
+    context.startActivity(
+        Intent(context, ResultsActivity::class.java).putExtra("filter", filter)
+    )
+}
+
+class ResultsActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val filter = IntentCompat.getParcelableExtra(intent, "filter", SearchFilter::class.java)
+    }
+}
+```
 
 **Common mistake:** Passing large objects or bitmaps in intent extras. Pass an ID and load the data instead.
 

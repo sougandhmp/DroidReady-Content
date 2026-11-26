@@ -265,6 +265,8 @@ suspend fun <T> retryWithBackoff(
 
 **In one line:** many practical rounds show broken Android code; these five bugs come up again and again.
 
+**Say this in the interview:** "First I'll say what this code should do and what it does instead. Then I'll check the usual causes: lifecycle, threading, cancellation, shared mutable state and repeated work during recomposition. When I find the problem, I'll explain why it happens, make the smallest fix and say how I'd test it."
+
 **Example:**
 
 ```kotlin

@@ -103,6 +103,8 @@ At senior level this round can veto an otherwise strong technical result. Prepar
 
 **In one line:** good questions show you think like an owner and help you judge the team.
 
+**Say this in the interview:** "I have a few questions about how the team works. How are architecture decisions made and recorded? What does the release process look like? And what would success look like in this role after six months?"
+
 **Example:**
 
 - How are architecture decisions made and recorded here?

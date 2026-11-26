@@ -84,6 +84,20 @@ ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.F
 
 **Say this in the interview:** "For an alarm clock or a calendar reminder I use `setExactAndAllowWhileIdle`, which also fires in Doze. Since Android 12 that needs the `SCHEDULE_EXACT_ALARM` permission, which the user can revoke, so I check `canScheduleExactAlarms()` first. Alarms are cleared on reboot, so I listen for `BOOT_COMPLETED` and reschedule from the database. Anything that doesn't need an exact time uses inexact alarms or WorkManager."
 
+**Example:**
+
+```kotlin
+/** Returns false if the app may not schedule exact alarms. */
+fun scheduleReminder(context: Context, triggerAtMillis: Long, operation: PendingIntent): Boolean {
+    val alarms = context.getSystemService(AlarmManager::class.java)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarms.canScheduleExactAlarms()) {
+        return false   // explain why and offer Settings, or use an inexact alarm
+    }
+    alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, operation)
+    return true
+}
+```
+
 **Common mistake:** Using exact alarms for routine syncing.
 
 **Follow-ups:**
@@ -95,6 +109,18 @@ ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.F
 **In one line:** when the phone is idle, Doze delays network, jobs and alarms to maintenance windows, and App Standby Buckets limit rarely used apps.
 
 **Say this in the interview:** "When the device is unplugged and still, Doze batches background work into short maintenance windows, and normal alarms are delayed. App Standby Buckets give apps fewer jobs the less the user opens them. This is why I let WorkManager decide when to run, and use high-priority push messages only for truly urgent, user-visible events. I test with `adb shell dumpsys deviceidle force-idle`."
+
+**Example:** test your background work under Doze and App Standby on a test device or emulator:
+
+```bash
+adb shell dumpsys battery unplug                         # pretend the device is not charging
+adb shell dumpsys deviceidle force-idle                  # enter Doze now
+adb shell dumpsys deviceidle unforce                     # leave forced idle
+adb shell dumpsys battery reset                          # restore the real battery state
+
+adb shell am set-standby-bucket com.example.app rare     # treat the app as rarely used
+adb shell am get-standby-bucket com.example.app
+```
 
 **Common mistake:** Testing only on a charging, active phone, so delays from Doze never show up.
 

@@ -150,6 +150,24 @@ class MainDispatcherRule(val dispatcher: TestDispatcher = UnconfinedTestDispatch
 
 **Say this in the interview:** "I use test-first for business rules, reducers and every bug fix: the test that reproduces the bug comes first, so it can never return. For UI layout I write tests after the design settles. Flaky tests usually come from real time, `Thread.sleep`, animations, shared state between tests or real network calls, so I inject clocks and dispatchers, use virtual time, disable animations and keep tests hermetic with fakes. I quarantine a flaky test and fix it, rather than retrying silently."
 
+**Example:** fixing the bug "a full discount plus a coupon gives a negative total", test first:
+
+```kotlin
+// 1. Write a test that fails because of the bug
+class TotalTest {
+    @Test
+    fun totalIsNeverNegative() {
+        assertEquals(0, totalCents(priceCents = 500, discountPercent = 100, couponCents = 100))
+    }
+}
+
+// 2. Make the smallest fix that passes it: coerceAtLeast(0)
+fun totalCents(priceCents: Int, discountPercent: Int, couponCents: Int): Int =
+    (priceCents * (100 - discountPercent) / 100 - couponCents).coerceAtLeast(0)
+
+// 3. Refactor if needed, with the test still passing
+```
+
 **Common mistake:** Fixing a flaky test with a longer sleep or automatic retries.
 
 **Follow-ups:**

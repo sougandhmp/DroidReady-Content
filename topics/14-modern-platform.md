@@ -147,6 +147,26 @@ actual fun platformName(): String = UIDevice.currentDevice.systemName()
 
 **Say this in the interview:** "For generative features on supported devices I'd look at Gemini Nano through the ML Kit GenAI APIs, which run on AICore, and ML Kit for vision tasks like text recognition or barcode scanning. Data stays on the device, there's no network delay and it works offline. But not every device supports it, so I check availability and fall back to a server model or hide the feature. Android 17's AppFunctions also let apps expose their features to on-device assistants."
 
+**Example:** keep the choice of model behind an interface, with a fallback:
+
+```kotlin
+interface Summarizer {
+    suspend fun isAvailable(): Boolean
+    suspend fun summarize(text: String): String
+}
+
+class SummarizeNote(private val onDevice: Summarizer, private val server: Summarizer?) {
+    /** Null means that the app should hide the feature. */
+    suspend operator fun invoke(text: String): String? = when {
+        onDevice.isAvailable() -> onDevice.summarize(text)
+        server != null && server.isAvailable() -> server.summarize(text)
+        else -> null
+    }
+}
+```
+
+Pass a server model only if the user's data is allowed to leave the device.
+
 **Common mistake:** Assuming every device can run the model.
 
 **Follow-ups:**
@@ -218,6 +238,8 @@ AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fr")) 
 ### 14.9 Other modern APIs worth naming
 
 **In one line:** know what each modern Jetpack or platform API is for, even if you haven't used it deeply.
+
+**Say this in the interview:** "I try to know what problem each newer API solves. For sign-in I'd look at Credential Manager, for picking images the Photo Picker, for media playback Media3, and for camera features CameraX. If I haven't used one in production, I say so, and explain what I'd check before adopting it, such as the Android versions and devices it supports."
 
 **Example:**
 

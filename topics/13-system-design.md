@@ -96,6 +96,8 @@ POST /posts/{id}/like                   (idempotent)
 
 **In one line:** clarify scope, name the hardest problem early, propose a concrete approach with its trade-off, and let the interviewer steer.
 
+**Say this in the interview:** "Before I design anything, I'd like to check what users need to do, whether it has to work offline, and roughly how much data there is. Once we agree on that, I'll name what I think is the hardest part, suggest an approach and its main trade-off, and then check which area you'd like me to go into."
+
 **Example:**
 
 - **Interviewer:** Design an offline-capable notes app.

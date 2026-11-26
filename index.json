@@ -28,14 +28,14 @@
       "number": 3,
       "title": "Android fundamentals",
       "path": "topics/03-android-fundamentals.md",
-      "sha256": "a4683678563afd27bea64a149e4543e47953a3e6422ae924eca24895208af2b6"
+      "sha256": "99ed1d351f1eb03272a4f08a59a11e848729e2777d0ec109759f8392beb5d8eb"
     },
     {
       "id": "jetpack-compose",
       "number": 4,
       "title": "Jetpack Compose",
       "path": "topics/04-jetpack-compose.md",
-      "sha256": "5438ee1abe549b67e94cc4e01252b4d9b4f15aae54c7a156c759624c5359fdf4"
+      "sha256": "dc96a81bb14154b5bbf9eee141d457b8bd193a5903e1840ee09438cedf0f16ac"
     },
     {
       "id": "architecture",
@@ -63,63 +63,63 @@
       "number": 8,
       "title": "Background work",
       "path": "topics/08-background-work.md",
-      "sha256": "9bde7856480a629f856bb54448fe18ba52edf854a8af1163ba0b56b7ce4b835c"
+      "sha256": "c246f09d498fc33449e2428626f10a555c184eb524bbebadc7b8fc4f5ab85002"
     },
     {
       "id": "performance",
       "number": 9,
       "title": "Performance",
       "path": "topics/09-performance.md",
-      "sha256": "fa2dd076694ad2fc052d30747b890d787e78aed92aa83a18a2eefc23c242b131"
+      "sha256": "318b365f292041b7cbf4739980d8f22e3f2bf5c58c839648f02bfa1e55b92d9a"
     },
     {
       "id": "testing",
       "number": 10,
       "title": "Testing",
       "path": "topics/10-testing.md",
-      "sha256": "9c139e229e85a92399aca8e2e9f314ab4358bf1c73e333d4757bd8471aa2b917"
+      "sha256": "9dc0b357d804ee9b05f4ead8fca18b4081a425dcd5e5fd0ac0374cd15db3a587"
     },
     {
       "id": "security-privacy",
       "number": 11,
       "title": "Security and privacy",
       "path": "topics/11-security-privacy.md",
-      "sha256": "5beb21a6e9f098ca009e3f612fc905c0c13c1615be6800b35f6d63383fb272f3"
+      "sha256": "de3800b265e3475c9ea10a55d56c5352bad683ca45e97ddd6f43567c05a1c85d"
     },
     {
       "id": "build-release",
       "number": 12,
       "title": "Build, release and SDKs",
       "path": "topics/12-build-release.md",
-      "sha256": "864ff26f52fdcc15e6b7f3f4225594bf0bdda1fb5a5472cf731af02ad0236743"
+      "sha256": "7d54c510a211da970609d97d36733ae2b7ff2334562ebbf62b97bb9cddc4690a"
     },
     {
       "id": "system-design",
       "number": 13,
       "title": "Mobile system design",
       "path": "topics/13-system-design.md",
-      "sha256": "0b545dcb7d97b03057a67f4089740a9034f510b73892f5240ffdc3f691146ccb"
+      "sha256": "c1b5435308c11b50fd42fba423b46a41324be7b53a7dbfc2de6371b960f72f7e"
     },
     {
       "id": "modern-platform",
       "number": 14,
       "title": "Modern platform topics",
       "path": "topics/14-modern-platform.md",
-      "sha256": "f7c5d16981bd74c994ea2ca54aa70319fd466e72a08afe31701256b012671600"
+      "sha256": "598abcfa1e69f386ff72ae5506a3690febdbd99c0df6f1f0836ff63abb5aabe5"
     },
     {
       "id": "leadership",
       "number": 15,
       "title": "Leadership and behavioural",
       "path": "topics/15-leadership.md",
-      "sha256": "71d3e88d3674a139e9765b605299a07106293af636155be1ff013b817ed6850a"
+      "sha256": "cab51753f9b636b334f79e4fc8a7ac8e209cc7d70e1db4a7dfff0bf60f9f8f74"
     },
     {
       "id": "coding-round",
       "number": 16,
       "title": "Coding round",
       "path": "topics/16-coding-round.md",
-      "sha256": "ae7dfc240a6d4e97a0bcff902e1279cb9c7b5cbbc4e0bbe6367a2cb8f296725e"
+      "sha256": "d14196bab93d26fcc1fed8fa976f80190d73af71251a0b2fdf50937126a6a051"
     },
     {
       "id": "rapid-fire",

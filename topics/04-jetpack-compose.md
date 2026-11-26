@@ -224,6 +224,28 @@ AnimatedVisibility(visible = state.error != null) { ErrorBanner(state.error) }
 
 **Say this in the interview:** "I'd never rewrite a whole app at once. I start with new screens in Compose, then migrate leaf components and whole screens one by one, sharing the theme between both systems. Views with no Compose equivalent, like a map or an ad view, stay inside `AndroidView`. I measure performance before and after each step."
 
+**Example:**
+
+```kotlin
+// Compose inside a Fragment that is part of a View-based app
+class ProfileFragment : Fragment() {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
+        ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent { Text("Profile") }
+        }
+}
+
+// A View inside Compose
+@Composable
+fun Stars(rating: Float) {
+    AndroidView(
+        factory = { context -> RatingBar(context) },   // creates the View
+        update = { view -> view.rating = rating },     // runs again when state it reads changes
+    )
+}
+```
+
 **Common mistake:** Planning a full rewrite instead of moving screen by screen.
 
 **Follow-ups:**
