@@ -6,7 +6,7 @@ does not need an app release.
 
 ## Website
 
-<https://sougandhmp.github.io/DroidReady-Content/> shows the same content in a
+<https://sougandh.dev/DroidReady-Content/> shows the same content in a
 browser. GitHub Pages serves it from the root of `main`, with no build step:
 `index.html` and `assets/` read `index.json`, `topics/` and `quiz.json` directly,
 so pushing content to `main` updates the site too. Progress and bookmarks are
