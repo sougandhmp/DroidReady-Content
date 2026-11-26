@@ -35,14 +35,14 @@
       "number": 4,
       "title": "Jetpack Compose",
       "path": "topics/04-jetpack-compose.md",
-      "sha256": "dc96a81bb14154b5bbf9eee141d457b8bd193a5903e1840ee09438cedf0f16ac"
+      "sha256": "3382d0bc9da9b1475187e51440394d7792a253bae79b09eac3c5ec96e2924ad3"
     },
     {
       "id": "architecture",
       "number": 5,
       "title": "App architecture and data flow",
       "path": "topics/05-architecture.md",
-      "sha256": "9a909955f1fd2067cf6bd4c383470b9f1bbe147a16b0b48269fa5fdd72845d21"
+      "sha256": "6b4dbc92679aed55bd3cb4c02af8fe71bba2efdd7602f3fe3b06fa62da6566a2"
     },
     {
       "id": "dependency-injection",
@@ -77,7 +77,7 @@
       "number": 10,
       "title": "Testing",
       "path": "topics/10-testing.md",
-      "sha256": "9dc0b357d804ee9b05f4ead8fca18b4081a425dcd5e5fd0ac0374cd15db3a587"
+      "sha256": "8aa50ad3c9aa22646ceab28c88cff29aafbebcee42b657276d575797d7156be0"
     },
     {
       "id": "security-privacy",
@@ -126,7 +126,7 @@
       "number": 17,
       "title": "Rapid-fire Q&A and final checklist",
       "path": "topics/17-rapid-fire.md",
-      "sha256": "1b7a1de756e2922c04a607339c17b371867d6ffd9b42d711413538577fb00e2b"
+      "sha256": "38968be905c63726c054843198a85dc1c7aaba31e77123365bf03ca6ee58b1db"
     },
     {
       "id": "jvm-concurrency-patterns",
@@ -138,6 +138,6 @@
   ],
   "quiz": {
     "path": "quiz.json",
-    "sha256": "84bfb2bf5f03b7706e818fc30c8d8c086dbe310a33f3e8f120e956a8eb3d2c9a"
+    "sha256": "36b77bfe485df7fa98403d7f44dd4195e07bff19b063680509c428e0c1a5cd42"
   }
 }

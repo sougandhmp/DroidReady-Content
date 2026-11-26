@@ -57,6 +57,7 @@ Some interviews open with quick questions to check the basics. Answer in one sen
 
 ### 17.3 Recommended resources
 
+- [Android Developers Training Courses](https://developer.android.com/courses) (Android Basics with Compose, Jetpack Compose, Architecture, Accessibility, KMP)
 - [Guide to app architecture](https://developer.android.com/topic/architecture) and the Now in Android sample app (GitHub: android/nowinandroid)
 - [Kotlin coroutines guide](https://kotlinlang.org/docs/coroutines-guide.html)
 - [Kotlin scope functions](https://kotlinlang.org/docs/scope-functions.html)

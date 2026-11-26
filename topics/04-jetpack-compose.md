@@ -252,6 +252,35 @@ fun Stars(rating: Float) {
 
 - *How do you share a theme during migration?* Keep the same colors, type and shapes defined for both systems, and change them together until the Views are gone.
 
+### 4.11 Material 3 theming and dynamic color
+
+**In one line:** `MaterialTheme` supplies colors, typography and shapes down the tree via `CompositionLocal`, and Android 12+ supports wallpaper-driven dynamic color schemes.
+
+**Say this in the interview:** "I centralize colors, typography and shapes in one `AppTheme` composable that wraps `MaterialTheme`. On Android 12 (API 31) and higher, `dynamicDarkColorScheme(context)` and `dynamicLightColorScheme(context)` pull the user's wallpaper palette; on older versions or when brand colors matter, I fall back to static schemes. Components read `MaterialTheme.colorScheme.primary` or `typography.bodyLarge` instead of hardcoded hex colors, so dark mode, high contrast and theming work everywhere."
+
+**Example:**
+
+```kotlin
+@Composable
+fun AppTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolean = true, content: @Composable () -> Unit) {
+    val scheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val ctx = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+        }
+        darkTheme -> DarkColors
+        else -> LightColors
+    }
+    MaterialTheme(colorScheme = scheme, typography = AppTypography, content = content)
+}
+```
+
+**Common mistake:** Hardcoding `Color(0xFF...)` or `16.sp` directly in screens instead of reading `MaterialTheme.colorScheme` and `MaterialTheme.typography`.
+
+**Follow-ups:**
+
+- *How does `MaterialTheme` pass values without threading parameters everywhere?* Through `CompositionLocal`s (`LocalColorScheme`, `LocalTypography`, `LocalShapes`).
+
 ### Interview questions
 
 1. **What triggers recomposition?** A change to a `State` object that a composable read during composition. Compose tracks those reads and re-runs only the composables that read the changed state. {Easy}
@@ -266,3 +295,4 @@ fun Stars(rating: Float) {
 10. **How would you migrate a large View-based app to Compose?** Screen by screen: new screens in Compose, then leaf components and existing screens, using `ComposeView` and `AndroidView` for interop and a shared theme, measuring performance as you go. {Medium}
 11. **How do you test a composable?** With `createComposeRule()`: set content with fake state, find nodes by text, content description or test tag, perform actions and assert. Stateless composables make this easy. {Easy}
 12. **What is different about Navigation 3?** You own the back stack as a state list of keys, and `NavDisplay` renders it, which simplifies adaptive layouts and keeps navigation state in one place. {Medium}
+13. **How does Material 3 theming and dynamic color work in Jetpack Compose?** `MaterialTheme` provides `colorScheme`, `typography` and `shapes` down the tree via `CompositionLocal`; on Android 12+ (API 31+), `dynamicLightColorScheme` and `dynamicDarkColorScheme` derive the palette from the user's wallpaper, falling back to static schemes on older devices. {Easy}

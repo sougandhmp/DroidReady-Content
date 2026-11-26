@@ -174,6 +174,26 @@ fun totalCents(priceCents: Int, discountPercent: Int, couponCents: Int): Int =
 
 - *What do you do with a flaky test?* Find the source of randomness, such as timing or shared state. If you must quarantine it, give it an owner and a fix.
 
+### 10.8 Compose semantics and accessibility checks
+
+**In one line:** Compose tests query the semantics tree—not Views—so good accessibility labels make tests cleaner, and `useUnmergedTree` inspects merged child nodes.
+
+**Say this in the interview:** "Compose exposes a parallel semantics tree used by both TalkBack and UI tests. Interactive modifiers like `clickable` merge child text nodes so TalkBack reads them as one element; when a test needs an individual child inside a merged button or card, I pass `useUnmergedTree = true`. I prefer `onNodeWithText` and `onNodeWithContentDescription` over test tags, and I enable automated accessibility checks in Compose tests so contrast and touch-target regressions fail in CI."
+
+**Example:**
+
+```kotlin
+// Merged clickable row: use useUnmergedTree = true to assert on a specific child node
+compose.onNodeWithText("Subtitle", useUnmergedTree = true).assertIsDisplayed()
+compose.onNodeWithContentDescription("Add to favourites").performClick()
+```
+
+**Common mistake:** Adding `testTag` to every node instead of using user-facing text and content descriptions, which misses accessibility bugs.
+
+**Follow-ups:**
+
+- *Why does `onNodeWithText` sometimes fail inside a custom clickable card?* Because `clickable` or `semantics(mergeDescendants = true)` merges children; query the merged label or pass `useUnmergedTree = true`.
+
 ### Interview questions
 
 1. **Describe your testing strategy for an Android app.** Many fast unit tests for ViewModels and domain logic, integration tests for Room and the network, a few UI tests for critical journeys, and screenshot tests for the design system, all running in CI. {Medium}
@@ -185,3 +205,4 @@ fun totalCents(priceCents: Int, discountPercent: Int, couponCents: Int): Int =
 7. **What makes tests flaky, and how do you fix it?** Real time and sleeps, animations, shared state, real network and unordered async work. Inject clocks and dispatchers, use virtual time, disable animations and keep tests hermetic. {Medium}
 8. **Do you practise TDD?** Give an honest answer: test-first for business rules, reducers and bug fixes (the reproducing test comes first), and tests after the design settles for UI. {Easy}
 9. **What code coverage do you aim for?** Coverage is a signal, not a target. Aim high on domain and ViewModel logic, cover critical journeys end to end, and use coverage to find untested branches. {Easy}
+10. **How does Compose UI testing find elements, and how do you automate accessibility checks?** Compose tests query the semantics tree by text, content description, role or test tag (passing `useUnmergedTree = true` for children inside merged clickable nodes), and can run accessibility checks in UI tests to catch missing labels, low contrast and small touch targets. {Medium}

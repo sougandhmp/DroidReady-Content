@@ -1714,6 +1714,85 @@
         "junior",
         "senior"
       ]
+    },
+    {
+      "id": "compose-dynamic-color",
+      "topic": "jetpack-compose",
+      "question": "Which API generates a Material 3 color scheme from the user's wallpaper on Android 12+?",
+      "options": [
+        "MaterialTheme.colors",
+        "dynamicLightColorScheme / dynamicDarkColorScheme",
+        "ColorScheme.fromSystem",
+        "AppCompatDelegate.setDynamicTheme"
+      ],
+      "answer": 1,
+      "explanation": "On API 31+ (Android 12+), dynamicLightColorScheme(context) and dynamicDarkColorScheme(context) read the system wallpaper palette.",
+      "why": "Material 3 dynamic color is part of Google's Compose training and modern Android UI design.",
+      "mistake": "Calling dynamic color APIs without checking Build.VERSION.SDK_INT >= Build.VERSION_CODES.S.",
+      "tracks": [
+        "junior"
+      ]
+    },
+    {
+      "id": "compose-bug-semantics-merged",
+      "topic": "jetpack-compose",
+      "question": "Why does onNodeWithText(\"Badge\") fail to find the inner Text here?",
+      "code": "Row(Modifier.clickable { onOpen() }.semantics(mergeDescendants = true) {}) {\n    Text(\"Title\")\n    Text(\"Badge\")\n}",
+      "options": [
+        "Text cannot be inside a Row",
+        "Descendants are merged into one node, so querying a single child requires useUnmergedTree = true",
+        "clickable disables semantics",
+        "onNodeWithText only works for Button"
+      ],
+      "answer": 1,
+      "explanation": "When descendants are merged, the combined node holds the merged text. Pass useUnmergedTree = true to inspect individual child nodes.",
+      "why": "Compose UI tests and TalkBack share the same merged vs. unmerged semantics tree.",
+      "mistake": "Adding redundant testTags instead of understanding merged semantics.",
+      "kind": "bug",
+      "bugLines": [
+        1
+      ],
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "arch-state-holder-choice",
+      "topic": "architecture",
+      "question": "When should you use a plain @Stable state-holder class instead of a ViewModel?",
+      "options": [
+        "When fetching data from Room or Retrofit",
+        "For reusable UI-element logic like scroll, focus, or expand/collapse with no business dependencies",
+        "Whenever you want state to survive process death automatically",
+        "To replace all Hilt modules"
+      ],
+      "answer": 1,
+      "explanation": "Plain state holders manage UI-element state and UI logic inside composition via remember; ViewModels manage screen-level state and data-layer access.",
+      "why": "Google's app architecture guide separates screen-level ViewModels from UI-element state holders.",
+      "mistake": "Pushing pure visual state like tooltip or drawer animation flags into a ViewModel.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "testing-compose-rule",
+      "topic": "testing",
+      "question": "Which Compose test rule tests a stateless composable without launching an Activity?",
+      "options": [
+        "createAndroidComposeRule<MainActivity>()",
+        "createComposeRule()",
+        "ActivityScenarioRule",
+        "InstantTaskExecutorRule"
+      ],
+      "answer": 1,
+      "explanation": "createComposeRule() hosts your composable in an empty test container, which is faster and simpler for stateless UI components.",
+      "why": "Stateless composables let you test UI rendering and callbacks in isolation.",
+      "mistake": "Launching MainActivity with Hilt for every small component test.",
+      "tracks": [
+        "junior"
+      ]
     }
   ]
 }

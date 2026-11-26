@@ -88,5 +88,14 @@
     "why": "Senior roles require changing systems safely, not just designing new ones.",
     "mistake": "Proposing a rewrite without a pilot, measurements or buy-in.",
     "followUp": "How would you measure whether the migration is working?"
+  },
+  "When do you use a plain state-holder class instead of a `ViewModel` in Compose?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It checks that you separate pure UI-element state from screen-level business state.",
+    "mistake": "Using a `ViewModel` for every small widget or injecting repositories into a `remember`ed class.",
+    "followUp": "How do you make a plain state holder survive rotation?"
   }
 }
