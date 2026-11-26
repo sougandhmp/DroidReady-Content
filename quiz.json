@@ -693,6 +693,46 @@
       ],
       "answer": 1,
       "explanation": "Without volatile, the reference can be published before the constructor finishes. The volatile write creates the happens-before edge that prevents this."
+    },
+    {
+      "id": "kotlin-companion-java",
+      "topic": "kotlin",
+      "question": "A Kotlin class has `companion object { fun create(): Foo }`. How does Java call it without any annotation?",
+      "options": [
+        "Foo.create()",
+        "Foo.Companion.create()",
+        "new Foo().create()",
+        "Java can't call it"
+      ],
+      "answer": 1,
+      "explanation": "The companion is compiled to a nested class with a static `Companion` field. Add `@JvmStatic` to allow `Foo.create()`."
+    },
+    {
+      "id": "kotlin-also-result",
+      "topic": "kotlin",
+      "question": "What does `x` hold?",
+      "code": "val x = mutableListOf(1).also { it.add(2) }",
+      "options": [
+        "true",
+        "[1, 2]",
+        "[1]",
+        "Unit"
+      ],
+      "answer": 1,
+      "explanation": "`also` returns the object it was called on, not the lambda's result. The lambda added 2, so x is the list [1, 2]. With `let`, x would be `true`, the result of add."
+    },
+    {
+      "id": "kotlin-scope-choice",
+      "topic": "kotlin",
+      "question": "You configure a new `Intent` with several `putExtra` calls and want the Intent back. Which scope function fits best?",
+      "options": [
+        "let",
+        "run",
+        "apply",
+        "also"
+      ],
+      "answer": 2,
+      "explanation": "`apply` gives the object as `this`, so you call its members directly, and returns the object itself, which suits configuration."
     }
   ]
 }

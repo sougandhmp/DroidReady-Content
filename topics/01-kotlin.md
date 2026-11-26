@@ -61,6 +61,69 @@ val intent = Intent(context, DetailActivity::class.java).apply {
 }
 ```
 
+**What they are, in one line:** scope functions (`let`, `run`, `with`, `apply`, `also`) run a block of code on an object, so you can work with that object without repeating its name.
+
+**Say this in the interview:** "Kotlin has five scope functions. They all do the same basic thing: run a lambda in the context of an object. They differ in only two ways: how the lambda refers to the object, either as `this` or as `it`, and what the call returns, either the object itself or the lambda's result. They add no new capability; they make the intent of the code clearer and remove temporary variables."
+
+**An easy way to remember them:**
+
+- `apply` and `also` return **the object**: use them to configure or to add a side effect, then keep going with the same object.
+- `let`, `run` and `with` return **the lambda's result**: use them to compute something from the object.
+- `apply`, `run` and `with` use **`this`**, so you call members directly, which suits configuring.
+- `let` and `also` use **`it`**, which reads better when you pass the object to something else.
+
+**How to choose, as questions:**
+
+1. Do you need the object back after the block? Yes: configuring it means `apply`; doing something extra with it (logging, validation) means `also`.
+2. No, you need a result: is the object nullable or being passed as an argument? Use `?.let`.
+3. Do you want to call many of its members to compute a result? Use `run` (as an extension) or `with(obj)` (when it is not null and you don't need chaining).
+
+**One Android example of each.**
+
+```kotlin
+// apply: configure an object and return it (builder style)
+val intent = Intent(context, DetailActivity::class.java).apply {
+    putExtra("id", articleId)
+    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+}
+
+// also: do something extra without changing the result
+val user = repository.loadUser(id).also { Log.d(TAG, "Loaded user ${it.id}") }
+
+// let: run code only when the value is not null, or transform it
+savedInstanceState?.getString(KEY_QUERY)?.let { query -> viewModel.restoreSearch(query) }
+val length = name?.let { it.trim().length } ?: 0
+
+// run: compute a result using the object's members
+val isValid = form.run { email.isNotBlank() && password.length >= 8 && termsAccepted }
+
+// with: group calls on an object you already have
+with(binding) {
+    title.text = article.title
+    author.text = article.author
+    bookmark.isChecked = article.isBookmarked
+}
+```
+
+**What happens under the hood:** they are ordinary `inline` functions in the standard library, so they cost nothing at runtime. For example:
+
+```kotlin
+inline fun <T> T.apply(block: T.() -> Unit): T { block(); return this }      // lambda with receiver, returns the object
+inline fun <T, R> T.let(block: (T) -> R): R = block(this)                    // object passed as 'it', returns the result
+```
+
+The difference between `this` and `it` comes from the lambda type: `T.() -> Unit` is a lambda with a receiver (see 1.15), while `(T) -> R` takes the object as a normal parameter.
+
+**Common mistakes interviewers look for:**
+
+- **Deep nesting.** `a?.let { b?.let { c?.let { ... } } }` is hard to read, and `it` gets shadowed. Use named parameters (`a?.let { user -> ... }`) or a plain `if`.
+- **`?.let` instead of a simple check.** For a local `val`, `if (x != null)` smart-casts just as well and is often clearer.
+- **Using `also` to change the object.** `also` is for side effects; configuration belongs in `apply`.
+- **Forgetting that `let` returns the lambda result.** `val list = items.let { it.add(x) }` gives a `Boolean`, not the list.
+- **Overuse.** If a scope function doesn't remove repetition or make intent clearer, plain code is better.
+
+**Related helpers:** `takeIf { }` returns the object if the condition holds, else `null`; `takeUnless { }` is the opposite. For example, `input.takeIf { it.isNotBlank() }?.let(::search)`.
+
 ### 1.5 Extension functions and properties
 
 Statically resolved helpers. They do not modify the class and cannot access private members. They dispatch on the *declared* type, not the runtime type.
@@ -581,6 +644,88 @@ val city: StateFlow<String>
 
 - **Unused return value checker** (experimental in 2.3): warns when you ignore a function's result, e.g. calling `list.plus(item)` and forgetting the returned list.
 
+### 1.19 Companion objects and `object` declarations, explained simply
+
+**What it is, in one line:** a companion object is a single object that belongs to a class, not to its instances, so you call its members through the class name, like `ArticleFragment.newInstance(id)`.
+
+**Say this in the interview:** "Kotlin has no `static` keyword. Instead, a class can declare one `companion object`. There is exactly one instance of it per class, created when the class is first loaded, and its members are called through the class name, so it plays the role of Java's static members. But unlike static members, it is a real object: it can implement interfaces, have extension functions and be passed around. On the JVM it compiles to a nested class called `Companion` plus a static field; `const val`, `@JvmField` and `@JvmStatic` make members true statics for Java callers."
+
+**A simple analogy:** if a class is a blueprint and its instances are houses built from it, the companion object is the architect's office attached to the blueprint. There's only one office, every house can reach it, and it can build new houses (factory methods) or keep shared information (constants).
+
+**Typical uses, with Android examples.**
+
+```kotlin
+class ArticleFragment : Fragment() {
+
+    companion object {
+        const val TAG = "ArticleFragment"              // compile-time constant (true static field)
+        private const val ARG_ID = "article_id"
+
+        // Factory method: the standard way to create a Fragment with arguments
+        fun newInstance(id: String) = ArticleFragment().apply {
+            arguments = bundleOf(ARG_ID to id)
+        }
+    }
+
+    private val articleId: String by lazy { requireArguments().getString(ARG_ID)!! }
+}
+
+// Callers use the class name, no instance needed
+parentFragmentManager.commit { replace(R.id.container, ArticleFragment.newInstance("42"), ArticleFragment.TAG) }
+```
+
+```kotlin
+// A companion can implement an interface: a factory passed as a value
+interface JsonFactory<T> { fun fromJson(json: String): T }
+
+data class User(val id: String, val name: String) {
+    companion object : JsonFactory<User> {
+        override fun fromJson(json: String): User = Json.decodeFromString(serializer(), json)
+    }
+}
+
+fun <T> parseAll(lines: List<String>, factory: JsonFactory<T>) = lines.map(factory::fromJson)
+val users = parseAll(lines, User)                 // the class name refers to its companion
+
+// A companion can also be extended from outside the class
+fun User.Companion.guest() = User(id = "guest", name = "Guest")
+val guest = User.guest()
+```
+
+A companion can also call the class's private constructor, which is how you force everyone through a factory: `class Money private constructor(val cents: Long) { companion object { fun ofDollars(d: Double) = Money((d * 100).roundToLong()) } }`.
+
+**What happens under the hood (JVM):**
+
+| Kotlin | Compiled to |
+| --- | --- |
+| `companion object { fun create() }` | A nested class `Foo.Companion` and a static field `Foo.Companion`; Java calls `Foo.Companion.create()` |
+| `const val TAG = "x"` | A `public static final` field on `Foo` |
+| `@JvmField val DEFAULT = Config()` | A static field on `Foo` |
+| `@JvmStatic fun create()` | A real static method on `Foo`, plus the companion method |
+
+The companion is initialised when its containing class is loaded, like a Java static initialiser, and initialisation is thread-safe.
+
+**`object` keyword: three related forms.**
+
+| Form | What it creates | Example |
+| --- | --- | --- |
+| `object Analytics { }` (object declaration) | A singleton, created lazily on first access, thread-safe | A logger or a stateless helper |
+| `companion object { }` | One object tied to a class | Factory methods, constants, `CREATOR`-style factories |
+| `object : TextWatcher { }` (object expression) | A new anonymous object each time | A one-off listener implementing several methods |
+
+**When not to use a companion object:**
+
+- For general helpers and constants that aren't tied to one class, **top-level** declarations are simpler: `const val MAX_RETRIES = 3` or `fun formatPrice(...)` at file level.
+- Don't keep **mutable shared state** in a companion: it is global state, hard to test and easy to get wrong with threads. Use a class with DI (`@Singleton`) instead.
+- Never store a `Context`, Activity or View in a companion or `object`: they live as long as the process, so this leaks the whole screen.
+
+**Likely follow-up questions:**
+
+- *Is a companion object the same as static?* No. It behaves like static access, but it is a real object instance; add `@JvmStatic` or `const` for true statics.
+- *How many companion objects can a class have?* One. It can be named (`companion object Factory`).
+- *When is it created?* When the containing class is loaded; an `object` declaration is created on first access.
+- *`const val` vs `val` in a companion?* `const val` is a compile-time constant (primitives and `String` only) inlined at call sites; `val` is read through a getter at runtime.
+
 ### Interview questions
 
 1. **Why is `!!` a code smell?** It converts a compile-time guarantee into a runtime crash. Prefer early return, `requireNotNull` with a message, or modelling the state so null cannot happen. {Easy}
@@ -593,3 +738,6 @@ val city: StateFlow<String>
 8. **Why can a lambda cause a memory leak on Android?** It captures variables from its scope, including the enclosing Activity or Fragment. If a longer-lived object keeps the lambda (a singleton listener, a delayed Handler callback), the screen can't be garbage collected. {Medium}
 9. **What does `@JvmOverloads` do, and when do you need it?** Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates extra overloads that drop the defaulted parameters from the right. You need it for Kotlin APIs called from Java, including custom View constructors. {Easy}
 10. **What are guard conditions in `when`?** Since Kotlin 2.2 (stable), a branch of a `when` with a subject can add `if`, for example `is Failed if state.canRetry ->`. This avoids nested `if` or `when` blocks inside a branch. {Easy}
+11. **What is a companion object, and how is it different from Java `static`?** One object per class, created when the class loads, whose members you call through the class name. Unlike static members, it is a real object, so it can implement interfaces and have extensions. Use `const`, `@JvmField` or `@JvmStatic` for true statics. {Easy}
+12. **How do you choose between `let`, `run`, `with`, `apply` and `also`?** Two questions: do I need the object back (`apply` to configure, `also` for side effects) or a result (`let` for nullable values and transforms, `run`/`with` to compute with many members)? And is `this` or `it` more readable? {Easy}
+13. **`apply` vs `also`?** Both return the object. `apply` gives it as `this`, for configuring members. `also` gives it as `it`, for side effects such as logging or validation that shouldn't change the object. {Easy}
