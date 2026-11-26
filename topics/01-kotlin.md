@@ -402,7 +402,7 @@ for (batch in batches) batch.items.forEach { if (it.isCorrupt) continue; upload(
 
 ### Interview questions
 
-1. **Why should you avoid `!!`, and what do you use instead?** `!!` throws a NullPointerException at runtime, which throws away Kotlin's compile-time safety. Use a safe call with a default, an early return, or `requireNotNull` with a clear message. {Easy}
+1. **Why should you avoid `!!`, and what do you use instead?** `!!` throws a NullPointerException at runtime, which throws away Kotlin's compile-time safety. Use a safe call with a default, an early return, or `requireNotNull` with a clear message. {easy}
 2. **What does `inline` do, and when shouldn't you use it?** It copies the function and its lambdas into each call site, so no lambda object is created, non-local `return` works and `reified` is possible. Avoid it for large functions or lambdas you store, because it grows the bytecode. {Medium}
 3. **Can a data class be inherited?** No, a data class can't be `open`. It can implement interfaces or extend a sealed class, which is how sealed UI states are built. {Easy}
 4. **How does `by lazy` work?** It stores an initializer and computes the value on first access, using double-checked locking by default, so it's thread-safe. Use `LazyThreadSafetyMode.NONE` when only the main thread reads it. {Medium}
