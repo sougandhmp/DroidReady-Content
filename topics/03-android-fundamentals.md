@@ -350,6 +350,121 @@ class ProgressRing @JvmOverloads constructor(context: Context, attrs: AttributeS
 
 Call `invalidate()` when only the drawing changes, and `requestLayout()` when the size or position must change too. Also add accessibility: set a `contentDescription` or state description so TalkBack can announce the progress.
 
+### 3.19 Fragments: single-activity apps and communication
+
+Most modern apps use a **single activity** that hosts many screens (fragments, or composables with Navigation). Benefits: one place for edge-to-edge, theming and deep links; shared ViewModels between screens; and screen transitions that don't create new tasks.
+
+Fragments should not talk to each other directly. The Fragment library gives two mechanisms:
+
+| Need | Use | Example |
+| --- | --- | --- |
+| Shared, ongoing state that several screens observe | Shared `ViewModel` | Selected filters shared by a list and a filter sheet |
+| One result returned once | Fragment Result API | A QR scan result returned to the previous screen |
+
+**Shared ViewModel scopes.** All parties must use the same owner, or they get different instances.
+
+```kotlin
+private val shared: CartViewModel by activityViewModels()                       // whole activity
+private val listVm: ListViewModel by viewModels({ requireParentFragment() })    // parent fragment
+private val flowVm: CheckoutViewModel by navGraphViewModels(R.id.checkout_graph) // one navigation graph
+```
+
+Scoping to a navigation graph is often best: the checkout steps share state, and it is cleared when the user leaves the checkout flow.
+
+**Fragment Result API** (Fragment 1.3.0+):
+
+```kotlin
+// Screen A: listen (e.g. in onCreate)
+setFragmentResultListener("scan") { _, bundle ->
+    viewModel.onCodeScanned(bundle.getString("code").orEmpty())
+}
+
+// Screen B: send, then go back
+setFragmentResult("scan", bundleOf("code" to qrText))
+parentFragmentManager.popBackStack()
+```
+
+How it behaves: the listener fires once screen A is at least `STARTED`; if no listener exists yet, the `FragmentManager` stores the result until one is set; there is one result per key, so a newer result replaces an undelivered one; and the result is cleared after delivery. For a child-to-parent result, the parent listens on `childFragmentManager` and the child sets the result on `parentFragmentManager`.
+
+### 3.20 Intents, intent filters and verified App Links
+
+**Intents** describe an action. An **explicit** intent names the class to start; an **implicit** intent names an action and data, and the system finds an app that declared a matching **intent filter**.
+
+```kotlin
+startActivity(Intent(this, CheckoutActivity::class.java))                            // explicit
+startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Sydney+Opera+House")))  // implicit
+```
+
+**Three kinds of links.**
+
+| Aspect | Deep link | Web link | Android App Link |
+| --- | --- | --- | --- |
+| What it is | Any URI your intent filter handles (e.g. `myapp://order/42`) | An `http(s)` link your app can handle | A verified `https` link for your own domain |
+| Chooser dialog | Yes, if several apps match | Yes | No: your app opens directly once verified |
+| Needs your website | No | No | Yes: `assetlinks.json` on the domain |
+
+**Setting up an App Link:**
+
+```xml
+<activity android:name=".MainActivity" android:exported="true">
+    <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" android:host="www.example.com" android:pathPrefix="/products" />
+    </intent-filter>
+</activity>
+```
+
+Then publish `https://www.example.com/.well-known/assetlinks.json` over HTTPS with no redirects. It lists your package name and the SHA-256 fingerprint of the certificate that signs the installed app; with Play App Signing, that is the app signing key's certificate, not your upload key. Android checks the file when the app is installed or updated; each host is verified separately. Android 15 added Dynamic App Links, which let you refine URL matching from the server without an app release.
+
+Testing:
+
+```bash
+adb shell am start -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "https://www.example.com/products/123"
+adb shell pm get-app-links com.example.app                     # verification state per host
+adb shell pm verify-app-links --re-verify com.example.app      # force re-verification
+```
+
+The most common failure in production is a fingerprint mismatch: the file lists the debug or upload certificate instead of the Play signing certificate.
+
+### 3.21 Services: started, bound and foreground
+
+| Type | Started by | Lives until | Use today |
+| --- | --- | --- | --- |
+| Started service | `startService()` | It calls `stopSelf()`; killed soon after the app goes to the background (Android 8+) | Rarely; use WorkManager instead |
+| Foreground service | `startForegroundService()` + a notification | It stops itself or the user stops it | Ongoing user-visible work: music, navigation, calls (see 8.6) |
+| Bound service | `bindService()` | The last client unbinds | A client-server interface inside your app or to other apps |
+
+**A bound service inside your app:**
+
+```kotlin
+class PlayerService : Service() {
+    inner class LocalBinder : Binder() { fun service(): PlayerService = this@PlayerService }
+    private val binder = LocalBinder()
+    val state = MutableStateFlow(PlayerState.Idle)
+
+    override fun onBind(intent: Intent): IBinder = binder
+    fun play(track: Track) { /* ... */ }
+}
+
+// Client (e.g. an Activity)
+private var player: PlayerService? = null
+private val connection = object : ServiceConnection {
+    override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+        player = (binder as PlayerService.LocalBinder).service()
+    }
+    override fun onServiceDisconnected(name: ComponentName) { player = null }   // the service's process died
+}
+
+override fun onStart() { super.onStart(); bindService(Intent(this, PlayerService::class.java), connection, BIND_AUTO_CREATE) }
+override fun onStop() { super.onStop(); unbindService(connection) }
+```
+
+For calls from **other apps**, a local `Binder` subclass doesn't work across processes; use a `Messenger` (simple, one message at a time) or an **AIDL** interface (method calls, multithreaded, so it must be thread-safe). A service can be both started and bound, for example a music player that keeps playing after the UI unbinds.
+
+Note that `onStartCommand` runs on the main thread; long work inside a service still needs coroutines or another thread. `IntentService`, which did this for you, is deprecated.
+
 ### Interview questions
 
 1. **Is `onDestroy` guaranteed to be called?** No. If the process is killed, it is not. Persist important data earlier (`onStop` or immediately on change). {Easy}
@@ -360,3 +475,6 @@ Call `invalidate()` when only the drawing changes, and `requestLayout()` when th
 6. **How do you detect that the whole app went to the background?** Observe `ProcessLifecycleOwner`: its `ON_STOP` fires when the last activity stops, and `ON_START` when the app returns. Don't count activities yourself. {Medium}
 7. **Why did my notification not show on Android 13?** The app targets API 33+ and hasn't been granted `POST_NOTIFICATIONS`, or the notification's channel is missing or switched off by the user. Check the permission, create the channel before posting, and check `areNotificationsEnabled()`. {Easy}
 8. **`ListAdapter` with `DiffUtil` vs `notifyDataSetChanged()`?** `ListAdapter` diffs the old and new lists on a background thread and rebinds only changed items, with animations. `notifyDataSetChanged()` rebinds every visible item and loses animations. {Easy}
+9. **How do two fragments share data?** Through a `ViewModel` scoped to a common owner (the activity, the parent fragment or a navigation graph) for ongoing state, or the Fragment Result API for a single result. Never through direct references to each other. {Easy}
+10. **Your App Link opens a chooser dialog instead of the app. Why?** Verification failed. Usually `assetlinks.json` lists the wrong certificate fingerprint (debug or upload key instead of the Play signing key), the file is redirected or not served over HTTPS, or `autoVerify` is missing. Check with `adb shell pm get-app-links`. {Medium}
+11. **Started vs bound service?** A started service runs until it stops itself. A bound service lives while clients are bound and offers them a call interface through a `Binder`, `Messenger` or AIDL. For background work, WorkManager usually replaces started services. {Easy}

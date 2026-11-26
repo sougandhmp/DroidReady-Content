@@ -326,6 +326,85 @@ downloadProgress()          // emits every few ms
     .collect { progressBar.progress = it }   // UI only draws the newest value
 ```
 
+### 2.17 Flow error handling, completion and flattening
+
+**`catch` only sees upstream errors.** It catches exceptions thrown by operators above it, and can emit a fallback value. An exception thrown inside `collect` is downstream and is not caught.
+
+```kotlin
+repository.observeFeed()                       // upstream
+    .map { it.toUi() }                         // upstream of catch
+    .catch { e -> emit(FeedUi.Error(e.toMessage())) }   // handles errors from the two lines above
+    .collect { render(it) }                    // an exception here is NOT caught by catch
+```
+
+To handle collector errors too, move the work into `onEach` before `catch`, then call `collect()` with no arguments:
+
+```kotlin
+flow.onEach { render(it) }.catch { showError(it) }.launchIn(scope)
+```
+
+**Exception transparency.** A `flow { }` builder must not catch an exception from `emit` and keep going, and must not emit from another coroutine context (for example inside `withContext`). Use `flowOn` to change the upstream dispatcher, or `channelFlow` when you need to emit from several coroutines.
+
+**Completion and retry.**
+
+```kotlin
+api.liveScores()
+    .retryWhen { cause, attempt ->
+        val retry = cause is IOException && attempt < 3
+        if (retry) delay(1_000L * (attempt + 1))   // 1 s, 2 s, 3 s backoff
+        retry
+    }
+    .onStart { emit(Scores.Loading) }
+    .onCompletion { cause -> if (cause == null) log("stream ended") }   // runs on success, error or cancellation
+    .catch { emit(Scores.Unavailable) }
+    .collect { show(it) }
+```
+
+`onCompletion` receives `null` on success and the exception otherwise; it does not swallow the exception. A tight loop that never suspends should call `ensureActive()` or use `.cancellable()` so cancellation is noticed.
+
+**Flattening operators compared.** Each turns every upstream value into an inner flow:
+
+| Operator | Inner flows run | When a new value arrives | Typical use |
+| --- | --- | --- | --- |
+| `flatMapConcat` | One at a time, in order | Waits for the current inner flow to finish | Ordered uploads |
+| `flatMapMerge(concurrency)` | Several at once (default limit 16) | Starts another inner flow | Parallel downloads |
+| `flatMapLatest` | Only the newest | Cancels the previous inner flow | Search-as-you-type, user ID changes |
+
+**`collect` vs `collectLatest`.** With `collect`, a slow block delays the next value. With `collectLatest`, a new value cancels the block that is still running for the old one, so only the newest value's work completes. Use it when only the latest result matters, such as re-rendering a preview.
+
+### 2.18 Coroutines vs RxJava
+
+Many established apps still contain RxJava, and interviewers ask how the two compare and how you would migrate.
+
+| RxJava | Coroutines / Flow |
+| --- | --- |
+| `Single<T>` | `suspend fun(): T` |
+| `Completable` | `suspend fun()` |
+| `Maybe<T>` | `suspend fun(): T?` |
+| `Observable<T>` / `Flowable<T>` | `Flow<T>` (cold) |
+| `BehaviorSubject` | `MutableStateFlow` |
+| `PublishSubject` | `MutableSharedFlow` |
+| `subscribeOn(Schedulers.io())` | `flowOn(Dispatchers.IO)` or `withContext(Dispatchers.IO)` |
+| `observeOn(AndroidSchedulers.mainThread())` | Collect in a main-thread scope (`viewModelScope`) |
+| `CompositeDisposable.clear()` | Scope cancellation (`viewModelScope` is cancelled for you) |
+| `switchMap` | `flatMapLatest` |
+| `debounce`, `distinctUntilChanged`, `combineLatest` | `debounce`, `distinctUntilChanged`, `combine` |
+
+Why teams move to coroutines: sequential-looking code instead of chains, structured concurrency (no forgotten `dispose()`), first-class support in Jetpack libraries (Room, Paging, DataStore, WorkManager, Lifecycle), and smaller method count. RxJava still has a larger operator set and mature backpressure handling with `Flowable`.
+
+**Migrating incrementally** with the `kotlinx-coroutines-rx3` adapters, one layer at a time:
+
+```kotlin
+// Old Rx repository, new coroutine ViewModel
+val user: User = legacyRepo.getUser(id).await()                 // Single -> suspend
+val feed: Flow<List<Post>> = legacyRepo.observeFeed().asFlow()  // Observable -> Flow
+
+// New coroutine code called from old Rx code
+fun loadUserRx(id: String): Single<User> = rxSingle { newRepo.getUser(id) }
+```
+
+A common order: convert the data layer to `suspend`/`Flow` first, use adapters at the boundaries, then migrate ViewModels screen by screen, and finally remove the adapters and the RxJava dependency.
+
 ### Interview questions
 
 1. **What happens when a suspend function suspends?** It saves local state into its continuation object, returns `COROUTINE_SUSPENDED`, and frees the thread. When resumed, the state machine continues from the saved label. {Hard}
@@ -334,3 +413,5 @@ downloadProgress()          // emits every few ms
 4. **StateFlow vs LiveData?** StateFlow needs an initial value, is pure Kotlin (testable, usable in KMP), supports operators, and is not lifecycle-aware by itself (use `repeatOnLifecycle`). LiveData is lifecycle-aware but Android-only and has a weak operator set. {Medium}
 5. **`flowOn` vs `withContext` inside `flow {}`?** You must not call `emit` from a different context inside `flow {}` (it violates context preservation and throws). Use `flowOn` to change the upstream context, or `channelFlow` if you need to emit from multiple coroutines. {Hard}
 6. **How do you convert a callback API to Flow?** `callbackFlow { val listener = ...; register(listener); awaitClose { unregister(listener) } }`. For a single callback, `suspendCancellableCoroutine`. {Medium}
+7. **Why didn't my `catch` operator catch an exception thrown in `collect`?** `catch` only handles upstream exceptions. Move the work into `onEach` before `catch` and use `launchIn`, or wrap `collect` in `try/catch`. {Medium}
+8. **What replaces `switchMap` and `BehaviorSubject` when moving from RxJava?** `flatMapLatest` and `MutableStateFlow`. Use the `kotlinx-coroutines-rx3` adapters (`await`, `asFlow`, `rxSingle`) to migrate one layer at a time. {Medium}

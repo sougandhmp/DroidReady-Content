@@ -14,21 +14,21 @@
       "number": 1,
       "title": "Kotlin deep dive",
       "path": "topics/01-kotlin.md",
-      "sha256": "6e2a87ba054bc839ad657c7085c73c2cb042704a847ae010b81b4b8e021654a1"
+      "sha256": "7cbecd6b6b4972395651718b9c0bc24f4769faa9b0b846a19df8c9abf4a56e9e"
     },
     {
       "id": "coroutines-flow",
       "number": 2,
       "title": "Coroutines and Flow",
       "path": "topics/02-coroutines-flow.md",
-      "sha256": "a082e84b23b84025448a87969e8012da7975571580cddd3495b1ca946358c250"
+      "sha256": "8dd46aa578e65d08ab92771bf44e2dc2a5420169542a576247ec9db19d2ed5a4"
     },
     {
       "id": "android-fundamentals",
       "number": 3,
       "title": "Android fundamentals",
       "path": "topics/03-android-fundamentals.md",
-      "sha256": "455e8d10e96641cebfa9793fe401262368d81f767a867b40b1359d067799bba1"
+      "sha256": "f18f70a85fd250e19043150d75dc3100c6b4d1b60d35ccec01612a493540928b"
     },
     {
       "id": "jetpack-compose",
@@ -42,7 +42,7 @@
       "number": 5,
       "title": "App architecture",
       "path": "topics/05-architecture.md",
-      "sha256": "6f0570777c593210723034d638a85373181c47899d72511f2d53c31a105348a5"
+      "sha256": "a4d3c64eb307680fd6408ab163f5cbf8227b9e8f6b3d0a9f4281142f4c95342f"
     },
     {
       "id": "dependency-injection",
@@ -77,7 +77,7 @@
       "number": 10,
       "title": "Testing strategy",
       "path": "topics/10-testing.md",
-      "sha256": "9621a627494bb4e5e136c2569ea3ddd101c85a065098e0821a58a77c9c61c308"
+      "sha256": "b9b83d7d5bd9688a8c0bb818323e2b8dff7e305253c222c8754dfd9d8004df66"
     },
     {
       "id": "security-privacy",
@@ -91,7 +91,7 @@
       "number": 12,
       "title": "Build, Gradle, CI/CD, release and observability",
       "path": "topics/12-build-release.md",
-      "sha256": "0e3e7a6f4b94955a70e7037d2e17cf17438223c6f2cf8442b2790b0340ca3972"
+      "sha256": "2625494b0d470574c7eb94981df5f03d8de6074303fa8bbd45b919084cffac2d"
     },
     {
       "id": "system-design",
@@ -127,10 +127,17 @@
       "title": "Rapid-fire Q&A and final checklist",
       "path": "topics/17-rapid-fire.md",
       "sha256": "e8a22879d8dd307eb5307d8c77bd77acad88cb9c3ca5298c0ddd95a45b9a04a4"
+    },
+    {
+      "id": "jvm-concurrency-patterns",
+      "number": 18,
+      "title": "JVM, concurrency and design patterns",
+      "path": "topics/18-jvm-concurrency-patterns.md",
+      "sha256": "bf2eca855652e2648e0bd09081a65fe5e57de00c3512b49ae14921a762663d93"
     }
   ],
   "quiz": {
     "path": "quiz.json",
-    "sha256": "48b10dcf620ab03566d709a696da0317404efe78deb1ce7ef87b12ad8d0a868e"
+    "sha256": "19a0a8e5e748fd88764c0d7e7997f9e622d39a469f09db24b48efdc71b107e61"
   }
 }

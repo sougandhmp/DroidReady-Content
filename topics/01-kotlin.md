@@ -461,6 +461,126 @@ typealias OnArticleClick = (articleId: String) -> Unit
 typealias ArticleCache = MutableMap<String, List<Article>>
 ```
 
+### 1.17 Java interoperability
+
+Most large Android codebases mix Java and Kotlin, and SDKs written in Kotlin are often called from Java. Know both directions.
+
+**Calling Kotlin from Java.**
+
+| Kotlin | What Java sees | Fix for a nicer Java API |
+| --- | --- | --- |
+| Top-level `fun format()` in `Utils.kt` | `UtilsKt.format()` | `@file:JvmName("Utils")` gives `Utils.format()` |
+| `companion object { fun create() }` | `Foo.Companion.create()` | `@JvmStatic` gives `Foo.create()` |
+| `companion object { val TAG = "x" }` | `Foo.Companion.getTAG()` | `const val` (primitives, String) or `@JvmField` gives a static field |
+| `fun draw(color: Int = RED)` | Only `draw(int)` with all parameters | `@JvmOverloads` generates `draw()` too |
+| `fun save()` that throws `IOException` | No `throws` clause, so Java can't catch `IOException` | `@Throws(IOException::class)` |
+| Two extensions that clash after type erasure | Compile error | `@JvmName("filterValidInt")` on one of them |
+
+```kotlin
+@file:JvmName("Analytics")
+package com.example.analytics
+
+class Tracker @JvmOverloads constructor(
+    private val endpoint: String,
+    private val batchSize: Int = 20,
+    private val debug: Boolean = false
+) {
+    companion object {
+        const val VERSION = "3.1.0"
+        @JvmStatic fun createDefault(): Tracker = Tracker("https://events.example.com")
+    }
+
+    @Throws(IOException::class)
+    fun flush() { /* ... */ }
+}
+```
+
+```java
+// Java callers now get a natural API
+Tracker t = new Tracker("https://events.example.com");   // overload from @JvmOverloads
+Tracker d = Tracker.createDefault();                    // static thanks to @JvmStatic
+String v = Tracker.VERSION;
+try { t.flush(); } catch (IOException e) { /* compiles thanks to @Throws */ }
+```
+
+Kotlin also adds runtime null checks on public functions with non-null parameters: if Java passes `null`, the call fails at once with a `NullPointerException` that names the parameter, instead of failing later somewhere else.
+
+**Calling Java from Kotlin.**
+
+- Java types without nullability annotations become **platform types** (`String!`). Kotlin trusts you; a wrong guess crashes at runtime. Add `@Nullable`/`@NonNull` (AndroidX or JSpecify) to Java code you own.
+- Java getters and setters appear as properties: `view.getVisibility()` becomes `view.visibility`.
+- Java SAM interfaces accept lambdas: `executor.execute { work() }`.
+- Java checked exceptions are not checked in Kotlin, so you must remember to catch them.
+- Escape Kotlin keywords used as Java names with backticks, for example Mockito's `when` method.
+
+### 1.18 What's new in Kotlin 2.2 and 2.3
+
+Interviewers like to hear that you follow the language. Features that are **stable** now:
+
+**Guard conditions in `when`** (stable in 2.2): add an `if` to a branch of a `when` with a subject, without nesting.
+
+```kotlin
+fun label(state: UploadState): String = when (state) {
+    is UploadState.Running if state.progress > 0.9f -> "Almost done"
+    is UploadState.Running -> "Uploading ${(state.progress * 100).toInt()}%"
+    is UploadState.Failed if state.canRetry -> "Failed - tap to retry"
+    is UploadState.Failed -> "Failed"
+    UploadState.Done -> "Uploaded"
+}
+```
+
+**Non-local `break` and `continue`** (stable in 2.2): use them inside lambdas passed to inline functions, such as `forEach`.
+
+```kotlin
+for (batch in batches) {
+    batch.items.forEach { item ->
+        if (item.isCorrupt) continue      // skips to the next batch
+        if (quotaExceeded()) break        // leaves the outer for loop
+        upload(item)
+    }
+}
+```
+
+**Multi-dollar string interpolation** (stable in 2.2): with a `$$` prefix, a single `$` is literal and `$$name` interpolates. Handy for JSON schemas, regex and templates that contain `$`.
+
+```kotlin
+val schema = $$"""{ "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "$$title" }"""
+```
+
+**Nested type aliases** (stable in 2.3): declare a `typealias` inside a class.
+
+```kotlin
+class ArticleRepository {
+    typealias Cache = MutableMap<String, List<Article>>
+    private val cache: Cache = mutableMapOf()
+}
+```
+
+**Data-flow-based exhaustiveness for `when`** (stable in 2.3): the compiler remembers which cases you already handled with earlier checks, so you no longer need a dummy `else`.
+
+**`return` in expression bodies with an explicit return type** (enabled by default in 2.3):
+
+```kotlin
+fun discount(user: User?): Int = user?.tier?.discount ?: return 0
+```
+
+**Experimental or preview features** worth recognising (don't rely on them in production code without opting in):
+
+- **Context parameters** (preview in 2.2): `context(logger: Logger) fun sync() { logger.info("...") }` passes dependencies implicitly; it replaces the older context receivers.
+- **Explicit backing fields** (experimental in 2.3): removes the `_state` / `state` pair in ViewModels.
+
+```kotlin
+// Today
+private val _city = MutableStateFlow("")
+val city: StateFlow<String> get() = _city
+
+// With explicit backing fields (opt-in)
+val city: StateFlow<String>
+    field = MutableStateFlow("")
+```
+
+- **Unused return value checker** (experimental in 2.3): warns when you ignore a function's result, e.g. calling `list.plus(item)` and forgetting the returned list.
+
 ### Interview questions
 
 1. **Why is `!!` a code smell?** It converts a compile-time guarantee into a runtime crash. Prefer early return, `requireNotNull` with a message, or modelling the state so null cannot happen. {Easy}
@@ -471,3 +591,5 @@ typealias ArticleCache = MutableMap<String, List<Article>>
 6. **What is a higher-order function, and how is it different from a Java callback interface?** A function that takes or returns a function. Kotlin has real function types, so you don't need an interface per callback, lambdas are short, and `inline` removes the lambda allocation. {Easy}
 7. **What is a lambda with receiver, and where is it used?** Its type is `A.() -> R`; inside the lambda, `this` is the receiver. It powers `apply`, `buildString`, Compose scopes such as `LazyListScope`, the Gradle Kotlin DSL and type-safe builders. {Medium}
 8. **Why can a lambda cause a memory leak on Android?** It captures variables from its scope, including the enclosing Activity or Fragment. If a longer-lived object keeps the lambda (a singleton listener, a delayed Handler callback), the screen can't be garbage collected. {Medium}
+9. **What does `@JvmOverloads` do, and when do you need it?** Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates extra overloads that drop the defaulted parameters from the right. You need it for Kotlin APIs called from Java, including custom View constructors. {Easy}
+10. **What are guard conditions in `when`?** Since Kotlin 2.2 (stable), a branch of a `when` with a subject can add `if`, for example `is Failed if state.canRetry ->`. This avoids nested `if` or `when` blocks inside a branch. {Easy}

@@ -202,6 +202,49 @@ updateManager.appUpdateInfo.addOnSuccessListener { info ->
 
 **In-app reviews.** `ReviewManager` shows the Play rating sheet inside your app. Play applies a quota, so the sheet may not appear, and your app is not told whether the user rated. Ask after a positive moment (an order delivered, a task completed), never from a "Rate us" button, and never offer rewards for ratings.
 
+### 12.11 Building and versioning an Android library or SDK
+
+Senior roles often include building an internal SDK or a library other teams or companies consume. The bar is higher than app code, because you can't change your callers.
+
+**Design the public API on purpose.**
+
+- Turn on Kotlin **explicit API mode** (`kotlin { explicitApi() }`) so every public declaration needs a visibility modifier and a return type. Nothing becomes public by accident.
+- Keep the surface small: one entry point (`Analytics.initialize(context, config)`), immutable config objects built with a builder or DSL, and `internal` for everything else.
+- Avoid exposing third-party types (OkHttp, Retrofit, RxJava) in your API, so you can replace them later.
+- Make it Java-friendly if Java apps may use it (`@JvmStatic`, `@JvmOverloads`, see 1.17).
+
+```kotlin
+public object Analytics {
+    @JvmStatic
+    public fun initialize(context: Context, config: AnalyticsConfig) { /* ... */ }
+
+    @JvmStatic
+    public fun track(event: String, properties: Map<String, Any> = emptyMap()) { /* ... */ }
+}
+
+public class AnalyticsConfig private constructor(public val apiKey: String, public val flushIntervalSec: Int) {
+    public class Builder(private val apiKey: String) {
+        private var flush = 30
+        public fun flushIntervalSec(value: Int): Builder = apply { flush = value }
+        public fun build(): AnalyticsConfig = AnalyticsConfig(apiKey, flush)
+    }
+}
+```
+
+**Version with semantic versioning (MAJOR.MINOR.PATCH).** PATCH for fixes, MINOR for backwards-compatible additions, MAJOR for breaking changes. Deprecate before removing: `@Deprecated(message, ReplaceWith(...), level = WARNING)` in one release, `ERROR` in the next, removal in the next major.
+
+**Protect binary compatibility.** A change that compiles for you can still break apps built against the old version (for example adding a parameter with a default value, or changing a return type from `List` to `Collection`). Use the Kotlin **binary-compatibility-validator** Gradle plugin: it writes the public API to an `.api` file, and CI fails if the API changes without the file being updated in the same pull request.
+
+**Be a good guest in the host app.**
+
+- Ship **consumer ProGuard/R8 rules** inside the AAR (`consumerProguardFiles`) so apps that minify don't break your SDK.
+- Keep dependencies few and use `implementation`, so you don't force versions on the app; document the minimum `minSdk` and Kotlin version.
+- Never block the main thread in `initialize`; do work lazily or in the background.
+- Don't crash the host: catch your own failures and report them through a callback or logs.
+- Let the app control data collection (consent, opt-out) and declare what you collect for the Play Data safety form.
+
+**Publish and support.** Publish AARs to Maven Central or an internal repository (with a sources JAR and KDoc), keep a changelog and migration guides, and test against a sample app on several API levels in CI.
+
 ### Interview questions
 
 1. **Your clean build takes 12 minutes. What do you do?** Profile with a Build Scan, check configuration time vs execution, enable configuration and remote build caches, replace kapt with KSP, split large modules, parallelise CI, and cache Gradle in CI. {Medium}
@@ -209,3 +252,4 @@ updateManager.appUpdateInfo.addOnSuccessListener { info ->
 3. **`api` vs `implementation`?** `api` leaks the dependency to consumers (they recompile when it changes); `implementation` keeps it internal. Default to `implementation`. {Easy}
 4. **APK vs App Bundle?** An APK is the installable file. An AAB is a publishing format: Play generates per-device APKs from it, so users download only the code and resources their device needs. Bundles are required for new apps on Play. {Easy}
 5. **When would you use an on-demand dynamic feature module?** For a large, rarely used feature (an editor, an AR mode) where the saving in install size is worth the extra complexity in navigation, testing and release. {Hard}
+6. **How do you avoid breaking apps that use your SDK?** Semantic versioning, explicit API mode, a binary-compatibility check in CI, deprecation cycles before removal, consumer R8 rules in the AAR, and no third-party types in the public API. {Hard}

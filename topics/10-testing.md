@@ -202,9 +202,52 @@ For `rememberSaveable`, use `StateRestorationTester` in Compose tests: `tester.s
 
 Manual: put the app in the background, run `adb shell am kill com.example.app`, then reopen it from Recents. Do this for every screen with user input before a release.
 
+### 10.12 Test-driven development in practice
+
+**Learn:** TDD is a short loop: write a failing test (**red**), write the least code to pass it (**green**), then clean up with the tests as a safety net (**refactor**). It works best for logic with clear inputs and outputs: validators, reducers, mappers, pricing rules and ViewModel state changes.
+
+**Example: a password rule, built test-first.**
+
+```kotlin
+// RED: describe the behaviour before the code exists
+class PasswordValidatorTest {
+    private val validator = PasswordValidator()
+
+    @Test fun `rejects passwords shorter than 8 characters`() =
+        assertEquals(PasswordError.TooShort, validator.validate("abc12"))
+
+    @Test fun `requires at least one digit`() =
+        assertEquals(PasswordError.NoDigit, validator.validate("abcdefgh"))
+
+    @Test fun `accepts a valid password`() =
+        assertNull(validator.validate("abcdefg1"))
+}
+
+// GREEN: the simplest code that passes
+class PasswordValidator {
+    fun validate(p: String): PasswordError? = when {
+        p.length < 8 -> PasswordError.TooShort
+        p.none { it.isDigit() } -> PasswordError.NoDigit
+        else -> null
+    }
+}
+
+// REFACTOR: e.g. make the rules a list so product can add one without touching validate()
+```
+
+Then drive the ViewModel the same way: write `onPasswordChanged("abc") shows TooShort error` first, then add the code.
+
+**Senior view, for the interview:**
+
+- TDD pays off most in domain logic and bug fixes: write a test that reproduces the bug first, so it can never come back.
+- It is less useful for UI layout and exploratory spikes; there, write tests after the design settles.
+- Tests written first push you toward injectable, small classes, which is often the main benefit.
+- Say what you actually do. For example: "I write tests first for business rules and reducers, and add UI tests for the critical journeys after the screen stabilises."
+
 ### Interview questions
 
 1. **What makes code testable?** Constructor injection, interfaces at boundaries, no hidden statics, injected dispatchers/clocks, pure functions for logic, stateless UI. {Easy}
 2. **How do you test a Flow that emits several values over time?** Turbine (`test { awaitItem() }`) inside `runTest`; or collect into a list in `backgroundScope`. {Medium}
 3. **What is your target code coverage?** Coverage is a signal, not a goal. Aim for high coverage on domain and ViewModel logic, test critical journeys end to end, and use coverage to find untested branches, not to hit a number. {Easy}
 4. **Robolectric vs instrumented tests?** Robolectric runs Android framework code on the JVM (fast, good for CI); instrumented tests run on a real device (accurate, slower). Use both: Robolectric for most, a small device suite for critical paths. {Medium}
+5. **Do you practise TDD?** Give an honest, specific answer. For example: test-first for business rules, reducers and every bug fix (the reproducing test comes first), and tests after the design settles for UI layout. {Easy}

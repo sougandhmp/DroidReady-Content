@@ -261,12 +261,86 @@ NavHost(navController, startDestination = HomeRoute) {
 
 This keeps features independently buildable and testable, and the app module is the only place that knows the whole graph.
 
+### 5.11 Data flow in the architecture, step by step
+
+**Learn:** In a well-structured app, data moves in one direction around a loop: **state flows down** from the data layer to the UI, and **events flow up** from the UI to the data layer. No layer reaches "down" to change a layer above it. This is unidirectional data flow (UDF), and it is what makes screens predictable, testable and consistent with each other. The layers are the UI, the ViewModel, the optional domain layer, the repository and the data sources; here is what actually travels between them.
+
+| Between | Going up (events) | Going down (state) | Type used |
+| --- | --- | --- | --- |
+| UI and ViewModel | User actions: `onRefresh()`, `onBookmark(id)` | One `UiState` object | `StateFlow<UiState>` |
+| ViewModel and domain | Calls: `toggleBookmark(id)` | Domain models, `Result` | `suspend fun`, `Flow<T>` |
+| Domain and repository | Calls: `setBookmarked(id, on)` | Domain models | `suspend fun`, `Flow<T>` |
+| Repository and data sources | Reads, writes, network requests | Entities, DTOs | `Flow<Entity>` from Room, `suspend` Retrofit calls |
+
+**The read path (state flowing down).** The user opens the article list:
+
+1. The screen collects `viewModel.uiState` with `collectAsStateWithLifecycle()`.
+2. Collection starts the ViewModel's flow (`stateIn(WhileSubscribed(5_000))`), which collects the use case's `Flow<List<Article>>`.
+3. The use case combines the repository's articles with the user's followed topics.
+4. The repository returns `dao.observeAll().map { it.toDomain() }`: Room emits the cached rows straight away.
+5. In the background, the repository also calls `refresh()`: the API response is written into Room.
+6. Room sees the table change and emits again; the new list travels back up through steps 4, 3 and 2, and the screen recomposes.
+
+```kotlin
+// 4-5: repository - the database is the single source of truth
+override fun observeArticles(): Flow<List<Article>> = dao.observeAll().map { rows -> rows.map { it.toDomain() } }
+override suspend fun refresh() = withContext(io) { dao.upsertAll(api.getArticles().map { it.toEntity() }) }
+
+// 2: ViewModel turns domain data into one UI state
+val uiState: StateFlow<ArticlesUiState> = getFollowedArticles()
+    .map { list -> ArticlesUiState(articles = list.map { it.toUi() }) }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ArticlesUiState(isLoading = true))
+```
+
+Notice that the network result is never handed directly to the UI. It goes into the database, and the UI hears about it through the same flow as everything else. This is why offline mode and two screens showing the same article stay in sync with no extra code.
+
+**The write path (events flowing up, state coming back down).** The user taps "bookmark":
+
+1. The composable calls the lambda it was given: `onBookmark(article.id, true)`. It changes nothing itself.
+2. The ViewModel launches a coroutine and calls `toggleBookmark(id, true)`.
+3. The use case checks the business rule (the user must be signed in) and calls the repository.
+4. The repository writes to Room (`syncState = PENDING`) and schedules a sync worker.
+5. Room emits the updated row; it flows down the read path, and the icon turns filled.
+6. Later, WorkManager sends the change to the server and marks the row as synced.
+
+The UI never sets `isBookmarked = true` on its own copy. If it did, the screen and the database could disagree.
+
+**Errors flow down as state too.** A failure is caught at the layer that understands it, translated into a type the layer above understands, and ends up as a field in `UiState`:
+
+```text
+IOException (Retrofit)  ->  DataError.NoNetwork (repository)  ->  Result.failure (use case)
+  ->  uiState.errorMessage = R.string.error_offline (ViewModel)  ->  Snackbar (UI)  ->  onErrorShown() event back up
+```
+
+**One-off events** (navigate, show a snackbar) follow the same rule: the ViewModel puts them in state (`userMessage`, `navigateTo`), and the UI reports back when it has handled them (`messageShown()`), so they survive configuration changes and are easy to test.
+
+**Threads along the way.**
+
+| Layer | Runs on | Who switches |
+| --- | --- | --- |
+| UI and ViewModel | Main thread | Nobody: they only call suspend functions and collect flows |
+| Use cases | Caller's thread, or `Default` for heavy CPU work | The use case, with `withContext` or `flowOn` |
+| Repository and data sources | `IO` for disk and network | Room and Retrofit suspend functions are main-safe; custom I/O uses `withContext(io)` |
+
+Each layer is **main-safe**: a caller on the main thread can call any suspend function without thinking about threads.
+
+**Common mistakes that break the flow:**
+
+- The ViewModel holds a mutable list and edits it after a network call, while the screen also reads from Room. Now there are two sources of truth.
+- A composable calls the repository directly, skipping the ViewModel, so the logic can't be tested and runs again on recomposition.
+- The repository exposes `MutableStateFlow`, so any layer can change data without going through the rules.
+- Events are passed as callbacks from the data layer up to the UI (e.g. a listener interface), instead of being exposed as flows that the UI observes.
+
+**How to explain it in 30 seconds:** "State goes down, events go up. The UI only renders `UiState` and calls ViewModel functions. The ViewModel turns events into use-case calls and turns data into UI state. The repository owns the data: it writes network results into Room and exposes Room as a Flow, so every screen sees the same data, it works offline, and errors arrive as state."
+
 ### Interview questions
 
 1. **Why should the repository be the single source of truth instead of the network?** The UI always reads the DB; the network only writes into it. This gives offline support, consistency between screens, and instant display of cached data. {Medium}
 2. **How do you share state between two screens?** Through a shared repository (preferred), a ViewModel scoped to a navigation graph, or an activity-scoped ViewModel. Avoid global mutable singletons. {Easy}
 3. **What goes in the ViewModel vs a use case?** ViewModel: screen state, mapping to UI models, handling UI events. Use case: business rules reusable across screens. {Easy}
 4. **How do you introduce architecture changes in a large legacy app?** Write an ADR (architecture decision record), pilot on one feature, add lint/Konsist rules to enforce boundaries, migrate incrementally, measure build times and crash rates. {Hard}
+5. **Walk me through what happens, layer by layer, when a user taps "like".** The UI sends the event to the ViewModel. The ViewModel calls a use case, which applies the rules and calls the repository. The repository writes to the database and schedules a sync. The database emits, and the new state flows back down to the UI. The UI never edits its own copy of the data. {Medium}
+6. **Why shouldn't the ViewModel pass the network response straight to the UI?** That creates a second source of truth next to the database. Other screens won't see the change, it is lost offline and after process death, and the two copies can disagree. {Medium}
 
 Layered Android architecture. Events flow down, state flows up.
 
