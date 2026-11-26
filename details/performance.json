@@ -75,5 +75,14 @@
     "why": "To see whether you can name the problem before fixing it.",
     "mistake": "Treating any high memory use as a leak.",
     "followUp": "Which tool shows allocations over time?"
+  },
+  "Why can loading a full-resolution photo cause an `OutOfMemoryError`, and how do you prevent it?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It checks whether you understand decoded bitmap memory vs. compressed file size.",
+    "mistake": "Checking only the JPEG file size on disk instead of `width * height * 4` bytes in RAM.",
+    "followUp": "How does Coil know what size to decode to?"
   }
 }

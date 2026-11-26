@@ -125,6 +125,25 @@ POST /posts/{id}/like                   (idempotent)
 | Analytics SDK | Batching, persistence, upload windows, small footprint, privacy |
 | Image loading library | Memory and disk LRU caches, request deduplication, cancellation, downsampling |
 
+### 13.7 Worked example: reliable media upload
+
+**In one line:** copy or read from the `content://` URI, compress off the main thread, upload in chunks via WorkManager with an upload session ID, and expose progress from Room.
+
+**Say this in the interview:** "I never load a whole video or photo into memory. I persist an upload job in Room pointing to the `content://` URI (taking persistable URI permission if needed), compress images to a target resolution in `cacheDir` on `Dispatchers.IO`, and enqueue a `OneTimeWorkRequest` with `NetworkType.CONNECTED`. On large files, I request an upload URL from the backend and upload chunks with `Content-Range` headers so a dropped connection resumes from the last acknowledged byte instead of starting over."
+
+**Example:**
+
+1. **Local record:** insert an `UploadEntity(id, uri, status = QUEUED, uploadedBytes = 0)` into Room.
+2. **Prepare:** inside WorkManager, resize/compress to a temp file in `cacheDir`.
+3. **Resumable upload:** ask the server for a session URL, stream fixed-size chunks, and update `uploadedBytes` in Room.
+4. **Cleanup:** delete the temp file when the upload finishes or is cancelled.
+
+**Common mistake:** Uploading in `viewModelScope` or reading the entire file into a `ByteArray`, which dies on navigation or causes an `OutOfMemoryError`.
+
+**Follow-ups:**
+
+- *How do you keep progress accurate across process death?* Store `uploadedBytes` in Room or query the server's upload-status endpoint for the session offset before resuming.
+
 ### Interview questions
 
 1. **How do you approach a mobile system design question?** Clarify requirements, sketch the high-level design, define the API and data model, go deep on two or three hard parts, and finish with trade-offs, metrics and rollout. {Easy}
@@ -134,3 +153,4 @@ POST /posts/{id}/like                   (idempotent)
 5. **How would you resolve conflicts when two devices edit the same note offline?** Give each record a version and timestamps, sync through an outbox, and use a clear rule, such as last-write-wins per field, keeping a conflict copy when both changed the same field so no data is lost. {Hard}
 6. **How would you design an app that 10 teams contribute to?** Feature modules owned by teams, a shared design system, clear module contracts, convention plugins, code owners, feature flags, a release train and per-module CI. {Hard}
 7. **How do you keep real-time updates battery-friendly?** Keep a WebSocket only while the app is in the foreground, use push messages to trigger syncs in the background, and reconnect with exponential backoff and jitter. {Medium}
+8. **How do you design reliable background photo or video uploads on mobile?** Persist the job in Room, compress off the main thread into `cacheDir`, run the upload in WorkManager with network constraints, and use chunked resumable uploads so retries don't restart from zero. {Hard}

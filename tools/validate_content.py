@@ -158,6 +158,7 @@ def validate_bundle(version_bytes: bytes, bundle_bytes: bytes) -> list:
     topics = check_items(bundle["topics"], TOPIC, "topics", errors)
     topic_ids = {topic["id"] for topic in topics}
 
+    seen_questions = {}
     for question in check_items(bundle["questions"], QUESTION, "questions", errors):
         if question["topic"] not in topic_ids:
             errors.append(f"question {question['id']}: unknown topic '{question['topic']}'")
@@ -166,6 +167,14 @@ def validate_bundle(version_bytes: bytes, bundle_bytes: bytes) -> list:
         check_tracks(question["tracks"], f"question {question['id']}", errors)
         if question.get("reviewed") is not None:
             check_reviewed(question["reviewed"], f"question {question['id']}", errors)
+        norm = re.sub(r"[^a-z0-9]+", " ", question["text"].lower()).strip()
+        if norm in seen_questions:
+            errors.append(
+                f"question {question['id']}: duplicates question {seen_questions[norm]} "
+                f"({question['text']!r})"
+            )
+        else:
+            seen_questions[norm] = question["id"]
 
     for quiz in check_items(bundle["quiz"], QUIZ, "quiz", errors):
         label = f"quiz {quiz['id']}"

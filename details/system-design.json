@@ -61,5 +61,14 @@
     "why": "It tests whether you weigh freshness against battery and data use.",
     "mistake": "Keeping a socket open in the background or polling every few seconds.",
     "followUp": "How would you handle messages missed while disconnected?"
+  },
+  "How do you design reliable background photo or video uploads on mobile?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "Media uploads combine memory limits, WorkManager, and resumable networking.",
+    "mistake": "Uploading inside `viewModelScope` or reading the whole file into memory.",
+    "followUp": "How do you avoid uploading a 12-megapixel raw photo over cellular?"
   }
 }

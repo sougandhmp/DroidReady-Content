@@ -87,6 +87,15 @@ class BundleTest(unittest.TestCase):
         self.assertEqual([], self.errors_after(
             lambda b: b["questions"][0].update(tracks=["acme-set-1"], reviewed="2026-01-31")))
 
+    def test_duplicate_question_text_across_topics_fails(self):
+        def add_dup(bundle):
+            bundle["topics"].append({"id": "compose", "number": 2, "title": "Compose", "notes": "# Compose"})
+            bundle["questions"].append({
+                "id": "q2", "topic": "compose", "text": "Why?", "answer": "Because.",
+                "level": "Easy", "tracks": ["junior"], "why": "W.", "mistake": "M.",
+            })
+        self.assertTrue(self.errors_after(add_dup))
+
     def test_checksum_and_version_must_match(self):
         self.assertTrue(validate_bundle(*encode(BUNDLE, sha256="0" * 64)))
         self.assertTrue(validate_bundle(*encode(BUNDLE, version=3)))

@@ -116,24 +116,6 @@
       ]
     },
     {
-      "id": "coroutines-latest",
-      "topic": "coroutines-flow",
-      "question": "Which operator fits search-as-you-type, cancelling the previous query?",
-      "options": [
-        "flatMapMerge",
-        "flatMapConcat",
-        "flatMapLatest",
-        "zip"
-      ],
-      "answer": 2,
-      "explanation": "flatMapLatest cancels the previous inner flow when a new value arrives.",
-      "why": "Search is the standard way to test whether you can cancel outdated work.",
-      "mistake": "Using `flatMapMerge`, which lets older requests finish and overwrite newer results.",
-      "tracks": [
-        "senior"
-      ]
-    },
-    {
       "id": "android-ondestroy",
       "topic": "android-fundamentals",
       "question": "When must you not rely on onDestroy to save data?",
@@ -328,7 +310,7 @@
       "options": [
         "Exported schemas",
         "Migration tests in CI",
-        "fallbackToDestructiveMigration()",
+        "fallbackToDestructiveMigration(dropAllTables = true)",
         "A manual Migration"
       ],
       "answer": 2,
@@ -782,25 +764,6 @@
       ]
     },
     {
-      "id": "arch-udf-network",
-      "topic": "architecture",
-      "question": "In an offline-first architecture, where should a fresh network response go?",
-      "options": [
-        "Straight to the UI through the ViewModel",
-        "Into the local database, which the UI observes",
-        "Into a global singleton cache",
-        "Into SavedStateHandle"
-      ],
-      "answer": 1,
-      "explanation": "The database is the single source of truth. Writing to it makes every observer update, keeps data consistent across screens and works offline.",
-      "why": "It checks that you can keep data flowing in one direction as an app grows.",
-      "mistake": "Updating the database and also pushing the response to the UI, which creates two sources of truth.",
-      "tracks": [
-        "senior",
-        "system-design"
-      ]
-    },
-    {
       "id": "data-storage-mediastore",
       "topic": "data-layer",
       "question": "Your app saves a photo it took into the user's gallery on Android 11+. Which permission does it need?",
@@ -1020,24 +983,6 @@
         "senior"
       ],
       "kind": "output"
-    },
-    {
-      "id": "kotlin-scope-choice",
-      "topic": "kotlin",
-      "question": "You configure a new `Intent` with several `putExtra` calls and want the Intent back. Which scope function fits best?",
-      "options": [
-        "let",
-        "run",
-        "apply",
-        "also"
-      ],
-      "answer": 2,
-      "explanation": "`apply` gives the object as `this`, so you call its members directly, and returns the object itself, which suits configuration.",
-      "why": "They want you to choose a scope function for a reason, not by habit.",
-      "mistake": "Using `let` or `run` and forgetting to return the `Intent` as the lambda's last expression.",
-      "tracks": [
-        "junior"
-      ]
     },
     {
       "id": "print-lazy",
@@ -1423,6 +1368,234 @@
       "bugLines": [
         5
       ],
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-compose-launched-effect-unit",
+      "topic": "jetpack-compose",
+      "question": "Selecting a different user does not reload the profile. Why?",
+      "code": "@Composable\nfun ProfileScreen(userId: String, viewModel: ProfileViewModel) {\n    LaunchedEffect(Unit) {\n        viewModel.load(userId)\n    }\n}",
+      "options": [
+        "LaunchedEffect cannot call ViewModel functions",
+        "Unit never changes, so LaunchedEffect only runs on initial composition and ignores new userId values",
+        "userId must be a MutableState",
+        "LaunchedEffect runs on Dispatchers.IO"
+      ],
+      "answer": 1,
+      "explanation": "LaunchedEffect restarts only when one of its keys changes. Pass userId as the key: LaunchedEffect(userId).",
+      "why": "Stale effects when navigation arguments or IDs change are a frequent Compose bug.",
+      "mistake": "Using LaunchedEffect(Unit) out of habit when the effect actually depends on a parameter.",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "bugLines": [
+        3
+      ]
+    },
+    {
+      "id": "bug-compose-lazy-key",
+      "topic": "jetpack-compose",
+      "question": "When the top item is removed, the wrong row stays expanded. Why?",
+      "code": "LazyColumn {\n    items(tasks) { task ->\n        var expanded by remember { mutableStateOf(false) }\n        TaskRow(task, expanded, onToggle = { expanded = !expanded })\n    }\n}",
+      "options": [
+        "LazyColumn does not support remember",
+        "Without a stable key, remembered state stays tied to the list index rather than the item ID",
+        "mutableStateOf must be rememberSaveable",
+        "items() requires a List<String>"
+      ],
+      "answer": 1,
+      "explanation": "By default, LazyColumn keys items by their index. Pass key = { it.id } so remembered state moves with the item, or hoist expanded state.",
+      "why": "It tests whether you understand how Compose matches remembered slots to list items.",
+      "mistake": "Omitting keys in LazyColumn and assuming Compose tracks items by object equality.",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "bugLines": [
+        2
+      ]
+    },
+    {
+      "id": "output-compose-derived-state",
+      "topic": "jetpack-compose",
+      "question": "The user scrolls 300 pixels down without crossing item 0. How many times does the Text recompose?",
+      "code": "val listState = rememberLazyListState()\nval showTop by remember {\n    derivedStateOf { listState.firstVisibleItemIndex > 0 }\n}\nif (showTop) {\n    Text(\"Back to top\")\n}",
+      "options": [
+        "Every frame while scrolling",
+        "Zero times, because the boolean result of derivedStateOf stayed false",
+        "Once per pixel",
+        "It does not compile"
+      ],
+      "answer": 1,
+      "explanation": "derivedStateOf only notifies readers when its computed result changes. Since firstVisibleItemIndex stayed 0, showTop stayed false and nothing recomposed.",
+      "why": "It checks that you know how derivedStateOf reduces recompositions on fast-changing state.",
+      "mistake": "Thinking derivedStateOf recomposes whenever any input inside the block changes.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-datastore-multiple",
+      "topic": "data-layer",
+      "question": "Creating two instances of SettingsRepo crashes at runtime. Why?",
+      "code": "class SettingsRepo(private val context: Context) {\n    private val Context.dataStore by preferencesDataStore(\"settings\")\n    val theme = context.dataStore.data.map { it[THEME_KEY] }\n}",
+      "options": [
+        "preferencesDataStore cannot be private",
+        "Each SettingsRepo creates a new DataStore delegate for the same file, which throws IllegalStateException",
+        "DataStore does not support map()",
+        "Context cannot be passed to a repository"
+      ],
+      "answer": 1,
+      "explanation": "DataStore enforces one instance per file per process. Declare the preferencesDataStore delegate at the top level or provide it as a @Singleton.",
+      "why": "Multiple DataStore instances for one file are a classic crash when teams forget singleton scoping.",
+      "mistake": "Putting the preferencesDataStore property delegate inside a class instead of at top-level.",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "bugLines": [
+        2
+      ]
+    },
+    {
+      "id": "bug-authenticator-loop",
+      "topic": "data-layer",
+      "question": "When the server keeps returning 401, what happens with this OkHttp Authenticator?",
+      "code": "override fun authenticate(route: Route?, response: Response): Request? {\n    val fresh = tokenApi.refreshBlocking()\n    return response.request.newBuilder()\n        .header(\"Authorization\", \"Bearer $fresh\")\n        .build()\n}",
+      "options": [
+        "OkHttp stops automatically after one retry",
+        "It retries 401 responses in a loop until OkHttp hits its internal follow-up limit",
+        "It throws NetworkOnMainThreadException",
+        "It clears the token store"
+      ],
+      "answer": 1,
+      "explanation": "Without checking response.priorResponse != null (or counting prior responses), authenticate() keeps retrying on repeated 401s. Return null when already retried or when refresh fails.",
+      "why": "Unbounded 401 retries hammer the auth server and stall user requests.",
+      "mistake": "Returning a new Request unconditionally without checking priorResponse.",
+      "kind": "bug",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-di-singleton-activity",
+      "topic": "dependency-injection",
+      "question": "What happens when Hilt compiles this class?",
+      "code": "@Singleton\nclass AnalyticsTracker @Inject constructor(\n    @ActivityContext private val context: Context\n)",
+      "options": [
+        "Hilt injects the Application context instead",
+        "The build fails because a @Singleton cannot depend on an @ActivityContext",
+        "It compiles and leaks the first Activity",
+        "@ActivityContext only works in Fragments"
+      ],
+      "answer": 1,
+      "explanation": "SingletonComponent outlives ActivityComponent, so Hilt rejects injecting @ActivityContext into a @Singleton at compile time. Use @ApplicationContext.",
+      "why": "Understanding Hilt component lifetimes prevents both compile errors and context leaks.",
+      "mistake": "Using @ActivityContext anywhere a Context is needed instead of @ApplicationContext for long-lived objects.",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "bugLines": [
+        3
+      ]
+    },
+    {
+      "id": "bug-workmanager-duplicate",
+      "topic": "background-work",
+      "question": "Opening the screen five times queues five identical upload jobs. Why?",
+      "code": "fun scheduleSync(workManager: WorkManager) {\n    val req = OneTimeWorkRequestBuilder<SyncWorker>().build()\n    workManager.enqueue(req)\n}",
+      "options": [
+        "OneTimeWorkRequestBuilder must be periodic",
+        "enqueue() always adds a new request; use enqueueUniqueWork with ExistingWorkPolicy.KEEP or REPLACE",
+        "WorkManager requires a tag to deduplicate",
+        "SyncWorker must be a singleton"
+      ],
+      "answer": 1,
+      "explanation": "Every enqueue() call schedules a separate WorkRequest. Use enqueueUniqueWork(\"sync\", ExistingWorkPolicy.KEEP, req) to avoid duplicate work.",
+      "why": "Duplicate background jobs waste battery, data, and server capacity.",
+      "mistake": "Calling enqueue() from lifecycle callbacks or screen opens without a unique work name.",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "bugLines": [
+        3
+      ]
+    },
+    {
+      "id": "bug-testing-main-dispatcher",
+      "topic": "testing",
+      "question": "This JVM unit test crashes before checking uiState. Why?",
+      "code": "@Test\nfun loadsItems() = runTest {\n    val vm = ItemsViewModel(FakeRepo()) // init calls viewModelScope.launch { ... }\n    advanceUntilIdle()\n    assertEquals(2, vm.uiState.value.size)\n}",
+      "options": [
+        "runTest cannot create ViewModels",
+        "viewModelScope uses Dispatchers.Main, which is not set in a plain JVM unit test without Dispatchers.setMain",
+        "advanceUntilIdle() cancels viewModelScope",
+        "FakeRepo must implement Parcelable"
+      ],
+      "answer": 1,
+      "explanation": "Android's Main looper does not exist on the JVM. Install a TestDispatcher with Dispatchers.setMain(testDispatcher) in @Before or a MainDispatcherRule.",
+      "why": "Testing ViewModels on the JVM is a daily task, and Main dispatcher setup is the first hurdle.",
+      "mistake": "Assuming runTest replaces Dispatchers.Main automatically.",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "bugLines": [
+        3
+      ]
+    },
+    {
+      "id": "bug-security-biometric-boolean",
+      "topic": "security-privacy",
+      "question": "What is the security flaw in this biometric unlock?",
+      "code": "val callback = object : BiometricPrompt.AuthenticationCallback() {\n    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {\n        showVaultSecrets()\n    }\n}\nprompt.authenticate(promptInfo)",
+      "options": [
+        "BiometricPrompt cannot run on the main thread",
+        "Without a CryptoObject backed by a Keystore key, a hooking tool on a rooted device can invoke onAuthenticationSucceeded directly",
+        "AuthenticationResult must be persisted in SharedPreferences",
+        "promptInfo requires a password fallback"
+      ],
+      "answer": 1,
+      "explanation": "Always pass a Cipher from an auth-bound Android Keystore key as a CryptoObject and decrypt the secret inside onAuthenticationSucceeded.",
+      "why": "It separates UI-only biometric checks from hardware-enforced authentication.",
+      "mistake": "Treating the success callback as sufficient proof when protecting sensitive local data.",
+      "kind": "bug",
+      "tracks": [
+        "senior"
+      ],
+      "bugLines": [
+        6
+      ]
+    },
+    {
+      "id": "output-jvm-string-pool",
+      "topic": "jvm-concurrency-patterns",
+      "question": "What does this print?",
+      "code": "val a = \"hi\"\nval b = \"hi\"\nval c = String(charArrayOf('h', 'i'))\nprintln(\"${a === b} ${a === c}\")",
+      "options": [
+        "true true",
+        "true false",
+        "false false",
+        "false true"
+      ],
+      "answer": 1,
+      "explanation": "String literals \"hi\" are interned in the JVM string pool, so a and b point to the same object (true). Constructing a String from a CharArray allocates a new object on the heap (false).",
+      "why": "It tests whether you understand JVM string interning and reference equality.",
+      "mistake": "Expecting both to be true because they hold the same characters, or confusing === with ==.",
+      "kind": "output",
       "tracks": [
         "junior",
         "senior"
