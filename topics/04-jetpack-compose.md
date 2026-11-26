@@ -128,6 +128,117 @@ NavDisplay(
 - `ComposeView` puts Compose inside Views; `AndroidView` puts Views (MapView, WebView, AdView) inside Compose.
 - Migrate screen by screen, leaf-first; share the theme via a Material 3 theme bridge.
 
+### 4.10 Deeper dive: recomposition traced
+
+```kotlin
+@Composable
+fun CartScreen(viewModel: CartViewModel) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    Column {
+        CartHeader(count = state.items.size)          // (A)
+        CartList(items = state.items)                 // (B)
+        CheckoutButton(total = state.total, onClick = viewModel::checkout)   // (C)
+    }
+}
+```
+
+The user changes a coupon code, so only `state.total` changes. What recomposes?
+
+- `CartScreen` recomposes, because it read `state`.
+- (A) is skipped: `count` is an `Int` equal to last time.
+- (B) is skipped only if `items` is stable and equal. With a plain `List<Item>` and strong skipping, it is skipped when it is the same list instance (`===`); if the ViewModel built a new list with the same contents, it recomposes.
+- (C) recomposes because `total` changed. `viewModel::checkout` is a stable function reference.
+
+The lesson: keep state granular and stable, and avoid creating new collections in the ViewModel when nothing changed.
+
+### 4.11 Deeper dive: fixing stability, before and after
+
+```kotlin
+// Before: unstable. 'tags' is a List interface, 'author' comes from a module without the Compose compiler
+data class Post(val id: String, val title: String, val tags: List<String>, val author: Author)
+
+// After, option 1: immutable collections and an annotation
+@Immutable
+data class PostUi(val id: String, val title: String, val tags: ImmutableList<String>, val authorName: String)
+
+// After, option 2: a stability configuration file for types you do not own
+// compose_stability.conf
+//   com.example.core.model.Author
+//   kotlin.collections.List
+```
+
+Option 1 is preferred for UI models: map domain models into small, flat, immutable `...Ui` classes that hold exactly what the screen shows. Verify with the Compose compiler report: `restartable skippable fun PostCard(stable post: PostUi)`.
+
+### 4.12 Deeper dive: plain state holder classes
+
+Not all state belongs in a ViewModel. UI-element logic (expanded panels, a search bar's focus, which tab is selected) can live in a remembered state holder class:
+
+```kotlin
+@Stable
+class SearchBarState(initialQuery: String) {
+    var query by mutableStateOf(initialQuery)
+        private set
+    var expanded by mutableStateOf(false)
+        private set
+
+    fun onQueryChange(q: String) { query = q; expanded = q.isNotEmpty() }
+    fun clear() { query = ""; expanded = false }
+
+    companion object {
+        val Saver = Saver<SearchBarState, String>(save = { it.query }, restore = { SearchBarState(it) })
+    }
+}
+
+@Composable
+fun rememberSearchBarState(initial: String = "") =
+    rememberSaveable(saver = SearchBarState.Saver) { SearchBarState(initial) }
+```
+
+This is the same pattern Compose uses for `LazyListState`, `ScaffoldState` and `DrawerState`.
+
+### 4.13 Deeper dive: a custom layout
+
+A layout that places children in rows and wraps when a row is full (like tags):
+
+```kotlin
+@Composable
+fun SimpleFlowRow(modifier: Modifier = Modifier, spacing: Dp = 8.dp, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val gap = spacing.roundToPx()
+        val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0)) }  // measure each child once
+        var x = 0; var y = 0; var rowHeight = 0
+        val positions = placeables.map { p ->
+            if (x + p.width > constraints.maxWidth) { x = 0; y += rowHeight + gap; rowHeight = 0 }
+            IntOffset(x, y).also { x += p.width + gap; rowHeight = maxOf(rowHeight, p.height) }
+        }
+        layout(constraints.maxWidth, y + rowHeight) {
+            placeables.forEachIndexed { i, p -> p.place(positions[i]) }
+        }
+    }
+}
+```
+
+Key rule: each child may be measured only once per layout pass. This single-pass measurement is why Compose layouts are fast even when deeply nested. (In production, use the built-in `FlowRow`.)
+
+### 4.14 Deeper dive: animations
+
+| API | Use for | Example |
+| --- | --- | --- |
+| `animate*AsState` | One value to a target | `animateDpAsState(if (selected) 8.dp else 0.dp)` |
+| `AnimatedVisibility` | Enter/exit of content | Expanding an error banner |
+| `AnimatedContent` | Switching between contents | Counter text, loading to content |
+| `updateTransition` | Several values driven by one state | Card selected: colour, size, elevation together |
+| `rememberInfiniteTransition` | Looping | Shimmer placeholders |
+| `Animatable` | Imperative, gesture-driven | Swipe to dismiss, fling |
+| Shared element transitions | Element moves between screens | List thumbnail to detail image |
+
+```kotlin
+val elevation by animateDpAsState(targetValue = if (pressed) 2.dp else 8.dp, label = "elevation")
+Card(elevation = CardDefaults.cardElevation(defaultElevation = elevation)) { /* ... */ }
+```
+
+Performance tip: animate in the draw phase when you can (`Modifier.graphicsLayer { alpha = animatedAlpha }`) so the animation does not trigger recomposition every frame.
+
 ### Interview questions
 
 1. **What triggers recomposition?** A change to a `State` object that was read during composition of that scope. Compose tracks reads through the snapshot system. {Easy}

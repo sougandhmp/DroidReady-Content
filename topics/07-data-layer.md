@@ -144,6 +144,125 @@ LazyColumn {
 - **Coil** (Kotlin-first, coroutine-based, Compose support) or Glide: memory + disk cache, downsampling to view size, lifecycle-aware requests.
 - **Real-time:** WebSockets (OkHttp), Server-Sent Events, or FCM push to trigger a sync. Polling only as a fallback. Reconnect with exponential backoff and jitter.
 
+### 7.8 Deeper dive: a token-refresh Authenticator
+
+OkHttp calls an `Authenticator` when a response is 401. The tricky part is that several requests can fail at the same moment.
+
+```kotlin
+class TokenAuthenticator @Inject constructor(
+    private val tokens: TokenStore,
+    private val authApi: Provider<AuthApi>   // Provider avoids a dependency cycle with OkHttpClient
+) : Authenticator {
+
+    override fun authenticate(route: Route?, response: Response): Request? {
+        if (response.priorResponse != null) return null          // already retried once: give up
+
+        synchronized(this) {
+            val current = tokens.accessToken()
+            val sent = response.request.header("Authorization")?.removePrefix("Bearer ")
+            if (sent != current) {
+                // another thread refreshed while we waited: just retry with the new token
+                return response.request.withToken(current)
+            }
+            val refreshed = runCatching { authApi.get().refreshBlocking(tokens.refreshToken()) }.getOrNull()
+                ?: run { tokens.clear(); return null }             // refresh failed: user must sign in again
+            tokens.save(refreshed)
+            return response.request.withToken(refreshed.accessToken)
+        }
+    }
+
+    private fun Request.withToken(t: String) = newBuilder().header("Authorization", "Bearer $t").build()
+}
+```
+
+Walk through it: five requests get 401 together. The first thread enters the lock and refreshes. The other four wait, then see the token changed and retry without refreshing again. If refresh fails, return `null` and emit a "session expired" event so the UI goes to sign-in.
+
+### 7.9 Deeper dive: Room relations and a migration
+
+```kotlin
+@Entity data class AuthorEntity(@PrimaryKey val id: String, val name: String)
+
+@Entity(foreignKeys = [ForeignKey(entity = AuthorEntity::class, parentColumns = ["id"], childColumns = ["authorId"], onDelete = ForeignKey.CASCADE)],
+        indices = [Index("authorId")])
+data class PostEntity(@PrimaryKey val id: String, val authorId: String, val title: String)
+
+data class AuthorWithPosts(
+    @Embedded val author: AuthorEntity,
+    @Relation(parentColumn = "id", entityColumn = "authorId") val posts: List<PostEntity>
+)
+
+@Dao interface AuthorDao {
+    @Transaction   // Room runs 2 queries; the transaction keeps them consistent
+    @Query("SELECT * FROM AuthorEntity WHERE id = :id")
+    fun observeWithPosts(id: String): Flow<AuthorWithPosts>
+}
+```
+
+Adding a column in version 2:
+
+```kotlin
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE PostEntity ADD COLUMN likes INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+Room.databaseBuilder(context, AppDb::class.java, "app.db").addMigrations(MIGRATION_1_2).build()
+```
+
+Test it with `MigrationTestHelper`: create the DB at version 1, insert rows, run the migration, and check the data survived. Simple changes (new column, new table) can use `@AutoMigration(from = 1, to = 2)`; renames and deletions need an `AutoMigrationSpec`.
+
+### 7.10 Deeper dive: an outbox sync worker
+
+```kotlin
+@HiltWorker
+class PushPendingChangesWorker @AssistedInject constructor(
+    @Assisted ctx: Context, @Assisted params: WorkerParameters,
+    private val dao: ArticleDao, private val api: ArticleApi
+) : CoroutineWorker(ctx, params) {
+
+    override suspend fun doWork(): Result {
+        val pending = dao.pendingBookmarks()                  // rows with syncState = PENDING
+        for (row in pending) {
+            try {
+                api.setBookmark(row.id, row.isBookmarked, idempotencyKey = row.changeId)
+                dao.markSynced(row.id, row.changeId)          // only if no newer change happened meanwhile
+            } catch (e: HttpException) {
+                if (e.code() in 400..499) dao.markFailed(row.id) else return Result.retry()
+            } catch (e: IOException) {
+                return Result.retry()                         // offline again: back off and retry
+            }
+        }
+        return Result.success()
+    }
+}
+```
+
+Details worth saying out loud: the `changeId` makes retries idempotent on the server; `markSynced` checks the `changeId` so a newer local edit made during the upload is not marked as synced; client errors (4xx) are not retried forever.
+
+### 7.11 Deeper dive: de-duplicating in-flight requests
+
+Two screens open at once and both ask for the user profile. Without care you send two identical requests.
+
+```kotlin
+class ProfileRepository @Inject constructor(
+    private val api: ProfileApi,
+    @ApplicationScope private val scope: CoroutineScope
+) {
+    private val mutex = Mutex()
+    private var inFlight: Deferred<Profile>? = null
+
+    suspend fun refresh(): Profile {
+        val job = mutex.withLock {
+            inFlight?.takeIf { it.isActive } ?: scope.async { api.getProfile() }.also { inFlight = it }
+        }
+        return job.await()   // all callers share one network call
+    }
+}
+```
+
+The request runs in the application scope, so one caller being cancelled (leaving a screen) does not cancel the request for the others.
+
 ### Interview questions
 
 1. **How do you avoid duplicate network calls when two screens request the same data?** Share the in-flight request: a `Mutex` with a cached `Deferred`, or expose one hot flow from the repository via `shareIn` in an application scope. {Hard}

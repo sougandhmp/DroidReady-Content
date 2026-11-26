@@ -118,6 +118,149 @@ build-logic/convention     -> Gradle convention plugins
 
 Rules: feature modules **never depend on other feature modules**; they communicate through navigation routes or `:core` interfaces. Use `api` vs `implementation` correctly (prefer `implementation` to limit recompilation). Share build configuration with **convention plugins**, and versions with a **version catalog** (`libs.versions.toml`).
 
+### 5.7 Deeper dive: one feature through every layer
+
+Feature: "Bookmark an article", which must work offline and show immediately.
+
+**Data layer: DAO and repository.**
+
+```kotlin
+@Query("UPDATE articles SET isBookmarked = :on, syncState = 'PENDING' WHERE id = :id")
+suspend fun setBookmarked(id: String, on: Boolean)
+
+class OfflineFirstArticleRepository @Inject constructor(
+    private val dao: ArticleDao,
+    private val syncScheduler: SyncScheduler
+) : ArticleRepository {
+    override suspend fun setBookmarked(id: String, on: Boolean) {
+        dao.setBookmarked(id, on)        // 1. local write: Room's Flow re-emits, UI updates at once
+        syncScheduler.requestSync()      // 2. WorkManager pushes PENDING rows when online
+    }
+}
+```
+
+**Domain layer: a use case with a business rule.**
+
+```kotlin
+class ToggleBookmarkUseCase @Inject constructor(
+    private val articles: ArticleRepository,
+    private val account: AccountRepository
+) {
+    suspend operator fun invoke(id: String, on: Boolean): Result<Unit> {
+        if (on && !account.isSignedIn()) return Result.failure(SignInRequired())
+        articles.setBookmarked(id, on)
+        return Result.success(Unit)
+    }
+}
+```
+
+**UI layer: ViewModel and screen.**
+
+```kotlin
+fun onBookmarkClick(id: String, on: Boolean) = viewModelScope.launch {
+    toggleBookmark(id, on).onFailure { e ->
+        if (e is SignInRequired) _uiState.update { it.copy(showSignInPrompt = true) }
+    }
+}
+```
+
+```kotlin
+IconToggleButton(checked = article.isBookmarked, onCheckedChange = { onBookmarkClick(article.id, it) }) {
+    Icon(if (article.isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder, contentDescription = "Bookmark")
+}
+```
+
+Notice there is no manual "update the list in memory" step. The UI observes the database, so the single write in the repository updates every screen that shows the article.
+
+### 5.8 Deeper dive: MVI with a pure reducer and effects
+
+Splitting state changes (pure) from side effects (I/O) makes the logic trivially testable:
+
+```kotlin
+data class LoginState(val email: String = "", val password: String = "", val loading: Boolean = false, val error: String? = null)
+
+sealed interface LoginAction {
+    data class EmailChanged(val v: String) : LoginAction
+    data class PasswordChanged(val v: String) : LoginAction
+    data object Submit : LoginAction
+    data class Result(val success: Boolean, val error: String? = null) : LoginAction
+}
+
+// Pure: same input, same output; no coroutines, no Android
+fun reduce(s: LoginState, a: LoginAction): LoginState = when (a) {
+    is LoginAction.EmailChanged -> s.copy(email = a.v, error = null)
+    is LoginAction.PasswordChanged -> s.copy(password = a.v, error = null)
+    LoginAction.Submit -> s.copy(loading = true)
+    is LoginAction.Result -> s.copy(loading = false, error = a.error)
+}
+
+class LoginViewModel @Inject constructor(private val auth: AuthRepository) : ViewModel() {
+    private val _state = MutableStateFlow(LoginState())
+    val state = _state.asStateFlow()
+
+    fun dispatch(action: LoginAction) {
+        _state.update { reduce(it, action) }
+        if (action == LoginAction.Submit) viewModelScope.launch {          // effect
+            val r = auth.login(_state.value.email, _state.value.password)
+            dispatch(LoginAction.Result(r.isSuccess, r.exceptionOrNull()?.message))
+        }
+    }
+}
+```
+
+Test the reducer with plain asserts: `assertEquals(true, reduce(LoginState(), LoginAction.Submit).loading)`.
+
+### 5.9 Deeper dive: modelling errors across layers
+
+Avoid leaking `HttpException` or `SQLiteException` to the UI. Translate at each boundary:
+
+```kotlin
+sealed interface DataError {
+    data object NoNetwork : DataError
+    data object Unauthorized : DataError
+    data class Server(val code: Int) : DataError
+    data object Unknown : DataError
+}
+
+fun Throwable.toDataError(): DataError = when (this) {
+    is IOException -> DataError.NoNetwork
+    is HttpException -> if (code() == 401) DataError.Unauthorized else DataError.Server(code())
+    else -> DataError.Unknown
+}
+
+// UI layer maps to user-facing text
+fun DataError.message(): Int = when (this) {
+    DataError.NoNetwork -> R.string.error_offline
+    DataError.Unauthorized -> R.string.error_session_expired
+    is DataError.Server -> R.string.error_server
+    DataError.Unknown -> R.string.error_generic
+}
+```
+
+The UI shows a localised string resource and decides behaviour (e.g. go to login on `Unauthorized`). This keeps the domain layer free of Android and of transport details.
+
+### 5.10 Deeper dive: navigating between feature modules
+
+Feature modules must not depend on each other, so `:feature:home` cannot reference `ArticleScreen` in `:feature:article`. Common solutions:
+
+- **Routes in a shared API module.** `:feature:article:api` holds `@Serializable data class ArticleRoute(val id: String)`. Home depends only on the API module; the `:app` module wires routes to screens.
+- **Navigation callbacks.** Each feature exposes a function like `fun NavGraphBuilder.homeScreen(onArticleClick: (String) -> Unit)`. The app module connects `onArticleClick` to the article route.
+
+```kotlin
+// :feature:home
+fun NavGraphBuilder.homeScreen(onArticleClick: (String) -> Unit) {
+    composable<HomeRoute> { HomeRoute(onArticleClick = onArticleClick) }
+}
+
+// :app
+NavHost(navController, startDestination = HomeRoute) {
+    homeScreen(onArticleClick = { id -> navController.navigate(ArticleRoute(id)) })
+    articleScreen(onBack = navController::popBackStack)
+}
+```
+
+This keeps features independently buildable and testable, and the app module is the only place that knows the whole graph.
+
 ### Interview questions
 
 1. **Why should the repository be the single source of truth instead of the network?** The UI always reads the DB; the network only writes into it. This gives offline support, consistency between screens, and instant display of cached data. {Medium}

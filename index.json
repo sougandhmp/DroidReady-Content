@@ -14,98 +14,98 @@
       "number": 1,
       "title": "Kotlin deep dive",
       "path": "topics/01-kotlin.md",
-      "sha256": "44a2972380da572e3ce606d261463127f5f6766ab6c093cd65d6c485b2191f2b"
+      "sha256": "58cb5b23ed7300b45e7c27eef03604bf49fe71c458e4441b33ee750a3a13b2ad"
     },
     {
       "id": "coroutines-flow",
       "number": 2,
       "title": "Coroutines and Flow",
       "path": "topics/02-coroutines-flow.md",
-      "sha256": "607f7c03a7bd997ae39c3ced51f6bace7562bd2497483b98af72a764d80a7c2f"
+      "sha256": "a082e84b23b84025448a87969e8012da7975571580cddd3495b1ca946358c250"
     },
     {
       "id": "android-fundamentals",
       "number": 3,
       "title": "Android fundamentals",
       "path": "topics/03-android-fundamentals.md",
-      "sha256": "356843bb6541115a995d2fb93cb9f9c8d7c4411578058c50a7c5e9e8df310e41"
+      "sha256": "9377e5c0cd78aa747006f48c65622fd34b82bcdf80f53a38dc5508efe81dea74"
     },
     {
       "id": "jetpack-compose",
       "number": 4,
       "title": "Jetpack Compose",
       "path": "topics/04-jetpack-compose.md",
-      "sha256": "f192d3136060c46c4a9369f018d9115c9a21ad4de74bbe0c7d51687621a3b425"
+      "sha256": "6a5b19da215d14c58779366de725d89864ccd08a996e5cd8d68cd6cff6d7e995"
     },
     {
       "id": "architecture",
       "number": 5,
       "title": "App architecture",
       "path": "topics/05-architecture.md",
-      "sha256": "1cc581945747bf449036a28ffc1e21c29bd20588a8be16abe45fc5cab17261fd"
+      "sha256": "6f0570777c593210723034d638a85373181c47899d72511f2d53c31a105348a5"
     },
     {
       "id": "dependency-injection",
       "number": 6,
       "title": "Dependency injection",
       "path": "topics/06-dependency-injection.md",
-      "sha256": "47bc33747855ae526ba81d16ee953416b61f756598dfade264b693245863a6db"
+      "sha256": "1e3fcc92977c9a6d1f2e5481c6c050a5cc11a820d65f111516bf23af10e74287"
     },
     {
       "id": "data-layer",
       "number": 7,
       "title": "Data layer: networking, persistence, offline-first",
       "path": "topics/07-data-layer.md",
-      "sha256": "55343db86d25b637ffe4cbbeab7c0697473fd92f0028bf74608ec96109cf76e2"
+      "sha256": "53fe0599f7007f6cdb44dfef556058d2d3c81946c6f63a3d3021ea19de009178"
     },
     {
       "id": "background-work",
       "number": 8,
       "title": "Background work",
       "path": "topics/08-background-work.md",
-      "sha256": "60b3afa557d47883ab7d7c24c17a25bf85ffe62a6b30096092c2ec4ff429dc33"
+      "sha256": "2f4bedff13fd151b4ba76fed954575456007e0b40d0d5077566db37506b4df80"
     },
     {
       "id": "performance",
       "number": 9,
       "title": "Performance",
       "path": "topics/09-performance.md",
-      "sha256": "d8004193aa723de65bea85e5ffeaf3c1e8baeb089c04eb50858366fd963be14d"
+      "sha256": "99a131916f47329e529a570f879a16eaea7e9947255399d79b7bad9b7d028f40"
     },
     {
       "id": "testing",
       "number": 10,
       "title": "Testing strategy",
       "path": "topics/10-testing.md",
-      "sha256": "2df20d67d726dc5e20cf056bd830901513c179602d862234d763423822fba1f1"
+      "sha256": "9621a627494bb4e5e136c2569ea3ddd101c85a065098e0821a58a77c9c61c308"
     },
     {
       "id": "security-privacy",
       "number": 11,
       "title": "Security and privacy",
       "path": "topics/11-security-privacy.md",
-      "sha256": "1c721af53f906f1afb739612246bde1c8c455805799b02e6c8092b92e7a67efe"
+      "sha256": "99f729d6d33d7c8b5ed792e27eba9a7733bc78a9e2d64a215551ea0cb2377a37"
     },
     {
       "id": "build-release",
       "number": 12,
       "title": "Build, Gradle, CI/CD, release and observability",
       "path": "topics/12-build-release.md",
-      "sha256": "e597dec39e60fcf17ea5738e202ed234e8693769c399cb7c2b09381486dd0cc3"
+      "sha256": "e3de7e3ceeaa9f06b2fa547db7a96d5121096b30ea0e4d602c191c4e2b9dc023"
     },
     {
       "id": "system-design",
       "number": 13,
       "title": "Mobile system design",
       "path": "topics/13-system-design.md",
-      "sha256": "eb82a04ce39f7a779d10c7927a69d797689d9f33e8c6b3392db67244c25ed2a5"
+      "sha256": "8c44af05c5a965370468ea55d12ff171a0036369f1a814a7ff0042c962acf7e9"
     },
     {
       "id": "modern-platform",
       "number": 14,
       "title": "Modern platform topics",
       "path": "topics/14-modern-platform.md",
-      "sha256": "2b2e42025bea1c6292178e9a05b176a16c07cfd5e0d26deadcc1976d2ba62a80"
+      "sha256": "097aacdf8c5c408a13badf0296026f64b2369ec59825b35beda15fe62c5b1da3"
     },
     {
       "id": "leadership",
@@ -119,7 +119,7 @@
       "number": 16,
       "title": "Coding round",
       "path": "topics/16-coding-round.md",
-      "sha256": "bf599a685e6bcceeb2697c0d9006dac23fb1f76580827f3f063d56976bcc46b7"
+      "sha256": "ea174d0ab3ac3c67cbbb71e2e19466253d4b3990b7f53acbe49708fcccf1bfea"
     },
     {
       "id": "rapid-fire",

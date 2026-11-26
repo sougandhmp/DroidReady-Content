@@ -109,6 +109,104 @@ val launcher = rememberLauncherForActivityResult(ActivityResultContracts.Request
 Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }) { Text("Scan") }
 ```
 
+### 3.11 Deeper dive: process death, walked through
+
+A user is filling a 3-step sign-up form, on step 2, and switches to the camera app. While the camera is open, Android kills your process to free memory. Here is what happens when they come back:
+
+1. Android starts a new process and creates a new `Application` object (`Application.onCreate` runs again).
+2. It recreates the activity on top of the back stack and passes the saved `Bundle` to `onCreate`.
+3. Fragments and the navigation back stack are restored from that Bundle.
+4. A **new** ViewModel is created; its `SavedStateHandle` is filled from the Bundle.
+5. Anything that lived only in memory (singletons, ViewModel fields, static caches) is empty.
+
+```kotlin
+@HiltViewModel
+class SignUpViewModel @Inject constructor(private val state: SavedStateHandle) : ViewModel() {
+    // Survives: small, user-entered values
+    val email = state.getStateFlow("email", "")
+    val step = state.getStateFlow("step", 1)
+
+    fun onEmailChange(value: String) { state["email"] = value }
+
+    // Does NOT survive: rebuilt from the repository when needed
+    private var countries: List<Country> = emptyList()
+}
+```
+
+Common bugs this exposes: a `lateinit` singleton that crashes because `Application.onCreate` set it on a different path; a detail screen that reads a selected item from a shared in-memory object that is now empty. Fix by passing IDs as navigation arguments and reloading data from the repository.
+
+### 3.12 Deeper dive: Binder and IPC
+
+Each app runs in its own Linux process with its own user ID. Apps and system services (ActivityManager, PackageManager, WindowManager) talk through **Binder**, Android's IPC mechanism.
+
+- Calling `startActivity` is really a Binder call to `ActivityTaskManagerService` in the `system_server` process.
+- Data crossing Binder must be a `Parcel`, which is why intents carry `Parcelable` extras.
+- The buffer for in-flight transactions is about 1 MB per process, shared by all calls, which is the origin of `TransactionTooLargeException`.
+- A Binder call is synchronous by default, so a slow system service called on the main thread can cause an ANR.
+
+To expose your own IPC service, you define an AIDL interface or use a `Messenger`. In interviews, also mention that `ContentProvider` and bound services are built on Binder.
+
+### 3.13 Deeper dive: Looper, Handler and MessageQueue
+
+```kotlin
+class WorkerThread : HandlerThread("worker") {
+    lateinit var handler: Handler
+    override fun onLooperPrepared() { handler = Handler(looper) }
+}
+
+val worker = WorkerThread().apply { start() }
+worker.handler.post { /* runs on the worker thread, in order */ }
+Handler(Looper.getMainLooper()).postDelayed({ hideToast() }, 2_000)
+```
+
+How it works: a `Looper` loops forever, taking `Message`s from its `MessageQueue` (ordered by time) and running them. A `Handler` puts messages on one specific looper's queue. The main thread's looper also delivers input events, lifecycle callbacks and frame callbacks (Choreographer), so anything slow you post to it delays all of these.
+
+Leak to mention: a `postDelayed` runnable that captures an Activity keeps it alive until it runs. Remove callbacks in `onDestroy`, or use coroutines tied to a lifecycle.
+
+### 3.14 Deeper dive: BroadcastReceivers in practice
+
+```kotlin
+// Context-registered: lives only while registered; preferred for most cases
+val receiver = object : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        onBattery(level)
+    }
+}
+ContextCompat.registerReceiver(
+    context, receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED
+)
+// later: context.unregisterReceiver(receiver)
+```
+
+- Since Android 8, most implicit broadcasts cannot be received by manifest-declared receivers (exceptions include `BOOT_COMPLETED` and `LOCALE_CHANGED`).
+- Since Android 14, context-registered receivers must say if they are exported.
+- `onReceive` runs on the main thread and must finish quickly. For longer work use `goAsync()` (a few seconds) or enqueue WorkManager.
+
+### 3.15 Deeper dive: sharing a file with FileProvider
+
+```xml
+<provider
+    android:name="androidx.core.content.FileProvider"
+    android:authorities="${applicationId}.fileprovider"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+</provider>
+```
+
+```kotlin
+val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", pdfFile)
+val share = Intent(Intent.ACTION_SEND).apply {
+    type = "application/pdf"
+    putExtra(Intent.EXTRA_STREAM, uri)
+    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)   // temporary read access for the receiving app only
+}
+startActivity(Intent.createChooser(share, "Share invoice"))
+```
+
+The receiving app gets a `content://` URI and temporary permission, never a raw file path. Sharing `file://` URIs crashes with `FileUriExposedException` since Android 7.
+
 ### Interview questions
 
 1. **Is `onDestroy` guaranteed to be called?** No. If the process is killed, it is not. Persist important data earlier (`onStop` or immediately on change). {Easy}

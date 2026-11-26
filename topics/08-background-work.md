@@ -53,6 +53,110 @@ Also know: chaining (`beginWith(a).then(b)`), unique work policies (`KEEP`, `REP
 - **App Standby Buckets:** active, working set, frequent, rare, restricted. Rarely used apps get fewer jobs and alarms.
 - Test with `adb shell dumpsys deviceidle force-idle` and `adb shell am set-standby-bucket <pkg> rare`.
 
+### 8.5 Deeper dive: chaining workers for a photo upload
+
+Compress, then upload, then clean up, where each step only runs if the previous one succeeded:
+
+```kotlin
+val input = workDataOf("uri" to photoUri.toString())
+
+val compress = OneTimeWorkRequestBuilder<CompressWorker>().setInputData(input).build()
+val upload = OneTimeWorkRequestBuilder<UploadWorker>()
+    .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
+    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
+    .build()
+val cleanup = OneTimeWorkRequestBuilder<CleanupWorker>().build()
+
+WorkManager.getInstance(context)
+    .beginUniqueWork("upload-$photoId", ExistingWorkPolicy.KEEP, compress)
+    .then(upload)        // receives CompressWorker's output Data as its input
+    .then(cleanup)
+    .enqueue()
+```
+
+If `compress` fails, `upload` and `cleanup` are marked failed too. Unique work with `KEEP` prevents the same photo being uploaded twice if the user taps again.
+
+Observing progress in the UI:
+
+```kotlin
+val info by WorkManager.getInstance(context)
+    .getWorkInfosForUniqueWorkFlow("upload-$photoId")
+    .collectAsStateWithLifecycle(initialValue = emptyList())
+```
+
+### 8.6 Deeper dive: a foreground service, complete
+
+A workout tracker that records location while the screen is off:
+
+```xml
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<service android:name=".TrackingService" android:foregroundServiceType="location" android:exported="false" />
+```
+
+```kotlin
+@AndroidEntryPoint
+class TrackingService : LifecycleService() {
+    @Inject lateinit var tracker: LocationTracker
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        val notification = NotificationCompat.Builder(this, CHANNEL_TRACKING)
+            .setContentTitle("Recording your run")
+            .setSmallIcon(R.drawable.ic_run)
+            .setOngoing(true)
+            .addAction(R.drawable.ic_stop, "Stop", stopPendingIntent())
+            .build()
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        lifecycleScope.launch { tracker.locations().collect { saveToDb(it) } }
+        return START_STICKY
+    }
+}
+
+// Start it from the UI, while the app is visible
+ContextCompat.startForegroundService(context, Intent(context, TrackingService::class.java))
+```
+
+Points to mention: request location permission (and `POST_NOTIFICATIONS` on Android 13+) before starting; the user can stop it from the notification; save points to Room so nothing is lost if the process dies; return `START_STICKY` only if restarting makes sense.
+
+### 8.7 Deeper dive: exact alarms done right
+
+```kotlin
+val alarmManager = context.getSystemService<AlarmManager>()!!
+if (Build.VERSION.SDK_INT >= 31 && !alarmManager.canScheduleExactAlarms()) {
+    context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))   // ask the user
+    return
+}
+val pi = PendingIntent.getBroadcast(
+    context, reminder.id.hashCode(),
+    Intent(context, ReminderReceiver::class.java).putExtra("id", reminder.id),
+    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+)
+alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, reminder.timeMillis, pi)
+```
+
+Alarms are cleared on reboot, so also listen for `BOOT_COMPLETED` and reschedule from the database. Use exact alarms only for user-visible, time-critical features (alarm clocks, calendar reminders); everything else should use inexact alarms or WorkManager.
+
+### 8.8 Deeper dive: push-triggered sync
+
+Sending the whole payload in a push message is fragile (size limits, ordering, missed messages). A robust pattern is "tickle and sync":
+
+```kotlin
+class AppMessagingService : FirebaseMessagingService() {
+    override fun onMessageReceived(message: RemoteMessage) {
+        when (message.data["type"]) {
+            "sync" -> WorkManager.getInstance(this).enqueueUniqueWork(
+                "sync", ExistingWorkPolicy.REPLACE,
+                OneTimeWorkRequestBuilder<SyncWorker>().setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST).build()
+            )
+        }
+    }
+    override fun onNewToken(token: String) { /* send the new token to your backend */ }
+}
+```
+
+The push only says "something changed"; the worker fetches the real data with the last sync cursor. Missed or duplicate pushes do no harm because the sync is idempotent.
+
 ### Interview questions
 
 1. **Why not just use a background Service for syncing?** Background services are killed within about a minute after the app leaves the foreground (Android 8+). WorkManager is the supported, battery-friendly path. {Easy}

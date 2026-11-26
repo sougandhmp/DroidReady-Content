@@ -90,6 +90,82 @@ class StartupBenchmark {
 - Network: compress (GZIP/Brotli), paginate, cache with ETags, batch requests, prefer one larger request over many on mobile radios.
 - Battery: batch work with WorkManager, avoid wakelocks, use fused location with appropriate priority and interval.
 
+### 9.8 Deeper dive: reading a LeakCanary trace
+
+LeakCanary shows the chain of references from a GC root to the leaked object. Read it top to bottom and find the first reference that should not exist.
+
+```text
+┬───
+│ GC Root: Thread object
+├─ android.os.HandlerThread instance
+│    Leaking: NO (thread is alive)
+│    ↓ Thread.target
+├─ com.example.session.SessionManager instance
+│    Leaking: NO (it is a singleton)
+│    ↓ SessionManager.listeners
+│                     ~~~~~~~~~
+├─ java.util.ArrayList instance
+│    ↓ ArrayList[0]
+├─ com.example.profile.ProfileActivity$sessionListener$1 instance
+│    Leaking: UNKNOWN
+│    ↓ ProfileActivity$sessionListener$1.this$0
+╰→ com.example.profile.ProfileActivity instance
+     Leaking: YES (Activity#mDestroyed is true)
+```
+
+Reading it: the singleton `SessionManager` holds a list of listeners; `ProfileActivity` added an anonymous listener (which holds `this$0`, the activity) and never removed it. The `~~~` underline marks the suspect reference. Fix: remove the listener in `onDestroy`, or better, expose session changes as a `Flow` and collect it with `repeatOnLifecycle`, so cleanup is automatic.
+
+### 9.9 Deeper dive: reading an ANR trace
+
+```text
+"main" prio=5 tid=1 Blocked
+  at com.example.data.LocalCache.get(LocalCache.kt:42)
+  - waiting to lock <0x0a1b2c3d> (a java.lang.Object) held by thread 23
+  at com.example.ui.HomeViewModel.<init>(HomeViewModel.kt:31)
+  ...
+"DefaultDispatcher-worker-3" prio=5 tid=23 Runnable
+  at java.io.FileInputStream.read(Native method)
+  at com.example.data.LocalCache.loadFromDisk(LocalCache.kt:88)
+  - locked <0x0a1b2c3d> (a java.lang.Object)
+```
+
+Reading it: the main thread is **Blocked** waiting for a lock. Thread 23 holds that lock while reading from disk. So the background I/O itself is fine, but sharing a lock with the main thread made the main thread wait for disk. Fix: never take a lock on the main thread that background I/O can hold; make `get` a suspend function that reads off the main thread, and stop constructing data in the ViewModel's `init` synchronously.
+
+Common ANR states to recognise: `Blocked` (lock contention), `Native` in a Binder call (slow system service or another app's provider), `Runnable` deep in your code (heavy computation), `Waiting` on a `CountDownLatch` or `Future.get()` (blocking on async work).
+
+### 9.10 Deeper dive: a startup optimisation case study
+
+An illustrative example (use your own numbers in interviews). Starting point: cold start 2.4 s at P50 on a mid-range phone. Steps taken, each measured with Macrobenchmark:
+
+| Change | Cold start (P50) |
+| --- | --- |
+| Baseline | 2.4 s |
+| Moved 3 analytics/ads SDK inits off the main thread, lazy on first use | 1.9 s |
+| Replaced a synchronous `SharedPreferences` read of a 400 KB JSON blob with DataStore + async load | 1.6 s |
+| Removed an eager Hilt `@Singleton` that built the full image cache at startup (made it `Lazy<T>`) | 1.5 s |
+| Added a baseline profile for the startup and home-feed journeys | 1.15 s |
+| Showed cached feed from Room first, refreshed network afterwards | Time to useful content: 1.3 s (from 3.1 s) |
+
+How to tell it in an interview: name the tool (Perfetto trace showed 600 ms in `Application.onCreate`), the fix, and the number. Then the guard: a CI Macrobenchmark job that fails the build if startup regresses by more than 10%.
+
+### 9.11 Deeper dive: allocation and garbage collection
+
+ART uses a concurrent copying garbage collector; most collection runs in the background, but heavy allocation still costs CPU and can cause short pauses and jank.
+
+```kotlin
+// Bad: allocates in every frame
+override fun onDraw(canvas: Canvas) {
+    val paint = Paint().apply { color = Color.RED }          // new object 60-120 times a second
+    canvas.drawText(formatter.format(Date()), x, y, paint)   // new Date and String each frame
+}
+
+// Better: allocate once, reuse
+private val paint = Paint().apply { color = Color.RED }
+override fun onDraw(canvas: Canvas) { canvas.drawText(cachedLabel, x, y, paint) }
+```
+
+Other sources of GC churn: string concatenation in loops (use `buildString`), boxing primitives in generic collections (`List<Int>` boxes; `IntArray` does not), `map`/`filter` chains in scroll callbacks, and logging that builds strings even when disabled. Find them with the Memory Profiler's allocation tracking or a Perfetto heap profile.
+
 ### Interview questions
 
 1. **Walk me through how you would investigate a slow screen.** Reproduce on a low-end device with a release build → record a Perfetto trace / Compose recomposition counts → identify the long frames and what runs in them → fix (move work off main, reduce recomposition, paginate) → add a Macrobenchmark `FrameTimingMetric` test in CI to prevent regressions. {Medium}

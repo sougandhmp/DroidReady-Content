@@ -164,6 +164,168 @@ fun `search emits results`() = runTest {
 
 `runTest` uses virtual time (`delay` is skipped). Replace `Dispatchers.Main` with `Dispatchers.setMain(StandardTestDispatcher())` in a JUnit rule, and inject dispatchers so they can be replaced.
 
+### 2.11 Deeper dive: the suspend state machine, step by step
+
+Consider this function:
+
+```kotlin
+suspend fun loadUser(id: String): UserProfile {
+    val user = api.getUser(id)          // suspension point 1
+    val avatar = api.getAvatar(user)    // suspension point 2
+    return UserProfile(user, avatar)
+}
+```
+
+The compiler rewrites it roughly like this (simplified):
+
+```kotlin
+fun loadUser(id: String, cont: Continuation<UserProfile>): Any? {
+    val sm = cont as? LoadUserSM ?: LoadUserSM(cont)   // holds 'label' and local variables
+    when (sm.label) {
+        0 -> {
+            sm.label = 1
+            val r = api.getUser(id, sm)
+            if (r == COROUTINE_SUSPENDED) return COROUTINE_SUSPENDED   // thread is free now
+            sm.user = r as User
+        }
+        1 -> sm.user = sm.result as User                               // resumed here later
+    }
+    // ...label 2 does the same for getAvatar...
+}
+```
+
+What to say in the interview: one object per call holds the locals, the `label` says where to continue, and returning `COROUTINE_SUSPENDED` releases the thread. That is why thousands of coroutines are cheap compared to threads: a suspended coroutine is just a small object on the heap, not a 1 MB thread stack.
+
+### 2.12 Deeper dive: exception scenarios traced
+
+**Scenario 1: `launch` inside `viewModelScope`.** `viewModelScope` uses a `SupervisorJob`, so a failing child does not cancel siblings. But the exception is still uncaught and crashes the app, because nothing handles it.
+
+```kotlin
+viewModelScope.launch { error("boom") }      // crashes the app
+viewModelScope.launch { loadFeed() }         // was not cancelled, but the app is already dead
+```
+
+Fix: catch inside the coroutine and turn the error into state.
+
+**Scenario 2: `async` in a regular scope.**
+
+```kotlin
+coroutineScope {
+    val a = async { error("A failed") }
+    val b = async { delay(1000); "B" }
+    // A fails -> the coroutineScope is cancelled -> b is cancelled -> the exception is rethrown here,
+    // even if you never call a.await()
+}
+```
+
+**Scenario 3: `try/catch` around `launch` does nothing.**
+
+```kotlin
+try {
+    scope.launch { error("boom") }   // the launch returns immediately; the error happens later
+} catch (e: Exception) { /* never reached */ }
+```
+
+The exception is thrown inside the coroutine, so the `try` must be inside the `launch` block.
+
+**Scenario 4: `supervisorScope` with `async`.**
+
+```kotlin
+supervisorScope {
+    val a = async { error("A failed") }
+    val b = async { "B" }
+    val resultA = runCatching { a.await() }   // failure surfaces only on await
+    val resultB = b.await()                   // still succeeds
+}
+```
+
+### 2.13 Deeper dive: shared mutable state
+
+Coroutines on `Dispatchers.Default` or `IO` run on several threads, so shared state needs protection.
+
+```kotlin
+var counter = 0
+coroutineScope {
+    repeat(1000) { launch(Dispatchers.Default) { counter++ } }
+}
+println(counter)   // often less than 1000: lost updates
+```
+
+Fixes, from simplest:
+
+- `AtomicInteger` / `AtomicReference` for single values.
+- `MutableStateFlow.update { }` is atomic (compare-and-set loop).
+- `Mutex` for a critical section that suspends. Unlike `synchronized`, it suspends instead of blocking a thread.
+- Confine the state to one thread (e.g. `Dispatchers.Default.limitedParallelism(1)`).
+
+```kotlin
+class TokenCache(private val api: AuthApi) {
+    private val mutex = Mutex()
+    private var token: Token? = null
+
+    suspend fun get(): Token = mutex.withLock {
+        token?.takeIf { !it.isExpired() } ?: api.refresh().also { token = it }
+    }
+}
+```
+
+Ten callers at once get one refresh call; the other nine wait on the lock and then read the cached token.
+
+### 2.14 Deeper dive: channels, producers and fan-out
+
+A `Channel` is a coroutine-safe queue: `send` suspends when full, `receive` suspends when empty. Each item goes to exactly one receiver.
+
+```kotlin
+val jobs = Channel<UploadJob>(capacity = 50)
+
+// producer
+launch { photos.forEach { jobs.send(UploadJob(it)) }; jobs.close() }
+
+// 3 workers share the queue (fan-out)
+repeat(3) { workerId ->
+    launch { for (job in jobs) upload(job, workerId) }   // loop ends when the channel is closed and empty
+}
+```
+
+Capacity choices: `RENDEZVOUS` (0, sender waits for a receiver), `BUFFERED` (64 by default), `CONFLATED` (keeps only the latest), `UNLIMITED` (risk of running out of memory).
+
+### 2.15 Deeper dive: callbackFlow for a real API
+
+Turning location updates into a Flow that stops listening when the collector goes away:
+
+```kotlin
+fun FusedLocationProviderClient.locationFlow(request: LocationRequest): Flow<Location> = callbackFlow {
+    val callback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            result.lastLocation?.let { trySend(it) }   // non-suspending send from a callback
+        }
+    }
+    requestLocationUpdates(request, callback, Looper.getMainLooper())
+        .addOnFailureListener { close(it) }            // end the flow with an error
+    awaitClose { removeLocationUpdates(callback) }     // runs when the collector is cancelled
+}
+```
+
+Forgetting `awaitClose` throws an `IllegalStateException`; it is how the library makes sure you clean up.
+
+### 2.16 Deeper dive: backpressure in Flow
+
+If the collector is slower than the producer, the producer suspends by default (each `emit` waits for the collector). Options:
+
+| Operator | Behaviour | Example use |
+| --- | --- | --- |
+| (none) | Producer waits for the collector | Default, safe |
+| `buffer(n)` | Producer runs ahead up to n items in a separate coroutine | Parse while previous item renders |
+| `conflate()` | Collector gets only the latest; skips intermediate values | Sensor readings, progress |
+| `collectLatest { }` | Cancels the slow collector block when a new value arrives | Re-render on each search result |
+| `sample(ms)` / `debounce(ms)` | Time-based dropping | UI updates from fast streams |
+
+```kotlin
+downloadProgress()          // emits every few ms
+    .conflate()
+    .collect { progressBar.progress = it }   // UI only draws the newest value
+```
+
 ### Interview questions
 
 1. **What happens when a suspend function suspends?** It saves local state into its continuation object, returns `COROUTINE_SUSPENDED`, and frees the thread. When resumed, the state machine continues from the saved label. {Hard}

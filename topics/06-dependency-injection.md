@@ -90,6 +90,109 @@ Or use `@TestInstallIn(components = [...], replaces = [DataModule::class])` once
 - **Dagger (plain):** more control, used in large multi-module apps; more boilerplate.
 - **kotlin-inject / Metro:** compile-time, KMP-friendly options.
 
+### 6.6 Deeper dive: what Dagger and Hilt generate
+
+For a class with an `@Inject` constructor, Dagger generates a factory at compile time:
+
+```kotlin
+class ArticleRepository @Inject constructor(private val api: ArticleApi, private val dao: ArticleDao)
+
+// Generated (simplified, Java in reality)
+class ArticleRepository_Factory(
+    private val api: Provider<ArticleApi>,
+    private val dao: Provider<ArticleDao>
+) : Factory<ArticleRepository> {
+    override fun get() = ArticleRepository(api.get(), dao.get())
+}
+```
+
+The component wires these factories into a graph. A `@Singleton` binding is wrapped in `DoubleCheck`, which creates the object once with double-checked locking. Because the graph is checked at compile time, a missing binding fails the build with a message like `[Dagger/MissingBinding] ArticleApi cannot be provided without an @Provides-annotated method`, instead of crashing a user's app.
+
+Hilt adds generated base classes: `@AndroidEntryPoint class MainActivity` really extends `Hilt_MainActivity`, which injects fields in `onCreate`.
+
+### 6.7 Deeper dive: qualifiers for dispatchers and scopes
+
+```kotlin
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class IoDispatcher
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class DefaultDispatcher
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class ApplicationScope
+
+@Module @InstallIn(SingletonComponent::class)
+object CoroutinesModule {
+    @Provides @IoDispatcher fun io(): CoroutineDispatcher = Dispatchers.IO
+    @Provides @DefaultDispatcher fun default(): CoroutineDispatcher = Dispatchers.Default
+
+    @Provides @Singleton @ApplicationScope
+    fun appScope(@DefaultDispatcher d: CoroutineDispatcher): CoroutineScope = CoroutineScope(SupervisorJob() + d)
+}
+
+class SyncRepository @Inject constructor(
+    @IoDispatcher private val io: CoroutineDispatcher,
+    @ApplicationScope private val appScope: CoroutineScope   // for work that must outlive a screen
+)
+```
+
+In tests, replace `CoroutinesModule` with one that returns a `StandardTestDispatcher`.
+
+### 6.8 Deeper dive: assisted injection for runtime values
+
+Some dependencies come from the graph, others only exist at runtime (an ID, a callback):
+
+```kotlin
+class ArticleExporter @AssistedInject constructor(
+    private val repo: ArticleRepository,        // from the graph
+    @Assisted private val articleId: String     // supplied by the caller
+) {
+    @AssistedFactory interface Factory { fun create(articleId: String): ArticleExporter }
+}
+
+class ShareViewModel @Inject constructor(private val exporterFactory: ArticleExporter.Factory) : ViewModel() {
+    fun export(id: String) = viewModelScope.launch { exporterFactory.create(id).export() }
+}
+```
+
+For ViewModels, Hilt supports the same idea:
+
+```kotlin
+@HiltViewModel(assistedFactory = DetailViewModel.Factory::class)
+class DetailViewModel @AssistedInject constructor(
+    @Assisted val id: String,
+    private val repo: ArticleRepository
+) : ViewModel() {
+    @AssistedFactory interface Factory { fun create(id: String): DetailViewModel }
+}
+
+val vm = hiltViewModel<DetailViewModel, DetailViewModel.Factory> { it.create(articleId) }
+```
+
+### 6.9 Deeper dive: multibindings for plug-in style features
+
+Collect many implementations into a `Set` or `Map` without a central list. Useful for app initializers, analytics trackers or deep-link handlers contributed by different modules.
+
+```kotlin
+interface AppInitializer { fun init(app: Application) }
+
+// In :core:analytics
+@Module @InstallIn(SingletonComponent::class)
+abstract class AnalyticsInitModule {
+    @Binds @IntoSet abstract fun bind(i: AnalyticsInitializer): AppInitializer
+}
+
+// In :core:logging
+@Module @InstallIn(SingletonComponent::class)
+abstract class LoggingInitModule {
+    @Binds @IntoSet abstract fun bind(i: TimberInitializer): AppInitializer
+}
+
+@HiltAndroidApp
+class App : Application() {
+    @Inject lateinit var initializers: Set<@JvmSuppressWildcards AppInitializer>
+    override fun onCreate() { super.onCreate(); initializers.forEach { it.init(this) } }
+}
+```
+
+Adding a new module that contributes an initializer requires no change to `App`. `@IntoMap` with a `@StringKey` works the same way for keyed lookups.
+
 ### Interview questions
 
 1. **DI vs service locator?** With DI, dependencies are pushed in through the constructor and are visible in the signature. A service locator is pulled from inside the class, which hides dependencies and makes testing harder. {Easy}

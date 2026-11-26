@@ -70,6 +70,61 @@ data class MessageEntity(
 | Analytics SDK | Batching, persistence, upload windows, tiny footprint, thread safety, privacy |
 | Image loading library | Memory + disk cache (LRU), request deduplication, cancellation, downsampling, bitmap pooling |
 
+### 13.4 Deeper dive: second worked example, a news feed
+
+**Clarified requirements.** Infinite scrolling feed of posts (text, images, short videos), like and comment counts, pull to refresh, offline reading of the last feed, new-post banner. Assume 10M DAU, posts average 2 KB of JSON plus media.
+
+**API.**
+
+```text
+GET  /feed?cursor=<opaque>&limit=20      -> { posts: [...], nextCursor: "..." }
+GET  /feed/new-count?since=<postId>      -> { count: 7 }        (polled or pushed)
+POST /posts/{id}/like                    (idempotent: PUT-like semantics)
+```
+
+Cursor pagination is essential: with offset pagination, new posts arriving at the top shift every page and the user sees duplicates.
+
+**Client data flow.**
+
+- `FeedRemoteMediator` (Paging 3) loads pages from the API into Room, storing `nextCursor` in a `RemoteKeys` table.
+- The UI reads `PagingData` from Room only, so offline reading and process death are handled for free.
+- Pull to refresh calls `refresh()`, which clears the cache table and reloads the first page in one transaction.
+- Likes use an optimistic update: write to Room immediately, send in the background, roll back on failure.
+
+**Media.**
+
+- Request image sizes that fit the screen (server provides several resolutions or an image CDN with width parameters).
+- Coil with memory + disk caching; prefetch images for the next few items as the user scrolls.
+- Video: Media3 ExoPlayer, one shared player instance re-attached to the visible item, autoplay muted only when more than 50% visible and on Wi-Fi or if the user allows it.
+
+**Performance and scale on device.**
+
+- Cap the cached feed (e.g. the last 500 posts) and evict older rows to bound DB size.
+- Stable keys and `contentType` in `LazyColumn`; precomputed UI models (formatted dates, counts) so composition is cheap.
+- Track scroll jank with JankStats and a Macrobenchmark scroll test.
+
+**Trade-offs to state.** Polling for the new-post count is simple but costs battery; a push or WebSocket only while the app is in the foreground is better at scale. Ranking stays on the server so it can change without an app release.
+
+### 13.5 Deeper dive: quick estimates
+
+Interviewers like you to sanity-check sizes. Show the arithmetic briefly:
+
+- Feed cache: 500 posts x 2 KB = about 1 MB of JSON in Room, which is fine.
+- Images: 500 posts x 1 image x 150 KB = 75 MB, so cap the disk cache (e.g. 100-250 MB) and let LRU evict.
+- Data use: 20 posts per page x (2 KB + 150 KB) is about 3 MB per page, so prefer smaller images on metered networks.
+- Server load: 10M DAU x 10 feed opens x 3 pages = 300M requests per day, about 3,500 per second on average; that is why the client should cache and avoid refetching on every screen visit.
+
+### 13.6 Deeper dive: what a strong answer sounds like
+
+A short sample of the opening minutes:
+
+- **Interviewer:** Design an offline-capable notes app.
+- **You:** Before designing, a few questions. Do notes sync across devices? Can two devices edit the same note at the same time? Do notes have attachments? Roughly how many notes per user? Which Android versions?
+- **Interviewer:** Yes, sync across devices; concurrent edits are possible but rare; images allowed; up to a few thousand notes.
+- **You:** Then the key problems are offline edits and conflicts. I will make Room the source of truth, give every note a `version` and an `updatedAt`, keep an outbox of local changes, and sync with WorkManager. For conflicts I propose last-write-wins per field for title and body, and if both changed I keep both versions and show a conflict copy, which is simple and loses no data. Shall I start with the high-level architecture, then go deep on sync?
+
+Why this works: it clarifies scope, names the hard problem early, proposes a concrete approach with a trade-off, and lets the interviewer steer.
+
 ### Interview questions
 
 1. **How do you make sending a message reliable on flaky networks?** Local outbox, WorkManager with backoff, idempotency keys, explicit statuses, and a retry UI for `FAILED` messages. {Hard}
