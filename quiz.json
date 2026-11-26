@@ -1,0 +1,384 @@
+{
+  "schemaVersion": 1,
+  "questions": [
+    {
+      "id": "kotlin-equality",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "data class User(val name: String)\n\nval a = User(\"Sam\")\nval b = User(\"Sam\")\nprintln(a == b)\nprintln(a === b)",
+      "options": [
+        "true, true",
+        "true, false",
+        "false, false",
+        "false, true"
+      ],
+      "answer": 1,
+      "explanation": "== calls the generated equals(), so equal data matches. === checks whether both are the same object, and these are two instances."
+    },
+    {
+      "id": "kotlin-apply",
+      "topic": "kotlin",
+      "question": "Which scope function uses this inside the lambda and returns the object itself?",
+      "options": [
+        "let",
+        "run",
+        "apply",
+        "also"
+      ],
+      "answer": 2,
+      "explanation": "apply exposes the object as this and returns it, which suits configuration. also returns the object too, but exposes it as it."
+    },
+    {
+      "id": "kotlin-copy",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "val list = mutableListOf(1, 2)\nlist.add(3)\nprintln(list.size)",
+      "options": [
+        "1",
+        "2",
+        "3",
+        "It does not compile"
+      ],
+      "answer": 2,
+      "explanation": "val makes the reference read-only, not the object. The same mutable list is still changing, so its size is 3."
+    },
+    {
+      "id": "coroutines-async",
+      "topic": "coroutines-flow",
+      "question": "Which builder returns a Deferred result?",
+      "options": [
+        "launch",
+        "async",
+        "runBlocking",
+        "withContext"
+      ],
+      "answer": 1,
+      "explanation": "async returns Deferred<T>, which you await(). launch returns a Job for side effects."
+    },
+    {
+      "id": "coroutines-supervisor",
+      "topic": "coroutines-flow",
+      "question": "A child fails inside supervisorScope. What happens to its siblings?",
+      "options": [
+        "They are cancelled",
+        "They keep running",
+        "They restart",
+        "The app always crashes"
+      ],
+      "answer": 1,
+      "explanation": "A supervisor isolates failures: one child failing does not cancel its siblings. In coroutineScope it would."
+    },
+    {
+      "id": "coroutines-flowon",
+      "topic": "coroutines-flow",
+      "question": "How do you move the upstream work of a flow to another dispatcher?",
+      "options": [
+        "withContext around emit",
+        "flowOn",
+        "launchIn",
+        "stateIn"
+      ],
+      "answer": 1,
+      "explanation": "flowOn changes the upstream context. Emitting from another context inside flow {} breaks context preservation and throws."
+    },
+    {
+      "id": "coroutines-latest",
+      "topic": "coroutines-flow",
+      "question": "Which operator fits search-as-you-type, cancelling the previous query?",
+      "options": [
+        "flatMapMerge",
+        "flatMapConcat",
+        "flatMapLatest",
+        "zip"
+      ],
+      "answer": 2,
+      "explanation": "flatMapLatest cancels the previous inner flow when a new value arrives."
+    },
+    {
+      "id": "android-ondestroy",
+      "topic": "android-fundamentals",
+      "question": "When must you not rely on onDestroy to save data?",
+      "options": [
+        "Never, it always runs",
+        "Because the process can be killed without calling it",
+        "Only on Android 7 and lower",
+        "Only for Fragments"
+      ],
+      "answer": 1,
+      "explanation": "onDestroy is not guaranteed. Persist important data in onStop or as soon as it changes."
+    },
+    {
+      "id": "android-bundle",
+      "topic": "android-fundamentals",
+      "question": "What can happen if you put a large object in the saved instance state Bundle?",
+      "options": [
+        "OutOfMemoryError on rotation only",
+        "TransactionTooLargeException",
+        "The Bundle is silently compressed",
+        "StackOverflowError"
+      ],
+      "answer": 1,
+      "explanation": "The Bundle crosses Binder, whose buffer of about 1 MB is shared per process. Save IDs, not objects."
+    },
+    {
+      "id": "compose-trigger",
+      "topic": "jetpack-compose",
+      "question": "What triggers recomposition of a scope?",
+      "options": [
+        "Any variable changing",
+        "A State read in that scope changing",
+        "A timer every frame",
+        "Calling the composable from a ViewModel"
+      ],
+      "answer": 1,
+      "explanation": "Compose tracks State reads through the snapshot system and recomposes the scopes that read a changed value."
+    },
+    {
+      "id": "compose-effect",
+      "topic": "jetpack-compose",
+      "question": "What does LaunchedEffect(userId) do when userId changes?",
+      "options": [
+        "Nothing",
+        "Runs a second coroutine alongside the first",
+        "Cancels the old coroutine and starts a new one",
+        "Recreates the Activity"
+      ],
+      "answer": 2,
+      "explanation": "A changed key restarts the effect: the old coroutine is cancelled before the new one starts."
+    },
+    {
+      "id": "compose-saveable",
+      "topic": "jetpack-compose",
+      "question": "Which keeps UI state across a configuration change?",
+      "options": [
+        "remember",
+        "rememberSaveable",
+        "derivedStateOf",
+        "SideEffect"
+      ],
+      "answer": 1,
+      "explanation": "rememberSaveable survives recomposition, configuration changes and process death. remember only survives recomposition."
+    },
+    {
+      "id": "arch-truth",
+      "topic": "architecture",
+      "question": "In an offline-first app, what does the UI read from?",
+      "options": [
+        "The network response",
+        "The local database",
+        "Whichever returns first",
+        "A global singleton"
+      ],
+      "answer": 1,
+      "explanation": "The database is the single source of truth. The network only writes into it."
+    },
+    {
+      "id": "arch-usecase",
+      "topic": "architecture",
+      "question": "Where does a business rule reused by several screens belong?",
+      "options": [
+        "In each ViewModel",
+        "In a use case",
+        "In a composable",
+        "In the Retrofit service"
+      ],
+      "answer": 1,
+      "explanation": "A use case holds reusable business rules. A ViewModel manages screen state and UI events."
+    },
+    {
+      "id": "di-binds",
+      "topic": "dependency-injection",
+      "question": "What is @Binds used for?",
+      "options": [
+        "Running factory code you write",
+        "Mapping an interface to its implementation",
+        "Scoping a ViewModel",
+        "Injecting into a field"
+      ],
+      "answer": 1,
+      "explanation": "@Binds is an abstract declaration that maps an interface to an implementation. @Provides is factory code you write."
+    },
+    {
+      "id": "di-constructor",
+      "topic": "dependency-injection",
+      "question": "Why prefer constructor injection over field injection?",
+      "options": [
+        "It is the only kind Hilt supports",
+        "Dependencies are explicit and tests can build the object directly",
+        "It makes every object a singleton",
+        "It avoids generating any code"
+      ],
+      "answer": 1,
+      "explanation": "Constructor injection makes dependencies visible, allows val fields and lets tests construct the class without the framework."
+    },
+    {
+      "id": "data-distinct",
+      "topic": "data-layer",
+      "question": "A Room Flow emits again although your result did not change. What helps?",
+      "options": [
+        "flowOn(Dispatchers.Main)",
+        "distinctUntilChanged()",
+        "buffer()",
+        "shareIn with replay 0"
+      ],
+      "answer": 1,
+      "explanation": "Room re-emits on any change to the table. distinctUntilChanged() drops equal results; narrowing the query also helps."
+    },
+    {
+      "id": "data-migration",
+      "topic": "data-layer",
+      "question": "Which is risky for tables holding user data?",
+      "options": [
+        "Exported schemas",
+        "Migration tests in CI",
+        "fallbackToDestructiveMigration()",
+        "A manual Migration"
+      ],
+      "answer": 2,
+      "explanation": "A destructive fallback deletes data. Keep it for tables that are pure cache."
+    },
+    {
+      "id": "work-periodic",
+      "topic": "background-work",
+      "question": "What is the minimum interval for periodic WorkManager work?",
+      "options": [
+        "1 minute",
+        "5 minutes",
+        "15 minutes",
+        "1 hour"
+      ],
+      "answer": 2,
+      "explanation": "Periodic work has a 15-minute minimum, and execution can drift."
+    },
+    {
+      "id": "work-force-stop",
+      "topic": "background-work",
+      "question": "What happens to scheduled WorkManager work after a user force-stops the app?",
+      "options": [
+        "It runs on schedule",
+        "It runs once after a reboot",
+        "It does not run until the app is opened again",
+        "It moves to a foreground service"
+      ],
+      "answer": 2,
+      "explanation": "Force-stop clears scheduled jobs and alarms until the user opens the app again."
+    },
+    {
+      "id": "perf-baseline",
+      "topic": "performance",
+      "question": "What does a baseline profile do?",
+      "options": [
+        "Shrinks the APK",
+        "Gives AOT compile hints for critical code paths",
+        "Records crashes in production",
+        "Limits memory use"
+      ],
+      "answer": 1,
+      "explanation": "It lets ART compile critical paths ahead of time, so early runs do not wait for JIT profiling."
+    },
+    {
+      "id": "perf-anr",
+      "topic": "performance",
+      "question": "Which can cause an ANR?",
+      "options": [
+        "Blocking the main thread for about 5 s during input",
+        "A 20 ms frame",
+        "A failed network call on a background thread",
+        "A recomposition"
+      ],
+      "answer": 0,
+      "explanation": "An input event with no response within about 5 s raises an ANR."
+    },
+    {
+      "id": "testing-turbine",
+      "topic": "testing",
+      "question": "Which tool helps assert the values a Flow emits over time?",
+      "options": [
+        "Espresso",
+        "Turbine",
+        "R8",
+        "LeakCanary"
+      ],
+      "answer": 1,
+      "explanation": "Turbine's test { awaitItem() } checks emissions one at a time inside runTest."
+    },
+    {
+      "id": "testing-robolectric",
+      "topic": "testing",
+      "question": "What does Robolectric do?",
+      "options": [
+        "Runs Android framework code on the JVM",
+        "Records UI jank on devices",
+        "Mocks only network calls",
+        "Replaces runTest"
+      ],
+      "answer": 0,
+      "explanation": "Robolectric tests run on the JVM, so they are faster than instrumented tests on a device."
+    },
+    {
+      "id": "security-key",
+      "topic": "security-privacy",
+      "question": "What best protects a third-party API secret your app needs?",
+      "options": [
+        "Put it in strings.xml",
+        "Obfuscate it with R8",
+        "Keep it on your backend and make the call there",
+        "Store it in SharedPreferences"
+      ],
+      "answer": 2,
+      "explanation": "Anything shipped in the app can be extracted. Moving the call behind your backend keeps the secret off the device."
+    },
+    {
+      "id": "security-pinning",
+      "topic": "security-privacy",
+      "question": "What is the main operational risk of certificate pinning?",
+      "options": [
+        "Slower UI rendering",
+        "Outages when certificates rotate",
+        "Larger database files",
+        "Losing offline support"
+      ],
+      "answer": 1,
+      "explanation": "If a pinned certificate changes unexpectedly, the app cannot connect. Pin public keys and keep a backup pin."
+    },
+    {
+      "id": "build-api",
+      "topic": "build-release",
+      "question": "In Gradle, what does implementation do that api does not?",
+      "options": [
+        "Exposes the dependency to consumers",
+        "Keeps the dependency internal to the module",
+        "Adds it only to tests",
+        "Skips compiling it"
+      ],
+      "answer": 1,
+      "explanation": "implementation keeps a dependency internal, so consumers need not recompile when it changes."
+    },
+    {
+      "id": "build-rollout",
+      "topic": "build-release",
+      "question": "Crashes appear during a staged rollout. What do you do first?",
+      "options": [
+        "Finish the rollout quickly",
+        "Halt the rollout",
+        "Remove crash reporting",
+        "Wait a week for more data"
+      ],
+      "answer": 1,
+      "explanation": "Halt the rollout to limit impact, then triage, mitigate with a flag if possible and ship a tested fix."
+    },
+    {
+      "id": "design-idempotency",
+      "topic": "system-design",
+      "question": "Why send an idempotency key with a chat message?",
+      "options": [
+        "To encrypt it",
+        "So a retry does not create a duplicate",
+        "To compress the payload",
+        "To order the UI animations"
+      ],
+      "answer": 1,
+      "explanation": "On flaky networks a request may be retried. The key lets the server recognise it and not store the message twice."
+    }
+  ]
+}
