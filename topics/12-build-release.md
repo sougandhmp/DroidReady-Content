@@ -160,8 +160,52 @@ Good practice: every flag has an owner and a removal date; tests use a `FakeFeat
 
 How to debug a release-only crash caused by R8: reproduce with a release build locally, check `build/outputs/mapping/release/usage.txt` (what was removed) and `mapping.txt` (renames), add the narrowest keep rule, and add a test that runs against the minified build so it cannot happen again. Prefer libraries that ship their own consumer rules.
 
+### 12.10 App Bundles, Play Feature Delivery, in-app updates and reviews
+
+**Android App Bundle (AAB).** You upload one `.aab`; Google Play builds and serves optimised APKs for each device (only its screen density, CPU architecture and languages). This makes downloads smaller than a universal APK. New apps on Play must be published as bundles, and Play App Signing holds the app signing key while you keep an upload key.
+
+**Play Feature Delivery** splits rarely used features into dynamic feature modules:
+
+| Delivery option | When the module is installed | Example |
+| --- | --- | --- |
+| Install-time | With the app | Default; useful to split code while keeping it always present |
+| Conditional | At install, if the device matches (country, features, SDK) | AR feature only on ARCore devices |
+| On-demand | When the app requests it at runtime | A rarely used video editor |
+
+```kotlin
+val splitInstall = SplitInstallManagerFactory.create(context)
+val request = SplitInstallRequest.newBuilder().addModule("video_editor").build()
+splitInstall.startInstall(request)
+    .addOnSuccessListener { openEditor() }
+    .addOnFailureListener { showError(it) }
+```
+
+Trade-offs to mention: dynamic modules depend on the base app (the reverse of normal modules), cross-module navigation needs reflection or a service-loader pattern, and testing needs `bundletool` or internal app sharing. Many teams use normal Gradle modules for build speed and save dynamic features for large, rarely used parts.
+
+**In-app updates.** The Play Core library can prompt users to update without leaving the app.
+
+```kotlin
+val updateManager = AppUpdateManagerFactory.create(context)
+updateManager.appUpdateInfo.addOnSuccessListener { info ->
+    val critical = info.updatePriority() >= 4                       // priority set when you publish
+    if (info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
+        info.isUpdateTypeAllowed(if (critical) AppUpdateType.IMMEDIATE else AppUpdateType.FLEXIBLE)) {
+        updateManager.startUpdateFlowForResult(
+            info, updateLauncher,
+            AppUpdateOptions.defaultOptions(if (critical) AppUpdateType.IMMEDIATE else AppUpdateType.FLEXIBLE)
+        )
+    }
+}
+```
+
+**Flexible** downloads in the background while the user keeps working; you then ask them to restart. **Immediate** is a full-screen flow for critical fixes. For a hard minimum version (e.g. a breaking API change), also check a minimum version from your own remote config.
+
+**In-app reviews.** `ReviewManager` shows the Play rating sheet inside your app. Play applies a quota, so the sheet may not appear, and your app is not told whether the user rated. Ask after a positive moment (an order delivered, a task completed), never from a "Rate us" button, and never offer rewards for ratings.
+
 ### Interview questions
 
 1. **Your clean build takes 12 minutes. What do you do?** Profile with a Build Scan, check configuration time vs execution, enable configuration and remote build caches, replace kapt with KSP, split large modules, parallelise CI, and cache Gradle in CI. {Medium}
 2. **A crash appears in 0.5% of users after release. What is your process?** Halt the staged rollout, triage the stack trace (de-obfuscated), check which devices/OS versions, disable via feature flag if possible, hotfix with a test reproducing it, resume the rollout, then run a blameless post-mortem. {Medium}
 3. **`api` vs `implementation`?** `api` leaks the dependency to consumers (they recompile when it changes); `implementation` keeps it internal. Default to `implementation`. {Easy}
+4. **APK vs App Bundle?** An APK is the installable file. An AAB is a publishing format: Play generates per-device APKs from it, so users download only the code and resources their device needs. Bundles are required for new apps on Play. {Easy}
+5. **When would you use an on-demand dynamic feature module?** For a large, rarely used feature (an editor, an AR mode) where the saving in install size is worth the extra complexity in navigation, testing and release. {Hard}

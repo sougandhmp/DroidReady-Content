@@ -167,9 +167,50 @@ IconToggleButton(checked = liked, onCheckedChange = { like() }) {          // 48
 }
 ```
 
+### 14.13 Resources and localization
+
+**Resource qualifiers.** Android picks resources by device configuration: `values-fr/strings.xml` (French), `values-night/` (dark theme), `layout-sw600dp/` (tablets), `drawable-xxhdpi/` (density), `values-b+es+419/` (Latin American Spanish). Never hardcode user-visible text, colours or dimensions in code.
+
+**Plurals and formatting.**
+
+```xml
+<plurals name="items_in_cart">
+    <item quantity="one">%d item in your cart</item>
+    <item quantity="other">%d items in your cart</item>
+</plurals>
+<string name="greeting">Hello, %1$s! You have %2$d new messages.</string>
+```
+
+```kotlin
+val label = pluralStringResource(R.plurals.items_in_cart, count, count)   // Compose
+val price = NumberFormat.getCurrencyInstance(Locale.getDefault()).format(amount)   // A$12.50, 12,50 € ...
+val date = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(localDate)
+```
+
+Some languages have more plural forms than English (`zero`, `two`, `few`, `many`), which is why string concatenation like `"$count items"` breaks. Use positional arguments (`%1$s`) because translators may reorder words.
+
+**Right-to-left (RTL).** Use `start`/`end` instead of `left`/`right` (`paddingStart`, `Arrangement.Start`). Compose and Views mirror layouts automatically for Arabic and Hebrew. Mirror directional icons with `android:autoMirrored="true"`, and test with *Developer options > Force RTL layout direction*.
+
+**Per-app language preferences (Android 13+).** Users can pick a language for each app in system settings, and apps can offer an in-app picker.
+
+```kotlin
+// build.gradle.kts: generate the locale list from your resources (AGP 8.1+)
+android { androidResources { generateLocaleConfig = true } }
+// res/resources.properties
+//   unqualifiedResLocale=en-US
+
+// Change the app language at runtime (AppCompat 1.6+, also works below Android 13)
+AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fr"))
+// Back to the system language
+AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
+```
+
+Calling `setApplicationLocales` recreates the Activity unless you handle locale changes yourself. On Android 12 and lower, it only works from an `AppCompatActivity`, and the choice is saved if you enable `autoStoreLocales` in the manifest. Compose's `stringResource` updates automatically when the locale changes.
+
 ### Interview questions
 
 1. **What changes when your app targets Android 17 on a tablet?** The app can no longer opt out of orientation and resizability restrictions on large screens (apart from games), so layouts must adapt to any window size and survive resizing without losing state. {Medium}
 2. **How do you make an app edge-to-edge safely?** Call `enableEdgeToEdge()`, let `Scaffold` or `WindowInsets.safeDrawing` pad content, use `imePadding()` for input, and test with gesture and 3-button navigation, cutouts and the keyboard. {Easy}
 3. **What would you share in a KMP project first?** Networking, models, persistence and business logic, starting with one module. Keep UI native at first, measure the build and binary-size impact, and get the iOS team involved early. {Medium}
 4. **How do you test accessibility?** TalkBack walk-throughs of key journeys, Accessibility Scanner, automated checks in Compose and Espresso tests, large font and display size, and contrast checks in design review. {Medium}
+5. **Why is `"$count items"` a localization bug?** Many languages have several plural forms and different word order. Use `<plurals>` resources with `pluralStringResource` / `getQuantityString`, and positional format arguments. {Easy}

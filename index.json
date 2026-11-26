@@ -14,7 +14,7 @@
       "number": 1,
       "title": "Kotlin deep dive",
       "path": "topics/01-kotlin.md",
-      "sha256": "58cb5b23ed7300b45e7c27eef03604bf49fe71c458e4441b33ee750a3a13b2ad"
+      "sha256": "6e2a87ba054bc839ad657c7085c73c2cb042704a847ae010b81b4b8e021654a1"
     },
     {
       "id": "coroutines-flow",
@@ -28,7 +28,7 @@
       "number": 3,
       "title": "Android fundamentals",
       "path": "topics/03-android-fundamentals.md",
-      "sha256": "9377e5c0cd78aa747006f48c65622fd34b82bcdf80f53a38dc5508efe81dea74"
+      "sha256": "455e8d10e96641cebfa9793fe401262368d81f767a867b40b1359d067799bba1"
     },
     {
       "id": "jetpack-compose",
@@ -56,7 +56,7 @@
       "number": 7,
       "title": "Data layer: networking, persistence, offline-first",
       "path": "topics/07-data-layer.md",
-      "sha256": "53fe0599f7007f6cdb44dfef556058d2d3c81946c6f63a3d3021ea19de009178"
+      "sha256": "b9e69d392e4aad2ebbddb1020ffda68bb37934ade15b1d07f27b04270ca713d2"
     },
     {
       "id": "background-work",
@@ -91,7 +91,7 @@
       "number": 12,
       "title": "Build, Gradle, CI/CD, release and observability",
       "path": "topics/12-build-release.md",
-      "sha256": "e3de7e3ceeaa9f06b2fa547db7a96d5121096b30ea0e4d602c191c4e2b9dc023"
+      "sha256": "0e3e7a6f4b94955a70e7037d2e17cf17438223c6f2cf8442b2790b0340ca3972"
     },
     {
       "id": "system-design",
@@ -105,7 +105,7 @@
       "number": 14,
       "title": "Modern platform topics",
       "path": "topics/14-modern-platform.md",
-      "sha256": "097aacdf8c5c408a13badf0296026f64b2369ec59825b35beda15fe62c5b1da3"
+      "sha256": "1fe8e6a754a2f348d0e180b2da88cc761ef99b66cb9395ea37d44295a49c61e0"
     },
     {
       "id": "leadership",

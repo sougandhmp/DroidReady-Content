@@ -207,6 +207,149 @@ startActivity(Intent.createChooser(share, "Share invoice"))
 
 The receiving app gets a `content://` URI and temporary permission, never a raw file path. Sharing `file://` URIs crashes with `FileUriExposedException` since Android 7.
 
+### 3.16 Lifecycle-aware components
+
+**Learn:** A `Lifecycle` has **states** (`INITIALIZED`, `CREATED`, `STARTED`, `RESUMED`, `DESTROYED`) and the **events** that move between them (`ON_CREATE`, `ON_START`, `ON_RESUME`, `ON_PAUSE`, `ON_STOP`, `ON_DESTROY`). Activities, Fragments, a Fragment's view, and Navigation back-stack entries are all `LifecycleOwner`s. Lifecycle-aware code starts and stops itself instead of relying on the screen to remember.
+
+```kotlin
+// Views: an observer that manages its own resource
+class CameraController(private val camera: Camera) : DefaultLifecycleObserver {
+    override fun onStart(owner: LifecycleOwner) = camera.open()
+    override fun onStop(owner: LifecycleOwner) = camera.close()
+}
+lifecycle.addObserver(CameraController(camera))
+```
+
+In Compose, use the lifecycle effects instead of writing an observer by hand:
+
+| API | Runs on | Cleanup |
+| --- | --- | --- |
+| `LifecycleEventEffect(event)` | One event, e.g. `ON_RESUME` | None; good for analytics |
+| `LifecycleStartEffect(key)` | `ON_START` | `onStopOrDispose { }` runs on `ON_STOP` or when it leaves composition |
+| `LifecycleResumeEffect(key)` | `ON_RESUME` | `onPauseOrDispose { }` |
+
+```kotlin
+@Composable
+fun LocationMonitor(locationManager: LocationManager) {
+    LifecycleStartEffect(locationManager) {
+        val listener = LocationListener { location -> /* update UI */ }
+        locationManager.requestLocationUpdates(listener)
+        onStopOrDispose { locationManager.removeUpdates(listener) }
+    }
+}
+```
+
+`ON_DESTROY` cannot be observed with `LifecycleEventEffect`, because the composable is disposed before that event arrives.
+
+**ProcessLifecycleOwner** gives the lifecycle of the whole app rather than one screen. Use it to detect when the app goes to the background or returns:
+
+```kotlin
+ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+    override fun onStart(owner: LifecycleOwner) = socket.connect()      // app came to the foreground
+    override fun onStop(owner: LifecycleOwner) = socket.disconnect()    // all activities stopped
+})
+```
+
+Typical use cases: open a camera or start fine-grained location in `ON_START` and stop in `ON_STOP`; start video playback in `ON_RESUME` and release in `ON_PAUSE`; collect flows with `collectAsStateWithLifecycle` so collection pauses in the background.
+
+### 3.17 Notifications
+
+**Learn:** Every notification belongs to a **channel** (Android 8.0, API 26+), and users control sound and visibility per channel. Apps targeting Android 13 (API 33)+ must request the **`POST_NOTIFICATIONS`** runtime permission; it is off by default for new installs.
+
+```kotlin
+// 1. Create the channel once, e.g. in Application.onCreate (safe to call again)
+val channel = NotificationChannel("orders", "Order updates", NotificationManager.IMPORTANCE_DEFAULT)
+    .apply { description = "Shipping and delivery status" }
+context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+
+// 2. Build the notification
+val notification = NotificationCompat.Builder(context, "orders")
+    .setSmallIcon(R.drawable.ic_box)
+    .setContentTitle("Your order has shipped")
+    .setContentText("Arriving Thursday")
+    .setStyle(NotificationCompat.BigTextStyle().bigText("Order #4821 left the warehouse and arrives Thursday."))
+    .setContentIntent(openOrderPendingIntent)          // tap opens the order screen
+    .addAction(R.drawable.ic_track, "Track", trackPendingIntent)
+    .setAutoCancel(true)
+    .build()
+
+// 3. Post it only if allowed
+if (Build.VERSION.SDK_INT < 33 ||
+    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+    NotificationManagerCompat.from(context).notify(orderId.hashCode(), notification)
+}
+```
+
+Things to know:
+
+- **Importance** is set per channel: `IMPORTANCE_HIGH` (sound and heads-up), `DEFAULT` (sound), `LOW` (no sound), `MIN` (no sound, minimised). After creation, only the user can change it.
+- **Styles:** `BigTextStyle`, `BigPictureStyle`, `InboxStyle`, `MessagingStyle` (chats, with direct reply through `RemoteInput`), `MediaStyle` (playback controls).
+- **Groups:** set `setGroup(key)` on each notification and post one summary with `setGroupSummary(true)`.
+- **Ask for the permission in context**, for example after the user turns on order alerts, not on first launch. Explain the value first if the user declined before.
+- Use a stable notification ID per item so updates replace the old notification instead of stacking.
+
+### 3.18 The View system: RecyclerView and custom views
+
+Many production apps still contain Views, and interviews ask about them.
+
+**RecyclerView** shows large lists by creating only the views on screen and **recycling** them as items scroll off. The parts are: the `RecyclerView` itself, a `ViewHolder` that wraps one item's view, an `Adapter` that creates holders and binds data, and a `LayoutManager` (`LinearLayoutManager`, `GridLayoutManager`, `StaggeredGridLayoutManager`) that positions items.
+
+Use **`ListAdapter`** with **`DiffUtil`** so only changed rows are rebound, with the diff computed on a background thread:
+
+```kotlin
+class ArticleAdapter(private val onClick: (ArticleUi) -> Unit) :
+    ListAdapter<ArticleUi, ArticleAdapter.Holder>(Diff) {
+
+    object Diff : DiffUtil.ItemCallback<ArticleUi>() {
+        override fun areItemsTheSame(old: ArticleUi, new: ArticleUi) = old.id == new.id   // same item?
+        override fun areContentsTheSame(old: ArticleUi, new: ArticleUi) = old == new      // same data?
+    }
+
+    class Holder(val binding: ItemArticleBinding) : RecyclerView.ViewHolder(binding.root)
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+        Holder(ItemArticleBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        val item = getItem(position)
+        holder.binding.title.text = item.title
+        holder.binding.root.setOnClickListener { onClick(item) }
+    }
+}
+
+// In the fragment
+adapter.submitList(state.articles)   // DiffUtil works out inserts, moves and changes
+```
+
+Avoid `notifyDataSetChanged()`: it rebinds everything and disables item animations. Other tips: `setHasFixedSize(true)` when the list's size does not depend on its content, a shared `RecycledViewPool` for nested lists, and no heavy work in `onBindViewHolder`.
+
+**Custom views.** Extend `View` and override three methods:
+
+- `onMeasure(widthSpec, heightSpec)`: decide your size within the parent's constraints and call `setMeasuredDimension`.
+- `onLayout(...)`: only for `ViewGroup`s; position the children.
+- `onDraw(canvas)`: draw with a `Paint` created once, never inside `onDraw`.
+
+```kotlin
+class ProgressRing @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 12f }
+    private val bounds = RectF()
+    var progress = 0f
+        set(value) { field = value.coerceIn(0f, 1f); invalidate() }   // redraw only; size is unchanged
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val size = resolveSize(dp(48), widthMeasureSpec)
+        setMeasuredDimension(size, size)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        bounds.set(12f, 12f, width - 12f, height - 12f)
+        canvas.drawArc(bounds, -90f, 360f * progress, false, paint)
+    }
+}
+```
+
+Call `invalidate()` when only the drawing changes, and `requestLayout()` when the size or position must change too. Also add accessibility: set a `contentDescription` or state description so TalkBack can announce the progress.
+
 ### Interview questions
 
 1. **Is `onDestroy` guaranteed to be called?** No. If the process is killed, it is not. Persist important data earlier (`onStop` or immediately on change). {Easy}
@@ -214,3 +357,6 @@ The receiving app gets a `content://` URI and temporary permission, never a raw 
 3. **What is the difference between `commit()` and `commitAllowingStateLoss()`?** After `onSaveInstanceState`, a fragment transaction would be lost on recreation, so `commit()` throws. `AllowingStateLoss` accepts the loss. Better: do not commit after the state is saved (collect with `repeatOnLifecycle`). {Hard}
 4. **How does Android decide which process to kill?** By importance: foreground → visible → service → cached (background). Cached processes are killed first, least-recently-used first. {Medium}
 5. **Parcelable vs Serializable?** Parcelable is Android's explicit, fast IPC format (generate with `@Parcelize`). Serializable uses reflection and is slower and creates garbage. {Easy}
+6. **How do you detect that the whole app went to the background?** Observe `ProcessLifecycleOwner`: its `ON_STOP` fires when the last activity stops, and `ON_START` when the app returns. Don't count activities yourself. {Medium}
+7. **Why did my notification not show on Android 13?** The app targets API 33+ and hasn't been granted `POST_NOTIFICATIONS`, or the notification's channel is missing or switched off by the user. Check the permission, create the channel before posting, and check `areNotificationsEnabled()`. {Easy}
+8. **`ListAdapter` with `DiffUtil` vs `notifyDataSetChanged()`?** `ListAdapter` diffs the old and new lists on a background thread and rebinds only changed items, with animations. `notifyDataSetChanged()` rebinds every visible item and loses animations. {Easy}

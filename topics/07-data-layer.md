@@ -263,9 +263,82 @@ class ProfileRepository @Inject constructor(
 
 The request runs in the application scope, so one caller being cancelled (leaving a screen) does not cancel the request for the others.
 
+### 7.12 Storage options: where each kind of data belongs
+
+| Option | Content | API | Permission | Other apps can read? | Deleted on uninstall? |
+| --- | --- | --- | --- | --- | --- |
+| App-specific files | Files only your app uses | `filesDir`, `cacheDir`, `getExternalFilesDir()` | None | No | Yes |
+| Shared media | Photos, video, audio | `MediaStore` | Needed only to read other apps' media | Yes | No |
+| Shared documents | PDFs, exports, downloads | Storage Access Framework | None (user picks the file) | Yes, via the file picker | No |
+| Key-value | Settings, flags | DataStore | None | No | Yes |
+| Structured data | Records you query | Room | None | No | Yes |
+
+**Scoped storage.** Apps targeting Android 10 (API 29)+ get scoped access to external storage: they see their own app-specific directory and the media they created. When targeting Android 11 (API 30)+, `WRITE_EXTERNAL_STORAGE` has no effect. `MANAGE_EXTERNAL_STORAGE` (all-files access) exists, but most apps don't need it and Play restricts it to apps like file managers.
+
+**Examples.**
+
+```kotlin
+// App-specific: no permission, removed on uninstall
+val cacheFile = File(context.cacheDir, "thumb_${id}.jpg")               // the system may clear cacheDir
+val export = File(context.getExternalFilesDir(null), "backup.json")
+
+// Save a photo to the shared gallery with MediaStore (no permission needed for your own media)
+val values = ContentValues().apply {
+    put(MediaStore.Images.Media.DISPLAY_NAME, "receipt_$id.jpg")
+    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+    put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/MyApp")
+}
+val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)!!
+context.contentResolver.openOutputStream(uri)?.use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+
+// Let the user choose where to save a document (Storage Access Framework)
+val createDoc = registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+    uri?.let { contentResolver.openOutputStream(it)?.use { out -> out.write(pdfBytes) } }
+}
+createDoc.launch("invoice-$id.pdf")
+
+// Pick an image without any storage permission
+val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(::showImage) }
+pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+```
+
+How to choose: data needed at startup or sensitive data goes in internal storage, DataStore or Room (internal storage is also hidden from users). Media the user should see in their gallery goes in `MediaStore`. Documents the user owns go through the file picker. Never hardcode paths such as `/sdcard/...`; locations differ between devices.
+
+### 7.13 Monitoring network connectivity
+
+Use `ConnectivityManager` with a `NetworkCallback`. The old `CONNECTIVITY_ACTION` broadcast and `NetworkInfo` are deprecated.
+
+```kotlin
+fun Context.networkStatus(): Flow<NetworkStatus> = callbackFlow {
+    val cm = getSystemService(ConnectivityManager::class.java)
+    val callback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) { trySend(NetworkStatus.Online) }
+        override fun onLost(network: Network) { trySend(NetworkStatus.Offline) }
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            val unmetered = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+            trySend(if (unmetered) NetworkStatus.Unmetered else NetworkStatus.Online)
+        }
+    }
+    val request = NetworkRequest.Builder()
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        .build()
+    cm.registerNetworkCallback(request, callback)
+    awaitClose { cm.unregisterNetworkCallback(callback) }
+}.distinctUntilChanged()
+```
+
+Senior points:
+
+- Handle `onCapabilitiesChanged`, not just `onAvailable`, because a network can become metered or unmetered while staying connected.
+- Being "connected" doesn't guarantee the internet works (captive portals, flaky Wi-Fi). Check `NET_CAPABILITY_VALIDATED` for that, and still handle request failures.
+- Use connectivity to improve UX (show an offline banner, retry when back online), not as a gate before every request. Offline-first data plus WorkManager network constraints usually works better.
+- On metered networks, reduce data use: smaller images, no video prefetching, and large syncs deferred until unmetered.
+
 ### Interview questions
 
 1. **How do you avoid duplicate network calls when two screens request the same data?** Share the in-flight request: a `Mutex` with a cached `Deferred`, or expose one hot flow from the repository via `shareIn` in an application scope. {Hard}
 2. **How would you make an API call survive the user leaving the screen?** Don't tie it to `viewModelScope`. Use an application-scoped `CoroutineScope` for short work, or WorkManager for work that must complete. {Medium}
 3. **Room `Flow` emits on every table change, even unrelated rows. How do you fix it?** Add `distinctUntilChanged()` after mapping, or narrow the query. {Medium}
 4. **How do you handle a schema migration that fails in production?** Test migrations in CI with exported schemas. Avoid `fallbackToDestructiveMigration()` for user data; ship a migration, and only allow destructive fallback for pure cache tables. {Hard}
+5. **Where would you store a user's exported PDF, a cached thumbnail and a photo they want in their gallery?** The PDF goes wherever the user chooses through the Storage Access Framework (`CreateDocument`). The thumbnail goes in `cacheDir`, which needs no permission and can be cleared. The photo goes through `MediaStore` into `Pictures/`; your own media needs no permission. {Medium}
+6. **How do you know the device is online?** Register a `NetworkCallback` with `NET_CAPABILITY_INTERNET` and react to `onAvailable`, `onLost` and `onCapabilitiesChanged`, and check `NET_CAPABILITY_VALIDATED` for real internet access. Still treat every request as able to fail. {Easy}

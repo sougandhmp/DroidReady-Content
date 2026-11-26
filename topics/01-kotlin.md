@@ -231,6 +231,236 @@ println(a == b)   // true - surprising!
 
 Also, never put a data class with `var` properties into a `HashSet` and then change those properties: its hash changes and the set can no longer find it. Keep data classes immutable.
 
+### 1.15 Higher-order functions in depth
+
+**Learn:** A higher-order function takes a function as a parameter, returns a function, or both. Kotlin treats functions as values: you can store them in variables, pass them around and return them. This replaces most of Java's single-method callback interfaces (`OnClickListener`, `Runnable`, `Comparator`).
+
+**Function types.**
+
+A function type lists the parameter types, an arrow, and the return type.
+
+| Type | Meaning | Example value |
+| --- | --- | --- |
+| `() -> Unit` | No input, no result | `{ println("hi") }` |
+| `(String) -> Int` | Takes a String, returns an Int | `{ s -> s.length }` |
+| `(Int, Int) -> Int` | Two Ints in, one Int out | `{ a, b -> a + b }` |
+| `((Int) -> Unit)?` | A nullable function (note the parentheses) | `null` |
+| `String.(Int) -> String` | Function with a receiver: called on a String | `{ n -> this.repeat(n) }` |
+| `suspend () -> User` | A suspending function | `{ api.getUser() }` |
+
+Parameter names are optional and act as documentation: `(x: Int, y: Int) -> Point`. Arrows are right-associative, so `(Int) -> (Int) -> Unit` is a function that returns another function.
+
+**Writing a higher-order function.**
+
+```kotlin
+// Takes a function as a parameter
+fun <T> List<T>.countWhere(predicate: (T) -> Boolean): Int {
+    var count = 0
+    for (item in this) if (predicate(item)) count++   // invoke it like a normal function
+    return count
+}
+
+val adults = people.countWhere { it.age >= 18 }       // trailing lambda, 'it' is the single parameter
+```
+
+Calling `predicate(item)` is the same as `predicate.invoke(item)`. A nullable function is called with `onDone?.invoke()`.
+
+**Five ways to create a function value.**
+
+```kotlin
+// 1. Lambda
+val square: (Int) -> Int = { x -> x * x }
+
+// 2. Anonymous function (explicit return type; 'return' returns from this function only)
+val isEven = fun(x: Int): Boolean { return x % 2 == 0 }
+
+// 3. Function reference to a top-level or member function
+fun isOdd(x: Int) = x % 2 != 0
+val odds = numbers.filter(::isOdd)
+val lengths = words.map(String::length)          // unbound: the receiver becomes the first parameter
+val greet = "Hi"::plus                           // bound: the receiver is fixed -> (Any?) -> String
+
+// 4. Constructor reference
+val users = names.map(::User)                    // calls User(name) for each name
+
+// 5. A class implementing a function type
+class Doubler : (Int) -> Int { override fun invoke(x: Int) = x * 2 }
+val d: (Int) -> Int = Doubler()
+```
+
+Function references are common in Android code: `onClick = viewModel::onRefresh` passes a stable reference to Compose, and `flow.map(ArticleEntity::toDomain)` maps without writing a lambda.
+
+**Lambda syntax rules to know.**
+
+- The last expression in a lambda is its return value; there is no `return` keyword unless you use a label (`return@map value`).
+- If the last parameter is a function, put the lambda outside the parentheses (trailing lambda). If it is the only argument, drop the parentheses: `run { ... }`.
+- A single parameter can be referred to as `it`. Use a name when nesting lambdas, so readers know which `it` is meant.
+- Use `_` for unused parameters: `map.forEach { (_, value) -> println(value) }`.
+- Destructure data classes and pairs in parameters: `pairs.map { (a, b) -> a + b }`.
+
+**Closures: lambdas capture their surroundings.**
+
+A lambda can read and change variables from the scope where it was created, even after that scope has returned.
+
+```kotlin
+fun makeCounter(): () -> Int {
+    var count = 0                 // captured by the lambda below
+    return { ++count }            // returns a function
+}
+
+val next = makeCounter()
+next(); next()
+println(next())                   // 3: each counter keeps its own 'count'
+```
+
+Android warning: a lambda that captures an Activity, View or Fragment keeps it alive as long as the lambda lives. A listener stored in a singleton, or a long `postDelayed` callback, can leak the whole screen this way.
+
+**Functions that return functions.**
+
+```kotlin
+fun debounceClick(intervalMs: Long = 500, onClick: () -> Unit): () -> Unit {
+    var last = 0L
+    return {
+        val now = SystemClock.elapsedRealtime()
+        if (now - last >= intervalMs) { last = now; onClick() }
+    }
+}
+
+Button(onClick = remember { debounceClick { viewModel.submit() } }) { Text("Pay") }   // stops double taps
+```
+
+Returning a function lets you build behaviour from smaller parts. Other examples are a logging wrapper around any suspend call, or a validator built from rules: `val validate = allOf(notBlank, maxLength(50))`.
+
+**Lambdas with receivers and DSLs.**
+
+In a function type with a receiver, `A.() -> Unit`, the lambda's body runs as if it were a member of `A`, so `this` is the receiver and its members can be called directly. This is how `apply`, `buildString`, `buildList`, Gradle Kotlin DSL and Compose's `LazyListScope` work.
+
+```kotlin
+class RequestBuilder {
+    var url = ""
+    private val headers = mutableMapOf<String, String>()
+    fun header(name: String, value: String) { headers[name] = value }
+    fun build() = Request(url, headers.toMap())
+}
+
+fun request(block: RequestBuilder.() -> Unit): Request = RequestBuilder().apply(block).build()
+
+val req = request {
+    url = "https://api.example.com/articles"   // 'this' is the RequestBuilder
+    header("Accept", "application/json")
+}
+```
+
+The standard library uses the same idea everywhere:
+
+```kotlin
+val csv = buildString { append("id,title\n"); items.forEach { append("${it.id},${it.title}\n") } }
+LazyColumn { items(articles) { ArticleRow(it) } }   // items() is a member of LazyListScope, the receiver
+```
+
+**SAM conversions and `fun interface`.**
+
+A SAM (single abstract method) interface from Java, such as `Runnable` or `View.OnClickListener`, can be created from a lambda:
+
+```kotlin
+button.setOnClickListener { view -> viewModel.onBuy() }   // lambda converted to View.OnClickListener
+handler.post { refresh() }                                // converted to Runnable
+```
+
+For your own Kotlin interfaces, declare them as `fun interface` to get the same conversion:
+
+```kotlin
+fun interface PriceFormatter { fun format(cents: Long): String }
+
+val aud = PriceFormatter { cents -> "A$" + "%.2f".format(cents / 100.0) }
+```
+
+When to choose which: use a plain function type `(Long) -> String` for simple callbacks. Use a `fun interface` when you want a named type in public APIs, documentation, or Java callers, or when the type may later need default methods.
+
+**Performance: `inline`, `noinline`, `crossinline`.**
+
+Each lambda passed to a normal function is an object; capturing lambdas are allocated on each call. Marking a higher-order function `inline` copies its body and the lambda's body into the call site, so no object is created and non-local `return` works (see 1.6 and 1.10). Standard library functions like `map`, `filter`, `forEach`, `let` and `apply` are inline for this reason.
+
+```kotlin
+inline fun <T> measure(tag: String, block: () -> T): T {
+    val start = System.nanoTime()
+    return block().also { Log.d(tag, "took ${(System.nanoTime() - start) / 1_000_000} ms") }
+}
+
+val feed = measure("feed") { repository.loadFeed() }   // no lambda allocation
+```
+
+Do not inline large functions or functions whose lambda is stored for later; that is what `noinline` is for. Use `crossinline` when the lambda is called from another context, like inside a `Runnable` or another lambda.
+
+**Common standard-library higher-order functions.**
+
+| Function | What it does | Example |
+| --- | --- | --- |
+| `map` / `mapNotNull` | Transform each item (dropping nulls) | `dtos.mapNotNull { it.toDomainOrNull() }` |
+| `filter` / `filterNot` | Keep matching items | `items.filter { it.inStock }` |
+| `fold` / `reduce` | Combine into one value | `cart.fold(0L) { sum, i -> sum + i.price }` |
+| `groupBy` / `associateBy` | Build maps | `articles.groupBy { it.topic }` |
+| `sortedBy` / `sortedWith` | Sort by a key or comparator | `sortedWith(compareBy({ it.lastName }, { it.firstName }))` |
+| `any` / `all` / `none` | Test items | `if (fields.all { it.isValid }) submit()` |
+| `partition` | Split into two lists | `val (paid, unpaid) = invoices.partition { it.paid }` |
+| `takeIf` / `takeUnless` | Value or null | `input.takeIf { it.isNotBlank() }` |
+| `use` | Run then close a resource | `file.bufferedReader().use { it.readText() }` |
+
+**Android examples in one place.**
+
+```kotlin
+// Compose: events up as function parameters
+@Composable
+fun ArticleRow(article: ArticleUi, onClick: (String) -> Unit, onBookmark: (String, Boolean) -> Unit) { /* ... */ }
+
+// Coroutines: a suspend lambda as a parameter
+suspend fun <T> retry(times: Int, block: suspend () -> T): T { /* ... */ }
+
+// Flow operators are higher-order functions
+repo.observe().map { it.toUi() }.filter { it.isNotEmpty() }
+
+// Activity Result API: callback lambda
+val pick = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(::showImage) }
+```
+
+### 1.16 Other language features you may be asked about
+
+**Operator overloading.** Implement a function marked `operator` with a fixed name to use symbols with your types.
+
+```kotlin
+data class Money(val cents: Long) {
+    operator fun plus(other: Money) = Money(cents + other.cents)
+    operator fun times(qty: Int) = Money(cents * qty)
+    operator fun compareTo(other: Money) = cents.compareTo(other.cents)
+}
+val total = price * 3 + shipping
+if (total > limit) showWarning()
+```
+
+Other operator names: `get`/`set` (indexing `a[i]`), `contains` (`in`), `invoke` (`a()`), `component1..N` (destructuring), `rangeTo` (`..`), `iterator` (`for` loops).
+
+**Infix functions.** A member or extension with one parameter, marked `infix`, can be called without dots and parentheses: `1 to "one"` is `1.to("one")`. Use sparingly, for DSL-like readability.
+
+```kotlin
+infix fun Int.percentOf(total: Int) = total * this / 100
+val discount = 15 percentOf 200   // 30
+```
+
+**Generic constraints.** Limit a type parameter with an upper bound, or several bounds with `where`.
+
+```kotlin
+fun <T : Comparable<T>> List<T>.largest(): T? = maxOrNull()
+
+fun <T> copyIfReady(item: T) where T : Parcelable, T : Validatable { /* ... */ }
+```
+
+**Type aliases.** Give long function types or generic types a readable name. No new type is created; it is only an alias.
+
+```kotlin
+typealias OnArticleClick = (articleId: String) -> Unit
+typealias ArticleCache = MutableMap<String, List<Article>>
+```
+
 ### Interview questions
 
 1. **Why is `!!` a code smell?** It converts a compile-time guarantee into a runtime crash. Prefer early return, `requireNotNull` with a message, or modelling the state so null cannot happen. {Easy}
@@ -238,3 +468,6 @@ Also, never put a data class with `var` properties into a `HashSet` and then cha
 3. **`data class` inheritance?** A data class cannot be `open`. It can implement interfaces or extend a sealed class. {Easy}
 4. **How does `lazy` work under the hood?** It holds an initializer and a value field; the default mode uses double-checked locking. Use `LazyThreadSafetyMode.NONE` on the main thread for slight speed-up. {Medium}
 5. **Difference between `List` and `MutableList` when passing to Java?** Java sees both as `java.util.List` and can mutate it; read-only is a compile-time view only. {Medium}
+6. **What is a higher-order function, and how is it different from a Java callback interface?** A function that takes or returns a function. Kotlin has real function types, so you don't need an interface per callback, lambdas are short, and `inline` removes the lambda allocation. {Easy}
+7. **What is a lambda with receiver, and where is it used?** Its type is `A.() -> R`; inside the lambda, `this` is the receiver. It powers `apply`, `buildString`, Compose scopes such as `LazyListScope`, the Gradle Kotlin DSL and type-safe builders. {Medium}
+8. **Why can a lambda cause a memory leak on Android?** It captures variables from its scope, including the enclosing Activity or Fragment. If a longer-lived object keeps the lambda (a singleton listener, a delayed Handler callback), the screen can't be garbage collected. {Medium}
