@@ -26,6 +26,12 @@ var Markdown = (function () {
     });
   }
 
+  // "{Easy}" at the end of an interview question is its difficulty, not text to show.
+  function withLevel(item) {
+    var m = /^(.*?)\s*\{(Easy|Medium|Hard)\}$/.exec(item);
+    return m ? inline(m[1]) + ' <span class="pill ' + m[2] + '">' + m[2] + '</span>' : inline(item);
+  }
+
   var HEADING = /^(#{1,6})\s+(.*)$/;
   var ITEM = /^\s*(?:([-*])|(\d+)\.)\s+(.*)$/;
   var FENCE = /^```/;
@@ -68,7 +74,7 @@ var Markdown = (function () {
           var task = /^\[( |x|X)\]\s+(.*)$/.exec(item);
           items.push(task
             ? '<li class="task"><input type="checkbox" disabled' + (task[1] === ' ' ? '' : ' checked') + ' aria-label="Checklist item"> ' + inline(task[2]) + '</li>'
-            : '<li>' + inline(item) + '</li>');
+            : '<li>' + withLevel(item) + '</li>');
         }
         var tag = ordered ? 'ol' : 'ul';
         out.push('<' + tag + (ordered && start !== '1' ? ' start="' + start + '"' : '') + '>' + items.join('') + '</' + tag + '>');
@@ -81,33 +87,7 @@ var Markdown = (function () {
     return { html: out.join('\n'), headings: headings };
   }
 
-  // Interview and rapid-fire questions, following the two patterns in README.md.
-  function questions(source) {
-    var found = [];
-    var mode = null;
-    var fenced = false;
-    var header = 0;
-    source.split('\n').forEach(function (line) {
-      if (FENCE.test(line)) { fenced = !fenced; return; }
-      if (fenced) return;
-      var h = HEADING.exec(line);
-      if (h) {
-        mode = /interview questions/i.test(h[2]) ? 'list' : /rapid-fire questions/i.test(h[2]) ? 'table' : null;
-        header = 0;
-        return;
-      }
-      var m;
-      if (mode === 'list' && (m = /^\d+\.\s+\*\*(.+?)\*\*\s*(.*?)\s*(?:\{(Easy|Medium|Hard)\})?\s*$/.exec(line))) {
-        found.push({ question: m[1], answer: m[2], level: m[3] || '' });
-      } else if (mode === 'table' && /^\|/.test(line) && ++header > 2) {
-        var c = cells(line);
-        found.push({ question: c[0], answer: c[1] || '', level: c[2] || '' });
-      }
-    });
-    return found;
-  }
-
-  return { render: render, inline: inline, escape: escape, questions: questions };
+  return { render: render, inline: inline, escape: escape };
 })();
 
 if (typeof module !== 'undefined') module.exports = Markdown;

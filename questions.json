@@ -1,6 +1,6 @@
 {
  "schemaVersion": 1,
- "version": 3,
+ "version": 5,
  "topics": [
   {
    "id": "how-to-use",
@@ -12,7 +12,7 @@
    "id": "kotlin",
    "number": 1,
    "title": "Kotlin",
-   "notes": "# Kotlin\n\nInterviewers use Kotlin questions to check two things: that you write safe, idiomatic code, and that you understand what the compiler does with it. Each concept below follows the same pattern: one line, what to say, an example, how it works, and follow-ups.\n\n### 1.1 Null safety\n\n**In one line:** Kotlin's type system separates types that can hold `null` (`String?`) from types that can't (`String`), so most null-pointer crashes become compile errors.\n\n**Say this in the interview:** \"In Kotlin, types are non-null by default. If something can be null, I have to say so with `?`, and then the compiler forces me to handle it: with a safe call `?.`, the Elvis operator `?:` for a default, or a smart cast after a null check. I avoid `!!` because it turns a compile-time guarantee back into a runtime crash. The weak spot is Java code: its types come in as platform types, so I add nullability annotations or treat them as nullable.\"\n\n**Example:**\n\n```kotlin\nval city: String? = user?.address?.city          // safe call: null if any link is null\nval length = city?.length ?: 0                   // Elvis: default when null\nval query = intent.getStringExtra(\"q\") ?: return // early exit if missing\n\nfun transfer(from: Account?, amount: Long) {\n    require(amount > 0) { \"amount must be positive\" }   // caller's mistake -> IllegalArgumentException\n    checkNotNull(from) { \"no source account\" }          // our state is wrong -> IllegalStateException\n    from.debit(amount)                                  // smart cast: from is non-null here\n}\n```\n\n**How it works:**\n\n- The compiler tracks nullability in types and smart-casts after checks (`if (x != null)`, `checkNotNull`, `requireNotNull`).\n- Public Kotlin functions get runtime null checks on their non-null parameters, so Java passing `null` fails immediately with a clear message.\n- Java types without annotations are **platform types** (`String!`): Kotlin lets you treat them either way, and a wrong guess crashes at runtime.\n- `requireNotNull` and `checkNotNull` use **contracts** to tell the compiler the value is non-null afterwards.\n\n**Follow-ups:**\n\n- *Why is `!!` a code smell?* It throws an NPE at runtime; prefer an early return, a default, or `requireNotNull` with a message.\n- *`require` vs `check`?* `require` validates arguments (the caller's fault); `check` validates the object's own state.\n- *When is `!!` acceptable?* Rarely: when a null truly means a bug and you want to crash fast, e.g. a required Fragment argument, and even then `requireNotNull(..) { \"message\" }` is clearer.\n\n### 1.2 val, var, immutability and data classes\n\n**In one line:** `val` is a read-only reference, and a `data class` is a class for holding data that gets `equals`, `hashCode`, `toString` and `copy` generated for it.\n\n**Say this in the interview:** \"I default to `val` and immutable data, because immutable objects are thread-safe and easy to reason about. Note that `val` only means the reference can't change; a `val` list can still be a mutable list. For UI state I use data classes and update them with `copy`, and I expose read-only types like `List` while keeping `MutableList` private.\"\n\n**Example:**\n\n```kotlin\ndata class CartUiState(val items: List<CartItem> = emptyList(), val isLoading: Boolean = false)\n\nprivate val _state = MutableStateFlow(CartUiState())\nfun onLoading() = _state.update { it.copy(isLoading = true) }   // new object, old one untouched\n```\n\n**How it works:**\n\n- A data class generates `equals`/`hashCode`/`toString`/`copy`/`componentN` from the **primary constructor** properties only.\n- Data classes can't be `open`, but can implement interfaces or extend sealed types.\n- `copy` is shallow: nested mutable objects are shared.\n\n**Follow-ups:**\n\n- *What's the trap with properties declared in the class body?* They are not part of `equals`. `data class Item(val id: Int) { var qty = 0 }`: two items with different `qty` are still equal.\n- *Why not put a data class with `var` fields in a `HashSet`?* If a field changes, its hash changes and the set can't find it any more.\n- *`val` vs `const val`?* `const val` is a compile-time constant (primitives and `String`), inlined where used; `val` is read at runtime.\n\n### 1.3 Sealed classes, enums and value classes\n\n**In one line:** a sealed class or interface is a closed set of subtypes known at compile time, so a `when` over it must handle every case.\n\n**Say this in the interview:** \"I use sealed types to model things that can be in exactly one of a few states, like UI state or a network result. The compiler checks that every `when` covers every case, so adding a new state shows me every place I need to update. Compared to an enum, each sealed subtype can carry different data. For IDs I use value classes, which give type safety without allocating an object in most cases.\"\n\n**Example:**\n\n```kotlin\nsealed interface ProfileState {\n    data object Loading : ProfileState\n    data class Content(val user: User) : ProfileState\n    data class Error(val message: String, val canRetry: Boolean) : ProfileState\n}\n\nwhen (state) {                                  // no 'else' needed: the compiler knows all cases\n    ProfileState.Loading -> showSpinner()\n    is ProfileState.Content -> show(state.user) // smart cast to Content\n    is ProfileState.Error -> showError(state.message)\n}\n\n@JvmInline value class UserId(val raw: String)\n@JvmInline value class OrderId(val raw: String)\nfun cancel(order: OrderId, by: UserId) { }\ncancel(userId, orderId)                         // compile error: arguments swapped\n```\n\n**How it works:**\n\n- All direct subclasses of a sealed type must be in the same package and module, so the compiler knows the full list.\n- Compare the weak alternative `data class State(val loading: Boolean, val user: User?, val error: String?)`: 8 combinations, several impossible. Sealed types make invalid states unrepresentable.\n- A value class is usually compiled to its single underlying value, so there's no object allocation (it is boxed when used as a generic or nullable type).\n\n**Follow-ups:**\n\n- *Sealed class vs enum?* Enum constants are single instances with the same shape; sealed subtypes can have different properties and many instances.\n- *Sealed class vs sealed interface?* A class can implement several sealed interfaces; use a sealed class when subtypes share state or constructor logic.\n\n### 1.4 Scope functions\n\n**In one line:** `let`, `run`, `with`, `apply` and `also` run a block of code on an object so you don't have to repeat its name.\n\n**Say this in the interview:** \"Kotlin has five scope functions. They all run a lambda in the context of an object, and they differ in only two ways: whether the lambda sees the object as `this` or `it`, and whether the call returns the object itself or the lambda's result. `apply` and `also` return the object, so I use `apply` to configure something and `also` for side effects like logging. `let`, `run` and `with` return the result, so I use `?.let` for nullable values and `run` or `with` to compute something from an object's members.\"\n\n**Example:**\n\n```kotlin\nval intent = Intent(context, DetailActivity::class.java).apply {   // configure, get the object back\n    putExtra(\"id\", articleId)\n    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP\n}\nval user = repo.loadUser(id).also { Log.d(TAG, \"loaded ${it.id}\") }  // side effect, same object back\nsavedState?.getString(KEY)?.let { viewModel.restore(it) }           // only when not null\nval isValid = form.run { email.isNotBlank() && password.length >= 8 } // compute a result\nwith(binding) { title.text = article.title; author.text = article.author }  // group calls\n```\n\n| Function | Object is | Returns | Use for |\n| --- | --- | --- | --- |\n| `apply` | `this` | the object | Configuring |\n| `also` | `it` | the object | Side effects (logging, validation) |\n| `let` | `it` | lambda result | Null checks, transforming |\n| `run` | `this` | lambda result | Computing with many members |\n| `with(x)` | `this` | lambda result | Grouping calls on a non-null object |\n\n**How it works:** they are small `inline` functions in the standard library, so they cost nothing at runtime. `inline fun <T> T.apply(block: T.() -> Unit): T { block(); return this }` takes a lambda with a receiver (hence `this`); `inline fun <T, R> T.let(block: (T) -> R): R = block(this)` passes the object as a parameter (hence `it`).\n\n**Follow-ups:**\n\n- *Common mistakes?* Deeply nested `?.let` (use names or a plain `if`); using `also` to change the object (use `apply`); forgetting that `let` returns the lambda's result.\n- *What are `takeIf` and `takeUnless`?* They return the object or `null` depending on a condition: `input.takeIf { it.isNotBlank() }?.let(::search)`.\n\n### 1.5 Extension functions\n\n**In one line:** an extension function adds a function to an existing type without changing or inheriting from it.\n\n**Say this in the interview:** \"Extensions let me write `context.toast(\"Saved\")` instead of a static utility call. They're resolved statically: the compiler turns them into a static function that takes the receiver as its first parameter. So they can't access private members, and they dispatch on the declared type, not the runtime type. I use them for small, focused helpers, and keep business logic in real classes.\"\n\n**Example:**\n\n```kotlin\nfun Context.toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()\nval Int.dp: Int get() = (this * Resources.getSystem().displayMetrics.density).toInt()\nfun ArticleEntity.toDomain() = Article(id, title, publishedAt)   // mappers between layers\n```\n\n**How it works:** `fun Context.toast(...)` compiles to a static method `toast(Context, String)`. If a class has a member with the same signature, the member wins.\n\n**Follow-ups:**\n\n- *Extension vs utility class?* Same bytecode; extensions read better and are discoverable through autocomplete.\n- *Can you override an extension?* No; they're static. `open` behaviour needs a member function.\n\n### 1.6 Higher-order functions and lambdas\n\n**In one line:** a higher-order function takes a function as a parameter or returns one; a lambda is a function written inline as a value.\n\n**Say this in the interview:** \"Kotlin treats functions as values with real types, like `(String) -> Int`. That lets me pass behaviour around, which replaces Java's single-method callback interfaces. I use it every day: Compose event callbacks like `onClick: (String) -> Unit`, Flow operators like `map` and `filter`, and DSLs like `buildString` or `LazyColumn`, which use lambdas with receivers. Lambdas also capture variables from where they're created, which is useful but is also a common source of Activity leaks.\"\n\n**Example:**\n\n```kotlin\n// A higher-order function: takes a predicate\nfun <T> List<T>.countWhere(predicate: (T) -> Boolean): Int = count(predicate)\nval adults = people.countWhere { it.age >= 18 }   // trailing lambda, 'it' = the single parameter\n\n// Function references instead of lambdas\nval lengths = words.map(String::length)            // (String) -> Int\nButton(onClick = viewModel::onRefresh) { Text(\"Refresh\") }\n\n// A function that returns a function, with a closure\nfun debounced(intervalMs: Long = 500, action: () -> Unit): () -> Unit {\n    var last = 0L                                  // captured and kept between calls\n    return { val now = SystemClock.elapsedRealtime(); if (now - last >= intervalMs) { last = now; action() } }\n}\n\n// A lambda with a receiver: 'this' is the builder, which is how DSLs work\nfun request(block: RequestBuilder.() -> Unit): Request = RequestBuilder().apply(block).build()\nval req = request { url = \"https://api.example.com\"; header(\"Accept\", \"application/json\") }\n```\n\n**How it works:**\n\n- Function types: `() -> Unit`, `(Int, Int) -> Int`, nullable `((Int) -> Unit)?` (call with `?.invoke()`), with receiver `String.() -> Unit`, suspending `suspend () -> T`.\n- Ways to create a function value: a lambda, an anonymous function `fun(x: Int) = x * 2`, a reference (`::isOdd`, `String::length`, `::User`), or a class implementing the function type.\n- The last expression in a lambda is its result; use `return@label` to return early from a lambda.\n- A capturing lambda is an object; if it captures a local `var`, Kotlin wraps the variable in a `Ref` object.\n- Java SAM interfaces (`Runnable`, `View.OnClickListener`) accept lambdas; declare your own as `fun interface` to get the same.\n\n**Follow-ups:**\n\n- *Higher-order function vs Java callback interface?* No interface per callback, shorter syntax, and `inline` removes the allocation.\n- *How can a lambda leak an Activity?* It captures the Activity (or `this`), and a longer-lived object such as a singleton listener or a delayed Handler callback keeps the lambda alive.\n- *`fun interface` vs function type?* A function type for simple callbacks; a `fun interface` when you want a named type for a public or Java-facing API.\n\n### 1.7 inline, noinline, crossinline and reified\n\n**In one line:** `inline` copies a function and its lambda arguments into each call site, removing lambda allocation and allowing `reified` type parameters.\n\n**Say this in the interview:** \"Normally every lambda you pass is an object. Marking a higher-order function `inline` makes the compiler paste its body and the lambda's body where it's called, so nothing is allocated. That's why `map`, `filter` and `let` are inline. It also allows a `return` inside the lambda to return from the outer function, and it enables `reified`, which keeps the generic type at runtime despite type erasure. I only inline small functions that take lambdas, because inlining large ones bloats the bytecode.\"\n\n**Example:**\n\n```kotlin\ninline fun <reified T : Activity> Context.start() = startActivity(Intent(this, T::class.java))\ncontext.start<SettingsActivity>()\n\nfun findAdmin(users: List<User>): User? {\n    users.forEach { if (it.isAdmin) return it }   // non-local return: allowed because forEach is inline\n    return null\n}\n```\n\n**How it works:**\n\n- On the JVM, generics are erased: `List<String>` is just `List` at runtime, so `x is T` is normally impossible. With `reified`, the real type is inserted at each call site.\n- `noinline` keeps one lambda as an object, for example because you store it.\n- `crossinline` is for a lambda called from another context (inside a `Runnable` or another lambda); it forbids non-local `return`.\n\n**Follow-ups:**\n\n- *When is `inline` harmful?* Large function bodies (bigger APK), public inline functions in libraries (their body becomes part of your API), or lambdas that are stored.\n- *What does `return@forEach` do?* Returns from the lambda only, like `continue`.\n\n### 1.8 Generics and variance\n\n**In one line:** variance says whether a `Box<Cat>` can be used where a `Box<Animal>` is expected: `out` means yes (the box only produces), `in` means the reverse (the box only consumes).\n\n**Say this in the interview:** \"Generic types are invariant by default: a `MutableList<Cat>` is not a `MutableList<Animal>`, because you could add a Dog to it. If a type only returns `T`, I mark it `out T` and it becomes covariant, like Kotlin's read-only `List<out E>`. If it only accepts `T`, I mark it `in T`, like `Comparator<in T>`. It's the same idea as Java's 'producer extends, consumer super'.\"\n\n**Example:**\n\n```kotlin\ninterface Source<out T> { fun next(): T }          // producer: Source<Cat> is a Source<Animal>\ninterface Sink<in T> { fun accept(item: T) }       // consumer: Sink<Animal> is a Sink<Cat>\n\nfun <T : Comparable<T>> List<T>.largest(): T? = maxOrNull()                       // upper bound\nfun <T> save(item: T) where T : Parcelable, T : Validatable { }                    // several bounds\n```\n\n**How it works:** `out`/`in` at the declaration is declaration-site variance; `List<out Animal>` at a use site is use-site variance (like Java wildcards). `List<*>` is a star projection: an unknown type you can read as `Any?`.\n\n**Follow-ups:**\n\n- *Why is `List` covariant but `MutableList` invariant?* `List` only returns elements; `MutableList` also accepts them, which would break type safety.\n\n### 1.9 Delegation: lazy, observable, viewModels and class delegation\n\n**In one line:** delegation hands the work of a property or an interface to another object, with the `by` keyword.\n\n**Say this in the interview:** \"Property delegates move get-and-set logic into a reusable object. `by lazy` computes a value on first access and is thread-safe by default; `by viewModels()` is a delegate that fetches the ViewModel from the right store. Class delegation, `class A(b: B) : B by b`, implements an interface by forwarding to another object, which is composition instead of inheritance.\"\n\n**Example:**\n\n```kotlin\nprivate val viewModel: MainViewModel by viewModels()\nprivate val formatter by lazy { DateTimeFormatter.ofPattern(\"d MMM\") }        // created on first use\nvar query by Delegates.observable(\"\") { _, old, new -> log(\"$old -> $new\") }\n\nclass LoggingList<T>(private val inner: MutableList<T>) : MutableList<T> by inner {\n    override fun add(element: T): Boolean { log(\"add $element\"); return inner.add(element) }\n}\n```\n\n**How it works:** the compiler generates a hidden field holding the delegate and calls its `getValue`/`setValue`. `lazy` uses double-checked locking by default (`LazyThreadSafetyMode.SYNCHRONIZED`); `NONE` is faster for main-thread-only use.\n\n**Follow-ups:**\n\n- *`lateinit` vs `lazy`?* `lateinit var` is for non-null values set later from outside (DI, `onCreate`), not for primitives; `lazy` is for a `val` computed once on first access.\n\n### 1.10 Companion objects and object declarations\n\n**In one line:** a companion object is a single object that belongs to a class, so its members are called through the class name, like `ArticleFragment.newInstance(id)`.\n\n**Say this in the interview:** \"Kotlin has no `static` keyword. A class can declare one `companion object`; there's exactly one per class, created when the class loads, and its members are called through the class name, so it plays the role of static members. Unlike statics, it's a real object: it can implement interfaces and have extension functions. On the JVM it becomes a nested class called `Companion` plus a static field, and `const val`, `@JvmField` and `@JvmStatic` turn members into true statics for Java. For a plain singleton I use an `object` declaration.\"\n\n**Example:**\n\n```kotlin\nclass ArticleFragment : Fragment() {\n    companion object {\n        const val TAG = \"ArticleFragment\"\n        private const val ARG_ID = \"id\"\n        fun newInstance(id: String) = ArticleFragment().apply { arguments = bundleOf(ARG_ID to id) }\n    }\n}\n\nobject Analytics { fun track(event: String) { } }                 // singleton, created on first access\n\nval watcher = object : TextWatcher { /* ... */ }                  // object expression: a new anonymous object\n```\n\n**How it works:**\n\n| Kotlin | Compiled to |\n| --- | --- |\n| `companion object { fun create() }` | Nested class `Foo.Companion` and a static field; Java calls `Foo.Companion.create()` |\n| `const val TAG` | A `public static final` field on `Foo` |\n| `@JvmStatic fun create()` | A real static method on `Foo` |\n| `object Analytics` | A class with a static `INSTANCE`, initialised lazily and thread-safely |\n\n**Follow-ups:**\n\n- *Is a companion object the same as static?* No: it's an object instance; add `@JvmStatic` or `const` for true statics.\n- *When not to use one?* For general helpers, top-level functions are simpler. Never store a `Context` or Activity in a companion or `object`: it lives as long as the process and leaks the screen.\n\n### 1.11 Collections vs sequences\n\n**In one line:** collection operations are eager and create a new list at every step; sequences are lazy and process one element at a time through the whole chain.\n\n**Say this in the interview:** \"`list.map { }.filter { }` builds a full intermediate list after each step. A `Sequence` passes each element through all the steps before moving to the next, and stops early with `first` or `take`. I use plain collections for small lists, which is most of the time, and sequences for long chains over large data or when I only need the first few results.\"\n\n**Example:**\n\n```kotlin\nval first = (1..1_000_000).asSequence()\n    .map { it * 2 }\n    .filter { it % 3 == 0 }\n    .first()           // processes only 3 elements, then stops; no intermediate lists\n```\n\n**Follow-ups:**\n\n- *Are sequences always faster?* No; for small collections the extra overhead can make them slower.\n\n### 1.12 Operators, infix functions and type aliases\n\n**In one line:** `operator` lets your types use symbols like `+` and `[]`; `infix` lets a one-parameter function be called without dots; `typealias` gives a type a shorter name.\n\n**Say this in the interview:** \"Operator overloading maps symbols to functions with fixed names, so `a + b` calls `a.plus(b)`. I use it for value types like `Money`. Infix functions read like keywords, like `1 to \"one\"`. Type aliases just rename a type, which is handy for long function types; they don't create a new type.\"\n\n**Example:**\n\n```kotlin\ndata class Money(val cents: Long) {\n    operator fun plus(o: Money) = Money(cents + o.cents)\n    operator fun compareTo(o: Money) = cents.compareTo(o.cents)\n}\nval total = price + shipping\nif (total > limit) warn()\n\ninfix fun Int.percentOf(total: Int) = total * this / 100\nval discount = 15 percentOf 200                      // 30\n\ntypealias OnArticleClick = (articleId: String) -> Unit\n```\n\n**Follow-ups:**\n\n- *Other operator names?* `get`/`set` (`a[i]`), `contains` (`in`), `invoke` (`a()`), `componentN` (destructuring), `rangeTo` (`..`), `iterator` (`for`).\n\n### 1.13 Java interoperability\n\n**In one line:** Kotlin and Java call each other directly; a few annotations make Kotlin APIs feel natural from Java.\n\n**Say this in the interview:** \"Most big codebases mix both languages. From Java, a Kotlin companion function looks like `Foo.Companion.create()` and default arguments don't exist, so for Java-facing APIs I add `@JvmStatic`, `@JvmOverloads`, `@JvmField` and `@Throws`. In the other direction, Java types without nullability annotations become platform types, so I annotate Java code I own or treat its values as nullable.\"\n\n**Example:**\n\n```kotlin\n@file:JvmName(\"Analytics\")                       // Java sees Analytics.xyz(), not AnalyticsKt.xyz()\n\nclass Tracker @JvmOverloads constructor(          // Java gets Tracker(String), Tracker(String, int), ...\n    val endpoint: String, val batchSize: Int = 20\n) {\n    companion object { @JvmStatic fun createDefault() = Tracker(\"https://events.example.com\") }\n    @Throws(IOException::class) fun flush() { }   // Java can now catch IOException\n}\n```\n\n**Follow-ups:**\n\n- *Why does a custom View need `@JvmOverloads`?* The framework calls Java-style constructors (`Context`, `AttributeSet`); default arguments alone don't create them.\n- *What happens if Java passes null to a non-null Kotlin parameter?* An immediate `NullPointerException` naming the parameter.\n\n### 1.14 What's new in Kotlin 2.2 and 2.3\n\n**In one line:** recent versions added guard conditions in `when`, non-local `break`/`continue`, multi-dollar strings and nested type aliases as stable features.\n\n**Say this in the interview:** \"Kotlin 2.x moved to the K2 compiler, which is faster and smarter about smart casts, and the Compose compiler now ships with Kotlin. Recent stable features I use: guard conditions, so a `when` branch can have an `if`; `break` and `continue` inside inline lambdas like `forEach`; and since 2.3, nested type aliases. I also watch experimental ones like explicit backing fields, which would remove the `_state`/`state` pattern in ViewModels.\"\n\n**Example:**\n\n```kotlin\nfun label(s: UploadState) = when (s) {\n    is UploadState.Running if s.progress > 0.9f -> \"Almost done\"      // guard condition (2.2)\n    is UploadState.Running -> \"Uploading\"\n    is UploadState.Failed -> \"Failed\"\n    UploadState.Done -> \"Done\"\n}\n\nfor (batch in batches) batch.items.forEach { if (it.isCorrupt) continue; upload(it) }   // non-local continue (2.2)\n```\n\n**Follow-ups:**\n\n- *Which features are still experimental?* Context parameters (preview in 2.2), explicit backing fields and the unused-return-value checker (experimental in 2.3).\n\n### Interview questions\n\n1. **Why should you avoid `!!`, and what do you use instead?** `!!` throws a NullPointerException at runtime, which throws away Kotlin's compile-time safety. Use a safe call with a default, an early return, or `requireNotNull` with a clear message. {Easy}\n2. **What does `inline` do, and when shouldn't you use it?** It copies the function and its lambdas into each call site, so no lambda object is created, non-local `return` works and `reified` is possible. Avoid it for large functions or lambdas you store, because it grows the bytecode. {Medium}\n3. **Can a data class be inherited?** No, a data class can't be `open`. It can implement interfaces or extend a sealed class, which is how sealed UI states are built. {Easy}\n4. **How does `by lazy` work?** It stores an initializer and computes the value on first access, using double-checked locking by default, so it's thread-safe. Use `LazyThreadSafetyMode.NONE` when only the main thread reads it. {Medium}\n5. **If you pass a Kotlin `List` to Java, can Java change it?** Yes. Read-only is a compile-time view in Kotlin; Java sees `java.util.List` and can call `add` if the real object is mutable. {Medium}\n6. **What is a higher-order function, and why is it better than a Java callback interface?** A function that takes or returns a function. Kotlin has real function types, so you don't need an interface per callback, lambdas are short, and `inline` removes the allocation. {Easy}\n7. **What is a lambda with a receiver, and where have you used one?** Its type is `A.() -> R`, so inside the lambda `this` is the receiver. It powers `apply`, `buildString`, Compose scopes like `LazyListScope`, and the Gradle Kotlin DSL. {Medium}\n8. **How can a lambda leak an Activity?** It captures the Activity or `this`. If a longer-lived object keeps the lambda, such as a singleton listener or a delayed Handler callback, the Activity can't be garbage collected. {Medium}\n9. **What does `@JvmOverloads` do?** Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates the shorter overloads; custom View constructors need it. {Easy}\n10. **What are guard conditions in `when`?** Since Kotlin 2.2, a branch of a `when` with a subject can add an `if`, like `is Failed if state.canRetry ->`, instead of nesting another `if`. {Easy}\n11. **What is a companion object, and how is it different from Java `static`?** One object per class, created when the class loads, whose members you call through the class name. Unlike statics it is a real object that can implement interfaces; use `const`, `@JvmField` or `@JvmStatic` for true statics. {Easy}\n12. **How do you choose between `let`, `run`, `with`, `apply` and `also`?** Ask two questions: do I want the object back (`apply` to configure, `also` for side effects) or a result (`let` for nullable values, `run` or `with` to compute)? And does `this` or `it` read better? {Easy}\n13. **What is the difference between a sealed class and an enum?** Enum values are fixed single instances with the same properties. Sealed subtypes can each carry different data and have many instances, and `when` is still checked for every case. {Easy}\n14. **Explain `out` and `in` in Kotlin generics.** `out T` means the type only produces `T`, so `Source<Cat>` can be used as `Source<Animal>`. `in T` means it only consumes `T`, so `Sink<Animal>` can be used as `Sink<Cat>`. Without either, the type is invariant. {Hard}\n15. **When would you use a sequence instead of a list?** For long chains of operations over large data, or when you only need the first few results, because sequences are lazy and avoid intermediate lists. For small lists, plain collections are simpler and often faster. {Medium}\n"
+   "notes": "# Kotlin\n\nInterviewers use Kotlin questions to check two things: that you write safe, idiomatic code, and that you understand what the compiler does with it. Each concept below follows the same pattern: one line, what to say, an example, how it works, and follow-ups.\n\n### 1.1 Null safety\n\n**In one line:** Kotlin's type system separates types that can hold `null` (`String?`) from types that can't (`String`), so most null-pointer crashes become compile errors.\n\n**Say this in the interview:** \"In Kotlin, types are non-null by default. If something can be null, I have to say so with `?`, and then the compiler forces me to handle it: with a safe call `?.`, the Elvis operator `?:` for a default, or a smart cast after a null check. I avoid `!!` because it turns a compile-time guarantee back into a runtime crash. The weak spot is Java code: its types come in as platform types, so I add nullability annotations or treat them as nullable.\"\n\n**Example:**\n\n```kotlin\nval city: String? = user?.address?.city          // safe call: null if any link is null\nval length = city?.length ?: 0                   // Elvis: default when null\nval query = intent.getStringExtra(\"q\") ?: return // early exit if missing\n\nfun transfer(from: Account?, amount: Long) {\n    require(amount > 0) { \"amount must be positive\" }   // caller's mistake -> IllegalArgumentException\n    checkNotNull(from) { \"no source account\" }          // our state is wrong -> IllegalStateException\n    from.debit(amount)                                  // smart cast: from is non-null here\n}\n```\n\n**How it works:**\n\n- The compiler tracks nullability in types and smart-casts after checks (`if (x != null)`, `checkNotNull`, `requireNotNull`).\n- Public Kotlin functions get runtime null checks on their non-null parameters, so Java passing `null` fails immediately with a clear message.\n- Java types without annotations are **platform types** (`String!`): Kotlin lets you treat them either way, and a wrong guess crashes at runtime.\n- `requireNotNull` and `checkNotNull` use **contracts** to tell the compiler the value is non-null afterwards.\n\n**Follow-ups:**\n\n- *Why is `!!` a code smell?* It throws an NPE at runtime; prefer an early return, a default, or `requireNotNull` with a message.\n- *`require` vs `check`?* `require` validates arguments (the caller's fault); `check` validates the object's own state.\n- *When is `!!` acceptable?* Rarely: when a null truly means a bug and you want to crash fast, e.g. a required Fragment argument, and even then `requireNotNull(..) { \"message\" }` is clearer.\n\n### 1.2 val, var, immutability and data classes\n\n**In one line:** `val` is a read-only reference, and a `data class` is a class for holding data that gets `equals`, `hashCode`, `toString` and `copy` generated for it.\n\n**Say this in the interview:** \"I default to `val` and immutable data, because immutable objects are thread-safe and easy to reason about. Note that `val` only means the reference can't change; a `val` list can still be a mutable list. For UI state I use data classes and update them with `copy`, and I expose read-only types like `List` while keeping `MutableList` private.\"\n\n**Example:**\n\n```kotlin\ndata class CartUiState(val items: List<CartItem> = emptyList(), val isLoading: Boolean = false)\n\nprivate val _state = MutableStateFlow(CartUiState())\nfun onLoading() = _state.update { it.copy(isLoading = true) }   // new object, old one untouched\n```\n\n**How it works:**\n\n- A data class generates `equals`/`hashCode`/`toString`/`copy`/`componentN` from the **primary constructor** properties only.\n- Data classes can't be `open`, but can implement interfaces or extend sealed types.\n- `copy` is shallow: nested mutable objects are shared.\n\n**Follow-ups:**\n\n- *What's the trap with properties declared in the class body?* They are not part of `equals`. `data class Item(val id: Int) { var qty = 0 }`: two items with different `qty` are still equal.\n- *Why not put a data class with `var` fields in a `HashSet`?* If a field changes, its hash changes and the set can't find it any more.\n- *`val` vs `const val`?* `const val` is a compile-time constant (primitives and `String`), inlined where used; `val` is read at runtime.\n\n### 1.3 Sealed classes, enums and value classes\n\n**In one line:** a sealed class or interface is a closed set of subtypes known at compile time, so a `when` over it must handle every case.\n\n**Say this in the interview:** \"I use sealed types to model things that can be in exactly one of a few states, like UI state or a network result. The compiler checks that every `when` covers every case, so adding a new state shows me every place I need to update. Compared to an enum, each sealed subtype can carry different data. For IDs I use value classes, which give type safety without allocating an object in most cases.\"\n\n**Example:**\n\n```kotlin\nsealed interface ProfileState {\n    data object Loading : ProfileState\n    data class Content(val user: User) : ProfileState\n    data class Error(val message: String, val canRetry: Boolean) : ProfileState\n}\n\nwhen (state) {                                  // no 'else' needed: the compiler knows all cases\n    ProfileState.Loading -> showSpinner()\n    is ProfileState.Content -> show(state.user) // smart cast to Content\n    is ProfileState.Error -> showError(state.message)\n}\n\n@JvmInline value class UserId(val raw: String)\n@JvmInline value class OrderId(val raw: String)\nfun cancel(order: OrderId, by: UserId) { }\ncancel(userId, orderId)                         // compile error: arguments swapped\n```\n\n**How it works:**\n\n- All direct subclasses of a sealed type must be in the same package and module, so the compiler knows the full list.\n- Compare the weak alternative `data class State(val loading: Boolean, val user: User?, val error: String?)`: 8 combinations, several impossible. Sealed types make invalid states unrepresentable.\n- A value class is usually compiled to its single underlying value, so there's no object allocation (it is boxed when used as a generic or nullable type).\n\n**Follow-ups:**\n\n- *Sealed class vs enum?* Enum constants are single instances with the same shape; sealed subtypes can have different properties and many instances.\n- *Sealed class vs sealed interface?* A class can implement several sealed interfaces; use a sealed class when subtypes share state or constructor logic.\n\n### 1.4 Scope functions\n\n**In one line:** `let`, `run`, `with`, `apply` and `also` run a block of code on an object so you don't have to repeat its name.\n\n**Say this in the interview:** \"Kotlin has five scope functions. They all run a lambda in the context of an object, and they differ in only two ways: whether the lambda sees the object as `this` or `it`, and whether the call returns the object itself or the lambda's result. `apply` and `also` return the object, so I use `apply` to configure something and `also` for side effects like logging. `let`, `run` and `with` return the result, so I use `?.let` for nullable values and `run` or `with` to compute something from an object's members.\"\n\n**Example:**\n\n```kotlin\nval intent = Intent(context, DetailActivity::class.java).apply {   // configure, get the object back\n    putExtra(\"id\", articleId)\n    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP\n}\nval user = repo.loadUser(id).also { Log.d(TAG, \"loaded ${it.id}\") }  // side effect, same object back\nsavedState?.getString(KEY)?.let { viewModel.restore(it) }           // only when not null\nval isValid = form.run { email.isNotBlank() && password.length >= 8 } // compute a result\nwith(binding) { title.text = article.title; author.text = article.author }  // group calls\n```\n\n| Function | Object is | Returns | Use for |\n| --- | --- | --- | --- |\n| `apply` | `this` | the object | Configuring |\n| `also` | `it` | the object | Side effects (logging, validation) |\n| `let` | `it` | lambda result | Null checks, transforming |\n| `run` | `this` | lambda result | Computing with many members |\n| `with(x)` | `this` | lambda result | Grouping calls on a non-null object |\n\n**How it works:** they are small `inline` functions in the standard library, so they cost nothing at runtime. `inline fun <T> T.apply(block: T.() -> Unit): T { block(); return this }` takes a lambda with a receiver (hence `this`); `inline fun <T, R> T.let(block: (T) -> R): R = block(this)` passes the object as a parameter (hence `it`).\n\n**Follow-ups:**\n\n- *Common mistakes?* Deeply nested `?.let` (use names or a plain `if`); using `also` to change the object (use `apply`); forgetting that `let` returns the lambda's result.\n- *What are `takeIf` and `takeUnless`?* They return the object or `null` depending on a condition: `input.takeIf { it.isNotBlank() }?.let(::search)`.\n\n### 1.5 Extension functions\n\n**In one line:** an extension function adds a function to an existing type without changing or inheriting from it.\n\n**Say this in the interview:** \"Extensions let me write `context.toast(\"Saved\")` instead of a static utility call. They're resolved statically: the compiler turns them into a static function that takes the receiver as its first parameter. So they can't access private members, and they dispatch on the declared type, not the runtime type. I use them for small, focused helpers, and keep business logic in real classes.\"\n\n**Example:**\n\n```kotlin\nfun Context.toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()\nval Int.dp: Int get() = (this * Resources.getSystem().displayMetrics.density).toInt()\nfun ArticleEntity.toDomain() = Article(id, title, publishedAt)   // mappers between layers\n```\n\n**How it works:** `fun Context.toast(...)` compiles to a static method `toast(Context, String)`. If a class has a member with the same signature, the member wins.\n\n**Follow-ups:**\n\n- *Extension vs utility class?* Same bytecode; extensions read better and are discoverable through autocomplete.\n- *Can you override an extension?* No; they're static. `open` behaviour needs a member function.\n\n### 1.6 Higher-order functions and lambdas\n\n**In one line:** a higher-order function takes a function as a parameter or returns one; a lambda is a function written inline as a value.\n\n**Say this in the interview:** \"Kotlin treats functions as values with real types, like `(String) -> Int`. That lets me pass behaviour around, which replaces Java's single-method callback interfaces. I use it every day: Compose event callbacks like `onClick: (String) -> Unit`, Flow operators like `map` and `filter`, and DSLs like `buildString` or `LazyColumn`, which use lambdas with receivers. Lambdas also capture variables from where they're created, which is useful but is also a common source of Activity leaks.\"\n\n**Example:**\n\n```kotlin\n// A higher-order function: takes a predicate\nfun <T> List<T>.countWhere(predicate: (T) -> Boolean): Int = count(predicate)\nval adults = people.countWhere { it.age >= 18 }   // trailing lambda, 'it' = the single parameter\n\n// Function references instead of lambdas\nval lengths = words.map(String::length)            // (String) -> Int\nButton(onClick = viewModel::onRefresh) { Text(\"Refresh\") }\n\n// A function that returns a function, with a closure\nfun debounced(intervalMs: Long = 500, action: () -> Unit): () -> Unit {\n    var last = 0L                                  // captured and kept between calls\n    return { val now = SystemClock.elapsedRealtime(); if (now - last >= intervalMs) { last = now; action() } }\n}\n\n// A lambda with a receiver: 'this' is the builder, which is how DSLs work\nfun request(block: RequestBuilder.() -> Unit): Request = RequestBuilder().apply(block).build()\nval req = request { url = \"https://api.example.com\"; header(\"Accept\", \"application/json\") }\n```\n\n**How it works:**\n\n- Function types: `() -> Unit`, `(Int, Int) -> Int`, nullable `((Int) -> Unit)?` (call with `?.invoke()`), with receiver `String.() -> Unit`, suspending `suspend () -> T`.\n- Ways to create a function value: a lambda, an anonymous function `fun(x: Int) = x * 2`, a reference (`::isOdd`, `String::length`, `::User`), or a class implementing the function type.\n- The last expression in a lambda is its result; use `return@label` to return early from a lambda.\n- A capturing lambda is an object; if it captures a local `var`, Kotlin wraps the variable in a `Ref` object.\n- Java SAM interfaces (`Runnable`, `View.OnClickListener`) accept lambdas; declare your own as `fun interface` to get the same.\n\n**Follow-ups:**\n\n- *Higher-order function vs Java callback interface?* No interface per callback, shorter syntax, and `inline` removes the allocation.\n- *How can a lambda leak an Activity?* It captures the Activity (or `this`), and a longer-lived object such as a singleton listener or a delayed Handler callback keeps the lambda alive.\n- *`fun interface` vs function type?* A function type for simple callbacks; a `fun interface` when you want a named type for a public or Java-facing API.\n\n### 1.7 inline, noinline, crossinline and reified\n\n**In one line:** `inline` copies a function and its lambda arguments into each call site, removing lambda allocation and allowing `reified` type parameters.\n\n**Say this in the interview:** \"Normally every lambda you pass is an object. Marking a higher-order function `inline` makes the compiler paste its body and the lambda's body where it's called, so nothing is allocated. That's why `map`, `filter` and `let` are inline. It also allows a `return` inside the lambda to return from the outer function, and it enables `reified`, which keeps the generic type at runtime despite type erasure. I only inline small functions that take lambdas, because inlining large ones bloats the bytecode.\"\n\n**Example:**\n\n```kotlin\ninline fun <reified T : Activity> Context.start() = startActivity(Intent(this, T::class.java))\ncontext.start<SettingsActivity>()\n\nfun findAdmin(users: List<User>): User? {\n    users.forEach { if (it.isAdmin) return it }   // non-local return: allowed because forEach is inline\n    return null\n}\n```\n\n**How it works:**\n\n- On the JVM, generics are erased: `List<String>` is just `List` at runtime, so `x is T` is normally impossible. With `reified`, the real type is inserted at each call site.\n- `noinline` keeps one lambda as an object, for example because you store it.\n- `crossinline` is for a lambda called from another context (inside a `Runnable` or another lambda); it forbids non-local `return`.\n\n**Follow-ups:**\n\n- *When is `inline` harmful?* Large function bodies (bigger APK), public inline functions in libraries (their body becomes part of your API), or lambdas that are stored.\n- *What does `return@forEach` do?* Returns from the lambda only, like `continue`.\n\n### 1.8 Generics and variance\n\n**In one line:** variance says whether a `Box<Cat>` can be used where a `Box<Animal>` is expected: `out` means yes (the box only produces), `in` means the reverse (the box only consumes).\n\n**Say this in the interview:** \"Generic types are invariant by default: a `MutableList<Cat>` is not a `MutableList<Animal>`, because you could add a Dog to it. If a type only returns `T`, I mark it `out T` and it becomes covariant, like Kotlin's read-only `List<out E>`. If it only accepts `T`, I mark it `in T`, like `Comparator<in T>`. It's the same idea as Java's 'producer extends, consumer super'.\"\n\n**Example:**\n\n```kotlin\ninterface Source<out T> { fun next(): T }          // producer: Source<Cat> is a Source<Animal>\ninterface Sink<in T> { fun accept(item: T) }       // consumer: Sink<Animal> is a Sink<Cat>\n\nfun <T : Comparable<T>> List<T>.largest(): T? = maxOrNull()                       // upper bound\nfun <T> save(item: T) where T : Parcelable, T : Validatable { }                    // several bounds\n```\n\n**How it works:** `out`/`in` at the declaration is declaration-site variance; `List<out Animal>` at a use site is use-site variance (like Java wildcards). `List<*>` is a star projection: an unknown type you can read as `Any?`.\n\n**Follow-ups:**\n\n- *Why is `List` covariant but `MutableList` invariant?* `List` only returns elements; `MutableList` also accepts them, which would break type safety.\n\n### 1.9 Delegation: lazy, observable, viewModels and class delegation\n\n**In one line:** delegation hands the work of a property or an interface to another object, with the `by` keyword.\n\n**Say this in the interview:** \"Property delegates move get-and-set logic into a reusable object. `by lazy` computes a value on first access and is thread-safe by default; `by viewModels()` is a delegate that fetches the ViewModel from the right store. Class delegation, `class A(b: B) : B by b`, implements an interface by forwarding to another object, which is composition instead of inheritance.\"\n\n**Example:**\n\n```kotlin\nprivate val viewModel: MainViewModel by viewModels()\nprivate val formatter by lazy { DateTimeFormatter.ofPattern(\"d MMM\") }        // created on first use\nvar query by Delegates.observable(\"\") { _, old, new -> log(\"$old -> $new\") }\n\nclass LoggingList<T>(private val inner: MutableList<T>) : MutableList<T> by inner {\n    override fun add(element: T): Boolean { log(\"add $element\"); return inner.add(element) }\n}\n```\n\n**How it works:** the compiler generates a hidden field holding the delegate and calls its `getValue`/`setValue`. `lazy` uses double-checked locking by default (`LazyThreadSafetyMode.SYNCHRONIZED`); `NONE` is faster for main-thread-only use.\n\n**Follow-ups:**\n\n- *`lateinit` vs `lazy`?* `lateinit var` is for non-null values set later from outside (DI, `onCreate`), not for primitives; `lazy` is for a `val` computed once on first access.\n\n### 1.10 Companion objects and object declarations\n\n**In one line:** a companion object is a single object that belongs to a class, so its members are called through the class name, like `ArticleFragment.newInstance(id)`.\n\n**Say this in the interview:** \"Kotlin has no `static` keyword. A class can declare one `companion object`; there's exactly one per class, created when the class loads, and its members are called through the class name, so it plays the role of static members. Unlike statics, it's a real object: it can implement interfaces and have extension functions. On the JVM it becomes a nested class called `Companion` plus a static field, and `const val`, `@JvmField` and `@JvmStatic` turn members into true statics for Java. For a plain singleton I use an `object` declaration.\"\n\n**Example:**\n\n```kotlin\nclass ArticleFragment : Fragment() {\n    companion object {\n        const val TAG = \"ArticleFragment\"\n        private const val ARG_ID = \"id\"\n        fun newInstance(id: String) = ArticleFragment().apply { arguments = bundleOf(ARG_ID to id) }\n    }\n}\n\nobject Analytics { fun track(event: String) { } }                 // singleton, created on first access\n\nval watcher = object : TextWatcher { /* ... */ }                  // object expression: a new anonymous object\n```\n\n**How it works:**\n\n| Kotlin | Compiled to |\n| --- | --- |\n| `companion object { fun create() }` | Nested class `Foo.Companion` and a static field; Java calls `Foo.Companion.create()` |\n| `const val TAG` | A `public static final` field on `Foo` |\n| `@JvmStatic fun create()` | A real static method on `Foo` |\n| `object Analytics` | A class with a static `INSTANCE`, initialised lazily and thread-safely |\n\n**Follow-ups:**\n\n- *Is a companion object the same as static?* No: it's an object instance; add `@JvmStatic` or `const` for true statics.\n- *When not to use one?* For general helpers, top-level functions are simpler. Never store a `Context` or Activity in a companion or `object`: it lives as long as the process and leaks the screen.\n\n### 1.11 Collections vs sequences\n\n**In one line:** collection operations are eager and create a new list at every step; sequences are lazy and process one element at a time through the whole chain.\n\n**Say this in the interview:** \"`list.map { }.filter { }` builds a full intermediate list after each step. A `Sequence` passes each element through all the steps before moving to the next, and stops early with `first` or `take`. I use plain collections for small lists, which is most of the time, and sequences for long chains over large data or when I only need the first few results.\"\n\n**Example:**\n\n```kotlin\nval first = (1..1_000_000).asSequence()\n    .map { it * 2 }\n    .filter { it % 3 == 0 }\n    .first()           // processes only 3 elements, then stops; no intermediate lists\n```\n\n**Follow-ups:**\n\n- *Are sequences always faster?* No; for small collections the extra overhead can make them slower.\n\n### 1.12 Operators, infix functions and type aliases\n\n**In one line:** `operator` lets your types use symbols like `+` and `[]`; `infix` lets a one-parameter function be called without dots; `typealias` gives a type a shorter name.\n\n**Say this in the interview:** \"Operator overloading maps symbols to functions with fixed names, so `a + b` calls `a.plus(b)`. I use it for value types like `Money`. Infix functions read like keywords, like `1 to \"one\"`. Type aliases just rename a type, which is handy for long function types; they don't create a new type.\"\n\n**Example:**\n\n```kotlin\ndata class Money(val cents: Long) {\n    operator fun plus(o: Money) = Money(cents + o.cents)\n    operator fun compareTo(o: Money) = cents.compareTo(o.cents)\n}\nval total = price + shipping\nif (total > limit) warn()\n\ninfix fun Int.percentOf(total: Int) = total * this / 100\nval discount = 15 percentOf 200                      // 30\n\ntypealias OnArticleClick = (articleId: String) -> Unit\n```\n\n**Follow-ups:**\n\n- *Other operator names?* `get`/`set` (`a[i]`), `contains` (`in`), `invoke` (`a()`), `componentN` (destructuring), `rangeTo` (`..`), `iterator` (`for`).\n\n### 1.13 Java interoperability\n\n**In one line:** Kotlin and Java call each other directly; a few annotations make Kotlin APIs feel natural from Java.\n\n**Say this in the interview:** \"Most big codebases mix both languages. From Java, a Kotlin companion function looks like `Foo.Companion.create()` and default arguments don't exist, so for Java-facing APIs I add `@JvmStatic`, `@JvmOverloads`, `@JvmField` and `@Throws`. In the other direction, Java types without nullability annotations become platform types, so I annotate Java code I own or treat its values as nullable.\"\n\n**Example:**\n\n```kotlin\n@file:JvmName(\"Analytics\")                       // Java sees Analytics.xyz(), not AnalyticsKt.xyz()\n\nclass Tracker @JvmOverloads constructor(          // Java gets Tracker(String), Tracker(String, int), ...\n    val endpoint: String, val batchSize: Int = 20\n) {\n    companion object { @JvmStatic fun createDefault() = Tracker(\"https://events.example.com\") }\n    @Throws(IOException::class) fun flush() { }   // Java can now catch IOException\n}\n```\n\n**Follow-ups:**\n\n- *Why do custom Views often use `@JvmOverloads`?* The framework calls Java-style constructors (`Context`, `AttributeSet`), and default arguments alone don't create them. You can also write the constructors yourself, which is safer when the parent class applies a default style.\n- *What happens if Java passes null to a non-null Kotlin parameter?* An immediate `NullPointerException` naming the parameter.\n\n### 1.14 What's new in Kotlin 2.2 and 2.3\n\n**In one line:** recent versions added guard conditions in `when`, non-local `break`/`continue`, multi-dollar strings and nested type aliases as stable features.\n\n**Say this in the interview:** \"Kotlin 2.x moved to the K2 compiler, which is faster and smarter about smart casts, and the Compose compiler now ships with Kotlin. Recent stable features I use: guard conditions, so a `when` branch can have an `if`; `break` and `continue` inside inline lambdas like `forEach`; and since 2.3, nested type aliases. I also watch experimental ones like explicit backing fields, which would remove the `_state`/`state` pattern in ViewModels.\"\n\n**Example:**\n\n```kotlin\nfun label(s: UploadState) = when (s) {\n    is UploadState.Running if s.progress > 0.9f -> \"Almost done\"      // guard condition (2.2)\n    is UploadState.Running -> \"Uploading\"\n    is UploadState.Failed -> \"Failed\"\n    UploadState.Done -> \"Done\"\n}\n\nfor (batch in batches) batch.items.forEach { if (it.isCorrupt) continue; upload(it) }   // non-local continue (2.2)\n```\n\n**Follow-ups:**\n\n- *Which features are still experimental?* Context parameters (preview in 2.2), explicit backing fields and the unused-return-value checker (experimental in 2.3).\n\n### Interview questions\n\n1. **Why should you avoid `!!`, and what do you use instead?** `!!` throws a NullPointerException at runtime, which throws away Kotlin's compile-time safety. Use a safe call with a default, an early return, or `requireNotNull` with a clear message. {Easy}\n2. **What does `inline` do, and when shouldn't you use it?** It copies the function and its lambdas into each call site, so no lambda object is created, non-local `return` works and `reified` is possible. Avoid it for large functions or lambdas you store, because it grows the bytecode. {Medium}\n3. **Can a data class be inherited?** No, a data class can't be `open`. It can implement interfaces or extend a sealed class, which is how sealed UI states are built. {Easy}\n4. **How does `by lazy` work?** It stores an initializer and computes the value on first access, using double-checked locking by default, so it's thread-safe. Use `LazyThreadSafetyMode.NONE` when only the main thread reads it. {Medium}\n5. **If you pass a Kotlin `List` to Java, can Java change it?** Yes. Read-only is a compile-time view in Kotlin; Java sees `java.util.List` and can call `add` if the real object is mutable. {Medium}\n6. **What is a higher-order function, and why is it better than a Java callback interface?** A function that takes or returns a function. Kotlin has real function types, so you don't need an interface per callback, lambdas are short, and `inline` removes the allocation. {Easy}\n7. **What is a lambda with a receiver, and where have you used one?** Its type is `A.() -> R`, so inside the lambda `this` is the receiver. It powers `apply`, `buildString`, Compose scopes like `LazyListScope`, and the Gradle Kotlin DSL. {Medium}\n8. **How can a lambda leak an Activity?** It captures the Activity or `this`. If a longer-lived object keeps the lambda, such as a singleton listener or a delayed Handler callback, the Activity can't be garbage collected. {Medium}\n9. **What does `@JvmOverloads` do?** Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates the shorter overloads. It's a common shortcut for custom View constructors, but check that each one still calls the right superclass constructor, or the view can lose its default style. {Easy}\n10. **What are guard conditions in `when`?** Since Kotlin 2.2, a branch of a `when` with a subject can add an `if`, like `is Failed if state.canRetry ->`, instead of nesting another `if`. {Easy}\n11. **What is a companion object, and how is it different from Java `static`?** One object per class, created when the class loads, whose members you call through the class name. Unlike statics it is a real object that can implement interfaces; use `const`, `@JvmField` or `@JvmStatic` for true statics. {Easy}\n12. **How do you choose between `let`, `run`, `with`, `apply` and `also`?** Ask two questions: do I want the object back (`apply` to configure, `also` for side effects) or a result (`let` for nullable values, `run` or `with` to compute)? And does `this` or `it` read better? {Easy}\n13. **What is the difference between a sealed class and an enum?** Enum values are fixed single instances with the same properties. Sealed subtypes can each carry different data and have many instances, and `when` is still checked for every case. {Easy}\n14. **Explain `out` and `in` in Kotlin generics.** `out T` means the type only produces `T`, so `Source<Cat>` can be used as `Source<Animal>`. `in T` means it only consumes `T`, so `Sink<Animal>` can be used as `Sink<Cat>`. Without either, the type is invariant. {Hard}\n15. **When would you use a sequence instead of a list?** For long chains of operations over large data, or when you only need the first few results, because sequences are lazy and avoid intermediate lists. For small lists, plain collections are simpler and often faster. {Medium}\n"
   },
   {
    "id": "coroutines-flow",
@@ -131,7 +131,8 @@
    "why": "To see whether you treat null safety as a design tool or just silence the compiler.",
    "mistake": "Saying `!!` is fine because you know the value isn't null, without handling the day that stops being true.",
    "followUp": "When is `requireNotNull` better than an early return?",
-   "code": "fun greeting(name: String?): String {\n    val safe = name ?: return \"Hello\"       // early return\n    return \"Hello, $safe\"\n}\n\nval length = nickname?.length ?: 0          // safe call with a default\nval id = requireNotNull(userId) { \"userId is required\" }"
+   "code": "fun greeting(name: String?): String {\n    val safe = name ?: return \"Hello\"       // early return\n    return \"Hello, $safe\"\n}\n\nval length = nickname?.length ?: 0          // safe call with a default\nval id = requireNotNull(userId) { \"userId is required\" }",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-3defccfff407",
@@ -145,7 +146,8 @@
    "why": "To check that you know what the compiler generates, not only the keyword.",
    "mistake": "Claiming `inline` makes any function faster. Without lambda parameters the gain is usually negligible.",
    "followUp": "What do `noinline` and `crossinline` change?",
-   "code": "inline fun <reified T> List<Any>.firstOfType(): T? =\n    firstOrNull { it is T } as T?\n\nval text = listOf(1, \"two\", 3).firstOfType<String>()"
+   "code": "inline fun <reified T> List<Any>.firstOfType(): T? =\n    firstOrNull { it is T } as T?\n\nval text = listOf(1, \"two\", 3).firstOfType<String>()",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-47ac91f1a509",
@@ -158,7 +160,8 @@
    ],
    "why": "A quick check that you know what a data class generates and where its limits are.",
    "mistake": "Saying a data class can't extend anything. It can't be `open`, but it can have a superclass or interfaces.",
-   "followUp": "How would you model a closed set of UI states instead?"
+   "followUp": "How would you model a closed set of UI states instead?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-e03838e3ed0b",
@@ -172,7 +175,8 @@
    ],
    "why": "It shows whether you understand delegation and thread safety behind a one-line keyword.",
    "mistake": "Using `lazy` for a value tied to a view or Activity in a longer-lived object, so it goes stale or leaks.",
-   "followUp": "When would you choose `lazy` over `lateinit`?"
+   "followUp": "When would you choose `lazy` over `lateinit`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-a36d60eba2a8",
@@ -185,7 +189,8 @@
    ],
    "why": "To test whether you know that Kotlin's guarantees can end at the Java boundary.",
    "mistake": "Believing a read-only `List` is immutable. It's only a read-only view.",
-   "followUp": "How would you stop Java code from changing the list?"
+   "followUp": "How would you stop Java code from changing the list?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-10c2cf752ec2",
@@ -198,7 +203,8 @@
    ],
    "why": "To confirm you're comfortable with functions as values, which most Kotlin APIs rely on.",
    "mistake": "Only saying lambdas are shorter, without mentioning function types or the cost of allocation.",
-   "followUp": "When does passing a lambda allocate an object?"
+   "followUp": "When does passing a lambda allocate an object?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-1c09c0325440",
@@ -211,7 +217,8 @@
    ],
    "why": "Receivers power the DSLs you use daily, so this separates using them from understanding them.",
    "mistake": "Confusing `(A) -> R` with `A.() -> R`.",
-   "followUp": "How would you design a small DSL with a receiver?"
+   "followUp": "How would you design a small DSL with a receiver?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-8588f27851a9",
@@ -224,20 +231,22 @@
    ],
    "why": "Interviewers want to see that you connect language features to Android memory leaks.",
    "mistake": "Blaming lambdas themselves. The leak comes from who keeps the reference, and for how long.",
-   "followUp": "How would you find that leak?"
+   "followUp": "How would you find that leak?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-1e9dc75d1804",
    "topic": "kotlin",
    "text": "What does `@JvmOverloads` do?",
-   "answer": "Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates the shorter overloads; custom View constructors need it.",
+   "answer": "Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates the shorter overloads. It's a common shortcut for custom View constructors, but check that each one still calls the right superclass constructor, or the view can lose its default style.",
    "level": "Easy",
    "tracks": [
     "junior"
    ],
    "why": "To see whether you've worked in a mixed Java and Kotlin codebase.",
    "mistake": "Thinking Java callers can use Kotlin default arguments directly.",
-   "followUp": "What does `@JvmStatic` do differently?"
+   "followUp": "What does `@JvmStatic` do differently?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-fa2f183257b7",
@@ -250,7 +259,8 @@
    ],
    "why": "To check whether you keep up with recent Kotlin releases.",
    "mistake": "Putting a guard on a `when` that has no subject, where it isn't allowed.",
-   "followUp": "Which Kotlin version made guard conditions stable?"
+   "followUp": "Which Kotlin version made guard conditions stable?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-bf31e172c64a",
@@ -263,7 +273,8 @@
    ],
    "why": "It catches people who translate Java habits straight into Kotlin.",
    "mistake": "Saying companion members are true static methods. Without `@JvmStatic`, Java calls them through `Companion`.",
-   "followUp": "When would you use a top-level function instead?"
+   "followUp": "When would you use a top-level function instead?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-75bf3c40cf61",
@@ -276,7 +287,8 @@
    ],
    "why": "Scope functions are everywhere, and choosing well shows you care about readability.",
    "mistake": "Nesting several of them until nobody can tell what `this` or `it` refers to.",
-   "followUp": "Which one would you use to build and configure an `Intent`?"
+   "followUp": "Which one would you use to build and configure an `Intent`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-fc46df524b6e",
@@ -290,7 +302,8 @@
    "why": "To see whether you can model state so that invalid cases can't happen.",
    "mistake": "Using an enum plus nullable fields for data that only some states have.",
    "followUp": "When would you still pick an enum?",
-   "code": "enum class Direction { North, South }          // fixed instances\n\nsealed interface Result {                      // each case has its own data\n    data class Success(val items: List<String>) : Result\n    data class Failure(val error: Throwable) : Result\n    data object Loading : Result\n}"
+   "code": "enum class Direction { North, South }          // fixed instances\n\nsealed interface Result {                      // each case has its own data\n    data class Success(val items: List<String>) : Result\n    data class Failure(val error: Throwable) : Result\n    data object Loading : Result\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-8adfa00bbc68",
@@ -304,7 +317,8 @@
    "why": "Variance shows whether you can design generic APIs, not just consume them.",
    "mistake": "Memorising \"out is output\" without explaining which assignments become safe.",
    "followUp": "What is a star projection?",
-   "code": "interface Source<out T> { fun next(): T }      // produces T\ninterface Sink<in T> { fun accept(item: T) }   // consumes T\n\nfun use(cats: Source<Cat>, anySink: Sink<Animal>) {\n    val animals: Source<Animal> = cats          // allowed by out\n    val catSink: Sink<Cat> = anySink            // allowed by in\n}"
+   "code": "interface Source<out T> { fun next(): T }      // produces T\ninterface Sink<in T> { fun accept(item: T) }   // consumes T\n\nfun use(cats: Source<Cat>, anySink: Sink<Animal>) {\n    val animals: Source<Animal> = cats          // allowed by out\n    val catSink: Sink<Cat> = anySink            // allowed by in\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "kotlin-e2bdd1132a04",
@@ -317,7 +331,8 @@
    ],
    "why": "It tests whether you pick collection tools for a reason rather than by habit.",
    "mistake": "Switching to sequences everywhere and expecting a speed-up on small lists.",
-   "followUp": "How can a sequence be slower than a list?"
+   "followUp": "How can a sequence be slower than a list?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-44ab5482c065",
@@ -330,7 +345,8 @@
    ],
    "why": "To find out whether you understand coroutines or only use the keywords.",
    "mistake": "Saying the thread blocks or sleeps until the result arrives.",
-   "followUp": "Which thread does a coroutine resume on?"
+   "followUp": "Which thread does a coroutine resume on?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-f779213a2da8",
@@ -344,7 +360,8 @@
    "why": "It's the quickest check of whether you can start coroutines correctly.",
    "mistake": "Using `async` without ever awaiting it, or just to start work that has no result.",
    "followUp": "What happens to an exception inside `async` that nobody awaits?",
-   "code": "suspend fun load(): String = coroutineScope {\n    launch { logOpened() }                      // no result needed\n    val user = async { fetchUser() }            // both run in parallel\n    val posts = async { fetchPosts() }\n    \"${user.await()}: ${posts.await()}\"\n}"
+   "code": "suspend fun load(): String = coroutineScope {\n    launch { logOpened() }                      // no result needed\n    val user = async { fetchUser() }            // both run in parallel\n    val posts = async { fetchPosts() }\n    \"${user.await()}: ${posts.await()}\"\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-da6450235bee",
@@ -357,7 +374,8 @@
    ],
    "why": "To see that you think about lifecycle, cancellation and testing.",
    "mistake": "Replacing it with a new `CoroutineScope()` that nothing ever cancels.",
-   "followUp": "How would you create an application-wide scope?"
+   "followUp": "How would you create an application-wide scope?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-718dd648ec77",
@@ -371,7 +389,8 @@
    ],
    "why": "Failure propagation is a common source of production bugs.",
    "mistake": "Passing `SupervisorJob()` to `launch` and expecting its children to be supervised.",
-   "followUp": "When would you use `supervisorScope`?"
+   "followUp": "When would you use `supervisorScope`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-908355e1d383",
@@ -385,7 +404,8 @@
    "why": "It reveals whether you've debugged cancellation problems in real code.",
    "mistake": "Logging the exception and carrying on, which keeps a cancelled coroutine running.",
    "followUp": "How would you handle errors without catching cancellation?",
-   "code": "suspend fun refresh() {\n    try {\n        sync()\n    } catch (e: CancellationException) {\n        throw e                                 // let cancellation work\n    } catch (e: Exception) {\n        report(e)\n    }\n}"
+   "code": "suspend fun refresh() {\n    try {\n        sync()\n    } catch (e: CancellationException) {\n        throw e                                 // let cancellation work\n    } catch (e: Exception) {\n        report(e)\n    }\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-e26832703731",
@@ -398,7 +418,8 @@
    ],
    "why": "Choosing the wrong one causes lost or repeated events, so they want your reasoning.",
    "mistake": "Using `StateFlow` for events and then wondering why identical events are dropped.",
-   "followUp": "How do you stop a `SharedFlow` from losing events?"
+   "followUp": "How do you stop a `SharedFlow` from losing events?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-21343f2196d7",
@@ -411,7 +432,8 @@
    ],
    "why": "To check that you understand why this exact value appears in so much Android code.",
    "mistake": "Using `SharingStarted.Eagerly` or `Lazily` for screen state, so upstream work never stops.",
-   "followUp": "Why 5 seconds and not zero?"
+   "followUp": "Why 5 seconds and not zero?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-752e9503e3bd",
@@ -424,7 +446,8 @@
    ],
    "why": "Leaked collection wastes battery and can crash, so this is a basic safety check.",
    "mistake": "Collecting in `lifecycleScope.launch` alone, which keeps running in the background.",
-   "followUp": "What does `flowWithLifecycle` do?"
+   "followUp": "What does `flowWithLifecycle` do?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-ddf837469180",
@@ -437,7 +460,8 @@
    ],
    "why": "It tests how you model state and whether you consider process death.",
    "mistake": "Sending events through a `SharedFlow` with no replay and losing them while nothing collects.",
-   "followUp": "What can go wrong if the UI never reports the event as handled?"
+   "followUp": "What can go wrong if the UI never reports the event as handled?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-4664b6feef77",
@@ -451,7 +475,8 @@
    "why": "To see whether you know the direction in which flow exceptions travel.",
    "mistake": "Expecting `catch` to handle everything, wherever it sits in the chain.",
    "followUp": "How does `retryWhen` fit into error handling?",
-   "code": "fun observe(items: Flow<String>, scope: CoroutineScope) {\n    items\n        .onEach { render(it) }                  // now upstream of catch\n        .catch { showError(it) }\n        .launchIn(scope)\n}"
+   "code": "fun observe(items: Flow<String>, scope: CoroutineScope) {\n    items\n        .onEach { render(it) }                  // now upstream of catch\n        .catch { showError(it) }\n        .launchIn(scope)\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-5043becff9e4",
@@ -464,7 +489,8 @@
    ],
    "why": "Picking the right operator shows you understand ordering and cancellation.",
    "mistake": "Using `flatMapMerge` for search, so an old response can overwrite a newer one.",
-   "followUp": "What does `debounce` add to a search flow?"
+   "followUp": "What does `debounce` add to a search flow?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-50383baa64d6",
@@ -478,7 +504,8 @@
    "why": "Wrapping callback APIs is everyday work with Android SDKs and older libraries.",
    "mistake": "Leaving out `awaitClose`, so the listener is never removed and the builder throws.",
    "followUp": "What happens if `trySend` fails?",
-   "code": "fun ticks(clock: Clock): Flow<Long> = callbackFlow {\n    val listener = ClockListener { time -> trySend(time) }\n    clock.register(listener)\n    awaitClose { clock.unregister(listener) }\n}"
+   "code": "fun ticks(clock: Clock): Flow<Long> = callbackFlow {\n    val listener = ClockListener { time -> trySend(time) }\n    clock.register(listener)\n    awaitClose { clock.unregister(listener) }\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-debda322be21",
@@ -491,7 +518,8 @@
    ],
    "why": "They want a safe, incremental plan rather than enthusiasm for a rewrite.",
    "mistake": "Proposing to convert everything at once.",
-   "followUp": "How would you keep both libraries working during the migration?"
+   "followUp": "How would you keep both libraries working during the migration?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coroutines-flow-2dc230b3b34d",
@@ -504,7 +532,8 @@
    ],
    "why": "Code that can't be tested deterministically suggests the design wasn't thought through.",
    "mistake": "Using `Thread.sleep` or real delays and hard-coding dispatchers.",
-   "followUp": "How does `advanceUntilIdle` work?"
+   "followUp": "How does `advanceUntilIdle` work?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-f97897140137",
@@ -517,7 +546,8 @@
    ],
    "why": "It checks that your data safety doesn't depend on a callback that may never run.",
    "mistake": "Saving user data in `onDestroy`.",
-   "followUp": "Which lifecycle callback is the safer place to save?"
+   "followUp": "Which lifecycle callback is the safer place to save?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-359c92320fcf",
@@ -531,7 +561,8 @@
    ],
    "why": "Process death causes bugs that never show up on a developer's own phone.",
    "mistake": "Assuming a ViewModel keeps data after the system kills the process.",
-   "followUp": "How would you test process death?"
+   "followUp": "How would you test process death?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-921ccac7a133",
@@ -545,7 +576,8 @@
    ],
    "why": "To see whether you know the system limit behind a common crash.",
    "mistake": "Putting whole lists or bitmaps into the Bundle.",
-   "followUp": "What would you save instead of a large list?"
+   "followUp": "What would you save instead of a large list?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-1360dc4ad113",
@@ -559,7 +591,8 @@
    ],
    "why": "It's a classic source of leaks and crashes in apps that use fragments.",
    "mistake": "Collecting with the fragment's lifecycle in `onViewCreated`.",
-   "followUp": "What happens if you use view binding after `onDestroyView`?"
+   "followUp": "What happens if you use view binding after `onDestroyView`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-8d060a11b9a9",
@@ -572,7 +605,8 @@
    ],
    "why": "To check that you keep components decoupled.",
    "mistake": "Casting the host Activity or another fragment and calling its methods.",
-   "followUp": "How do you scope a ViewModel to a navigation graph?"
+   "followUp": "How do you scope a ViewModel to a navigation graph?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-ccd4ea2caf74",
@@ -585,7 +619,8 @@
    ],
    "why": "It separates knowing what a ViewModel does from knowing how.",
    "mistake": "Saying the ViewModel is saved in the Bundle.",
-   "followUp": "When is `onCleared` called?"
+   "followUp": "When is `onCleared` called?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-8dabf6a2f966",
@@ -598,7 +633,8 @@
    ],
    "why": "It tests whether you know the app lifecycle beyond single screens.",
    "mistake": "Counting activities by hand in lifecycle callbacks.",
-   "followUp": "Why can `ProcessLifecycleOwner` deliver `ON_STOP` with a delay?"
+   "followUp": "Why can `ProcessLifecycleOwner` deliver `ON_STOP` with a delay?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-0650c401a3fe",
@@ -611,7 +647,8 @@
    ],
    "why": "Mutable PendingIntents are a real security risk.",
    "mistake": "Choosing `FLAG_MUTABLE` just to silence the error.",
-   "followUp": "What is a mutable PendingIntent needed for?"
+   "followUp": "What is a mutable PendingIntent needed for?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-29149135cc5c",
@@ -624,7 +661,8 @@
    ],
    "why": "They want to see that you can debug a release-only integration problem.",
    "mistake": "Registering only the debug or upload certificate when Play App Signing re-signs the app.",
-   "followUp": "How do you check App Link verification on a device?"
+   "followUp": "How do you check App Link verification on a device?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-94b03e394def",
@@ -638,7 +676,8 @@
    ],
    "why": "ANRs hurt users and store ranking, so you need to know their causes.",
    "mistake": "Thinking any coroutine is safe even when it runs blocking work on the main dispatcher.",
-   "followUp": "How would you find the cause of an ANR from a trace?"
+   "followUp": "How would you find the cause of an ANR from a trace?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-b2f8da492877",
@@ -651,7 +690,8 @@
    ],
    "why": "Using the wrong one causes leaks or theming crashes.",
    "mistake": "Storing an Activity context in a singleton.",
-   "followUp": "Why can a dialog crash with the application context?"
+   "followUp": "Why can a dialog crash with the application context?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-e823fbe900e4",
@@ -664,7 +704,8 @@
    ],
    "why": "A basic check of how data moves between components.",
    "mistake": "Using `Serializable` by default because it needs less code.",
-   "followUp": "What can't you put in a `Parcelable` Bundle safely?"
+   "followUp": "What can't you put in a `Parcelable` Bundle safely?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-44436fe48542",
@@ -677,7 +718,8 @@
    ],
    "why": "To see that you know which tool Android expects for each kind of work.",
    "mistake": "Assuming a service runs on a background thread.",
-   "followUp": "What are foreground service types?"
+   "followUp": "What are foreground service types?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-364cad452489",
@@ -690,7 +732,8 @@
    ],
    "why": "It checks that you've handled the runtime permission in a real app.",
    "mistake": "Requesting nothing and expecting notifications to appear as on older versions.",
-   "followUp": "What should you do if the user denies it twice?"
+   "followUp": "What should you do if the user denies it twice?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-66425fd5360f",
@@ -703,7 +746,8 @@
    ],
    "why": "List performance is part of almost every app.",
    "mistake": "Comparing item identity and content with the same check.",
-   "followUp": "What is `areContentsTheSame` for?"
+   "followUp": "What is `areContentsTheSame` for?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "android-fundamentals-9beb5113ac22",
@@ -717,7 +761,8 @@
    ],
    "why": "It shows whether you understand the View drawing pass.",
    "mistake": "Calling `requestLayout()` for a colour change, which does needless work.",
-   "followUp": "When do you need to override `onMeasure`?"
+   "followUp": "When do you need to override `onMeasure`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-c24e658790aa",
@@ -730,7 +775,8 @@
    ],
    "why": "It's the foundation of Compose; later answers depend on it.",
    "mistake": "Saying the whole screen redraws whenever anything changes.",
-   "followUp": "What is a recomposition scope?"
+   "followUp": "What is a recomposition scope?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-c093c6f44343",
@@ -743,7 +789,8 @@
    ],
    "why": "To check that you know which state is lost, and when.",
    "mistake": "Putting large objects in `rememberSaveable`.",
-   "followUp": "What can't `rememberSaveable` save by default?"
+   "followUp": "What can't `rememberSaveable` save by default?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-254e2228c307",
@@ -756,7 +803,8 @@
    ],
    "why": "It tests whether you can reduce recomposition without overusing the tool.",
    "mistake": "Wrapping every computed value in it, even when it changes as often as its input.",
-   "followUp": "How is it different from `remember(key)`?"
+   "followUp": "How is it different from `remember(key)`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-57e987e954b1",
@@ -769,7 +817,8 @@
    ],
    "why": "They're checking that you write reusable, testable UI.",
    "mistake": "Hoisting all state to the ViewModel, including purely visual state nobody else needs.",
-   "followUp": "Which state should stay inside the composable?"
+   "followUp": "Which state should stay inside the composable?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-1725014d2758",
@@ -783,7 +832,8 @@
    ],
    "why": "Wrong effect choices cause repeated requests and leaked listeners.",
    "mistake": "Using `LaunchedEffect(Unit)` when the work depends on a value that can change.",
-   "followUp": "When do you need `rememberUpdatedState`?"
+   "followUp": "When do you need `rememberUpdatedState`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-26596ccad4cb",
@@ -796,7 +846,8 @@
    ],
    "why": "It shows whether you can diagnose performance problems, not just build screens.",
    "mistake": "Adding `remember` everywhere without measuring what actually recomposes.",
-   "followUp": "How would you find what is recomposing?"
+   "followUp": "How would you find what is recomposing?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-83a0cd5478a2",
@@ -809,7 +860,8 @@
    ],
    "why": "To see whether your stability advice is up to date.",
    "mistake": "Repeating pre-2.0.20 advice that any unstable parameter always prevents skipping.",
-   "followUp": "How can you tell whether a composable is skippable?"
+   "followUp": "How can you tell whether a composable is skippable?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-848678017a8c",
@@ -822,7 +874,8 @@
    ],
    "why": "Lists are where Compose performance problems usually show.",
    "mistake": "Judging performance in a debug build, or using the index as the key.",
-   "followUp": "Why are stable keys important when items move?"
+   "followUp": "Why are stable keys important when items move?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-57250b6f78e2",
@@ -835,7 +888,8 @@
    ],
    "why": "It catches a very common source of layout bugs.",
    "mistake": "Thinking modifiers are an unordered set of properties.",
-   "followUp": "How does `Modifier` order affect click areas?"
+   "followUp": "How does `Modifier` order affect click areas?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-1033d1c4dadf",
@@ -849,7 +903,8 @@
    ],
    "why": "They're assessing planning and risk management as much as Compose knowledge.",
    "mistake": "Planning a full rewrite with a feature freeze.",
-   "followUp": "How do you share a theme between Views and Compose?"
+   "followUp": "How do you share a theme between Views and Compose?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-4bff9cfae071",
@@ -862,7 +917,8 @@
    ],
    "why": "To check that you design composables that can be tested.",
    "mistake": "Passing a real ViewModel with real data sources into every UI test.",
-   "followUp": "When would you use a test tag instead of text?"
+   "followUp": "When would you use a test tag instead of text?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jetpack-compose-09f0a3265ffc",
@@ -875,7 +931,8 @@
    ],
    "why": "It shows whether you follow the newer navigation library.",
    "mistake": "Describing the old `NavController` model as if nothing had changed.",
-   "followUp": "How would you handle deep links with your own back stack?"
+   "followUp": "How would you handle deep links with your own back stack?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-6d67420fa7ba",
@@ -889,7 +946,8 @@
    ],
    "why": "They want to hear a coherent design and the reasons behind each choice.",
    "mistake": "Listing libraries without explaining how data and events flow.",
-   "followUp": "What would you change for a very small app?"
+   "followUp": "What would you change for a very small app?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-eb48514bf1ca",
@@ -903,7 +961,8 @@
    ],
    "why": "It shows whether your layers are real or only folder names.",
    "mistake": "Skipping where the write is saved and how the UI learns about it.",
-   "followUp": "What happens if the network call fails?"
+   "followUp": "What happens if the network call fails?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-398650856925",
@@ -917,7 +976,8 @@
    ],
    "why": "It tests whether you understand offline-first design.",
    "mistake": "Saying only \"for offline support\" and missing consistency between screens.",
-   "followUp": "How do you tell the user their change has not synced yet?"
+   "followUp": "How do you tell the user their change has not synced yet?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-519b75c2f75e",
@@ -931,7 +991,8 @@
    ],
    "why": "They're probing for the bugs that multiple sources of truth create.",
    "mistake": "Adding the database as a side cache while the UI still renders the response.",
-   "followUp": "When is it acceptable to skip the database?"
+   "followUp": "When is it acceptable to skip the database?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-74f890ee1133",
@@ -945,7 +1006,8 @@
    ],
    "why": "To see whether you choose patterns by trade-off rather than fashion.",
    "mistake": "Declaring one pattern always better.",
-   "followUp": "Where would you put a one-off event in MVI?"
+   "followUp": "Where would you put a one-off event in MVI?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-fd10b3007053",
@@ -959,7 +1021,8 @@
    ],
    "why": "It checks that you put logic where it can be tested and reused.",
    "mistake": "Creating a use case for every repository method.",
-   "followUp": "How do you test a use case?"
+   "followUp": "How do you test a use case?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-826d9874991e",
@@ -973,7 +1036,8 @@
    ],
    "why": "Sharing state badly leads to stale screens and hidden coupling.",
    "mistake": "Passing large objects through navigation arguments or global variables.",
-   "followUp": "When is a navigation-graph ViewModel the wrong choice?"
+   "followUp": "When is a navigation-graph ViewModel the wrong choice?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-d917b88a0c17",
@@ -987,7 +1051,8 @@
    ],
    "why": "To check you understand why layers need their own boundaries.",
    "mistake": "Using the network DTO as the UI model to save typing.",
-   "followUp": "When is mapping between layers not worth it?"
+   "followUp": "When is mapping between layers not worth it?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-9eae6a960985",
@@ -1001,7 +1066,8 @@
    ],
    "why": "Large teams depend on it, so it tests your modularisation experience.",
    "mistake": "Letting one feature module depend directly on another.",
-   "followUp": "How would you stop feature modules from depending on each other?"
+   "followUp": "How would you stop feature modules from depending on each other?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "architecture-78b7634e57c1",
@@ -1015,7 +1081,8 @@
    ],
    "why": "Senior roles require changing systems safely, not just designing new ones.",
    "mistake": "Proposing a rewrite without a pilot, measurements or buy-in.",
-   "followUp": "How would you measure whether the migration is working?"
+   "followUp": "How would you measure whether the migration is working?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-bf5c1014981f",
@@ -1028,7 +1095,8 @@
    ],
    "why": "To check that you know why DI exists, not just the annotations.",
    "mistake": "Describing DI as \"what Hilt does\".",
-   "followUp": "How would you do it without a framework?"
+   "followUp": "How would you do it without a framework?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-c354a2e2f329",
@@ -1041,7 +1109,8 @@
    ],
    "why": "It tests whether you understand testability and object validity.",
    "mistake": "Using field injection in your own classes out of habit.",
-   "followUp": "How do you inject into a class Android creates for you?"
+   "followUp": "How do you inject into a class Android creates for you?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-e3dde2a96367",
@@ -1055,7 +1124,8 @@
    ],
    "why": "A quick check that you've written real Hilt modules.",
    "mistake": "Using `@Provides` where `@Binds` would do, or expecting `@Binds` to run code.",
-   "followUp": "Can you `@Binds` a class you don't own?"
+   "followUp": "Can you `@Binds` a class you don't own?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-9e0243102f88",
@@ -1069,7 +1139,8 @@
    ],
    "why": "Wrong scoping causes both duplicate state and objects that live too long.",
    "mistake": "Marking everything `@Singleton`.",
-   "followUp": "When would you use `@ActivityRetainedScoped`?"
+   "followUp": "When would you use `@ActivityRetainedScoped`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-ff8e3b428bb8",
@@ -1082,7 +1153,8 @@
    ],
    "why": "It shows whether you know what the generated code does for you.",
    "mistake": "Constructing the ViewModel yourself with `ViewModelProvider` and no factory.",
-   "followUp": "How does Hilt supply `SavedStateHandle`?"
+   "followUp": "How does Hilt supply `SavedStateHandle`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-15e963e96c2a",
@@ -1095,7 +1167,8 @@
    ],
    "why": "Runtime values are where basic DI knowledge usually stops.",
    "mistake": "Setting the value later through a mutable property.",
-   "followUp": "How is this different from using `SavedStateHandle` for the ID?"
+   "followUp": "How is this different from using `SavedStateHandle` for the ID?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-a2e3c3f6aedb",
@@ -1108,7 +1181,8 @@
    ],
    "why": "To see whether you can resolve a common graph error.",
    "mistake": "Wrapping the types in new classes only to tell them apart.",
-   "followUp": "Where else would you use a qualifier?"
+   "followUp": "Where else would you use a qualifier?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-8a2bc046a269",
@@ -1121,7 +1195,8 @@
    ],
    "why": "Test setup shows whether you've used DI for its main benefit.",
    "mistake": "Adding test-only flags to production modules.",
-   "followUp": "How do you replace a whole module for one test class?"
+   "followUp": "How do you replace a whole module for one test class?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-d6c5639fbb5e",
@@ -1134,7 +1209,8 @@
    ],
    "why": "They want a balanced comparison, including costs.",
    "mistake": "Saying they're the same thing with different syntax.",
-   "followUp": "When would you choose manual DI?"
+   "followUp": "When would you choose manual DI?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "dependency-injection-ea22cc2ab64a",
@@ -1148,7 +1224,8 @@
    ],
    "why": "It tests the concept apart from any library.",
    "mistake": "Calling any object registry dependency injection.",
-   "followUp": "How would you spot a service locator in code review?"
+   "followUp": "How would you spot a service locator in code review?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-9dce35739d8f",
@@ -1161,7 +1238,8 @@
    ],
    "why": "It shows whether you know how serialization can break Kotlin's guarantees.",
    "mistake": "Assuming a non-null Kotlin property can't end up null after Gson parses it.",
-   "followUp": "How do you handle unknown JSON fields?"
+   "followUp": "How do you handle unknown JSON fields?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-f2e8474402a4",
@@ -1175,7 +1253,8 @@
    ],
    "why": "It combines concurrency, networking and failure handling in a real scenario.",
    "mistake": "Letting every failed request start its own refresh, or retrying forever.",
-   "followUp": "What is the difference between an Authenticator and an Interceptor here?"
+   "followUp": "What is the difference between an Authenticator and an Interceptor here?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-773d612268d1",
@@ -1189,7 +1268,8 @@
    ],
    "why": "To check that you match work to the right lifetime.",
    "mistake": "Using `GlobalScope` to keep the request alive.",
-   "followUp": "How would the UI learn the result later?"
+   "followUp": "How would the UI learn the result later?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-b5671007c76a",
@@ -1202,7 +1282,8 @@
    ],
    "why": "A basic check of safe local storage.",
    "mistake": "Thinking `apply()` makes SharedPreferences completely safe for the main thread.",
-   "followUp": "When would you still use SharedPreferences?"
+   "followUp": "When would you still use SharedPreferences?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-e55b8029ba2f",
@@ -1216,7 +1297,8 @@
    ],
    "why": "It's the heart of offline-first design.",
    "mistake": "Retrying without an idempotency key and creating duplicates.",
-   "followUp": "How would you show a permanently failed sync?"
+   "followUp": "How would you show a permanently failed sync?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-eeaa26feef44",
@@ -1230,7 +1312,8 @@
    ],
    "why": "They're testing whether you spot wasted work and race conditions.",
    "mistake": "Using a boolean \"loading\" flag that two coroutines can both pass.",
-   "followUp": "How would you cancel the shared request safely?"
+   "followUp": "How would you cancel the shared request safely?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-359ea450ed02",
@@ -1243,7 +1326,8 @@
    ],
    "why": "A failed migration destroys user data.",
    "mistake": "Reaching for destructive migration to make the crash go away.",
-   "followUp": "How do you test a migration from an old version?"
+   "followUp": "How do you test a migration from an old version?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-5109dec2c0e1",
@@ -1257,7 +1341,8 @@
    ],
    "why": "It tests API design knowledge that matters for feeds.",
    "mistake": "Mentioning speed but missing duplicated and skipped items.",
-   "followUp": "How does Paging 3 combine a database and a cursor?"
+   "followUp": "How does Paging 3 combine a database and a cursor?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-9d6ee429e9bd",
@@ -1271,7 +1356,8 @@
    ],
    "why": "Scoped storage rules trip up many apps.",
    "mistake": "Asking for broad storage permission for all three.",
-   "followUp": "What does `MANAGE_EXTERNAL_STORAGE` require on Play?"
+   "followUp": "What does `MANAGE_EXTERNAL_STORAGE` require on Play?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "data-layer-9e2139a6b390",
@@ -1284,7 +1370,8 @@
    ],
    "why": "To see that you handle unreliable networks realistically.",
    "mistake": "Checking connectivity once and assuming the request will succeed.",
-   "followUp": "Why can a connected network still fail requests?"
+   "followUp": "Why can a connected network still fail requests?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "background-work-59184f9b8f6f",
@@ -1298,7 +1385,8 @@
    ],
    "why": "Choosing the wrong tool means work that is killed or drains the battery.",
    "mistake": "Using a foreground service for everything that must not be lost.",
-   "followUp": "What would you use for a download the user started and is watching?"
+   "followUp": "What would you use for a download the user started and is watching?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "background-work-3ca5bb665f8b",
@@ -1311,7 +1399,8 @@
    ],
    "why": "To check that your knowledge reflects modern background limits.",
    "mistake": "Expecting a background service to keep running indefinitely.",
-   "followUp": "What are the limits on foreground services started from the background?"
+   "followUp": "What are the limits on foreground services started from the background?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "background-work-b62280abc35a",
@@ -1324,7 +1413,8 @@
    ],
    "why": "Many bugs come from assuming exact scheduling.",
    "mistake": "Using periodic work for something that must run at a precise time.",
-   "followUp": "What is the minimum periodic interval?"
+   "followUp": "What is the minimum periodic interval?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "background-work-3403443bca0d",
@@ -1338,7 +1428,8 @@
    ],
    "why": "Duplicate work causes duplicate data on the server.",
    "mistake": "Checking a local flag instead of using unique work and server idempotency.",
-   "followUp": "What is the difference between `KEEP` and `REPLACE`?"
+   "followUp": "What is the difference between `KEEP` and `REPLACE`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "background-work-e307592d7c3d",
@@ -1351,7 +1442,8 @@
    ],
    "why": "It checks that you keep up with platform changes that affect releases.",
    "mistake": "Declaring a type that doesn't match what the service does.",
-   "followUp": "Which types might a music player and a sync feature need?"
+   "followUp": "Which types might a music player and a sync feature need?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "background-work-fde652a59f5b",
@@ -1364,7 +1456,8 @@
    ],
    "why": "It shows whether you can design for power saving instead of fighting it.",
    "mistake": "Asking users to disable battery optimisation as the first fix.",
-   "followUp": "How would you test your app in Doze?"
+   "followUp": "How would you test your app in Doze?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "background-work-cf024a26789d",
@@ -1378,7 +1471,8 @@
    ],
    "why": "It tests end-to-end sync design.",
    "mistake": "Sending all the data in the push message and treating delivery as guaranteed.",
-   "followUp": "What do you do if the push never arrives?"
+   "followUp": "What do you do if the push never arrives?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "background-work-1421080c567d",
@@ -1391,7 +1485,8 @@
    ],
    "why": "To see that you can connect background work to the UI.",
    "mistake": "Holding a reference to the Activity inside the worker.",
-   "followUp": "How do you cancel the work from the UI?"
+   "followUp": "How do you cancel the work from the UI?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-56ccf33ef71e",
@@ -1404,7 +1499,8 @@
    ],
    "why": "They want a method: measure, find the cause, fix, and verify.",
    "mistake": "Guessing at fixes before profiling, or measuring only a debug build.",
-   "followUp": "What does a Perfetto trace show that logs don't?"
+   "followUp": "What does a Perfetto trace show that logs don't?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-00f50c74623a",
@@ -1417,7 +1513,8 @@
    ],
    "why": "Leaks are a frequent real-world problem.",
    "mistake": "Naming only static Activity references and missing listeners and view bindings.",
-   "followUp": "How do you clear view binding in a Fragment?"
+   "followUp": "How do you clear view binding in a Fragment?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-9256dfb2379e",
@@ -1431,7 +1528,8 @@
    ],
    "why": "It shows whether you've actually debugged one.",
    "mistake": "Calling `System.gc()` or adding weak references without finding the cause.",
-   "followUp": "What does the reference chain in LeakCanary tell you?"
+   "followUp": "What does the reference chain in LeakCanary tell you?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-52c442c84516",
@@ -1445,7 +1543,8 @@
    ],
    "why": "ANRs are a key quality metric you must be able to diagnose.",
    "mistake": "Looking only at your own code and ignoring lock contention and Binder calls.",
-   "followUp": "How can lock contention cause an ANR?"
+   "followUp": "How can lock contention cause an ANR?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-bfc326c1c67c",
@@ -1459,7 +1558,8 @@
    ],
    "why": "Startup is visible to every user and easy to measure badly.",
    "mistake": "Hiding slow work behind a longer splash screen.",
-   "followUp": "What is the difference between cold, warm and hot start?"
+   "followUp": "What is the difference between cold, warm and hot start?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-76c8db730ca2",
@@ -1473,7 +1573,8 @@
    ],
    "why": "To check that you know a standard modern optimisation.",
    "mistake": "Confusing it with R8 shrinking.",
-   "followUp": "How do you measure the benefit of a baseline profile?"
+   "followUp": "How do you measure the benefit of a baseline profile?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-f53f1b2ea1ba",
@@ -1487,7 +1588,8 @@
    ],
    "why": "Release-only failures often come from R8.",
    "mistake": "Disabling R8 or adding a keep-everything rule.",
-   "followUp": "How would you debug a crash that R8 introduced?"
+   "followUp": "How would you debug a crash that R8 introduced?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-dfd0ba32dc66",
@@ -1500,7 +1602,8 @@
    ],
    "why": "It tests judgement and communication as well as profiling.",
    "mistake": "Removing it without evidence, or accepting it because the vendor requires it.",
-   "followUp": "How would you convince the SDK vendor?"
+   "followUp": "How would you convince the SDK vendor?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "performance-da22f9713499",
@@ -1513,7 +1616,8 @@
    ],
    "why": "To see whether you can name the problem before fixing it.",
    "mistake": "Treating any high memory use as a leak.",
-   "followUp": "Which tool shows allocations over time?"
+   "followUp": "Which tool shows allocations over time?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-ac0fdab4ab3d",
@@ -1527,7 +1631,8 @@
    ],
    "why": "They want priorities and reasons, not a list of tools.",
    "mistake": "Relying mostly on slow end-to-end tests.",
-   "followUp": "Which tests run on every pull request?"
+   "followUp": "Which tests run on every pull request?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-7a5fa0220fa4",
@@ -1541,7 +1646,8 @@
    ],
    "why": "Your choice shows whether tests will survive refactoring.",
    "mistake": "Mocking everything and verifying internal calls.",
-   "followUp": "How would you build a fake repository?"
+   "followUp": "How would you build a fake repository?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-fa5bc96d311d",
@@ -1555,7 +1661,8 @@
    ],
    "why": "It's the most common coroutine testing problem.",
    "mistake": "Forgetting to replace `Dispatchers.Main`, or adding real delays.",
-   "followUp": "What does `Dispatchers.resetMain` protect against?"
+   "followUp": "What does `Dispatchers.resetMain` protect against?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-52bd02c6bf48",
@@ -1568,7 +1675,8 @@
    ],
    "why": "It checks that you understand virtual time and execution order.",
    "mistake": "Using the unconfined dispatcher and then expecting to observe the loading state.",
-   "followUp": "How do you assert a loading state?"
+   "followUp": "How do you assert a loading state?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-9ab654d6f539",
@@ -1581,7 +1689,8 @@
    ],
    "why": "To see that you know what each test level can and can't prove.",
    "mistake": "Assuming a fake repository tests the network contract.",
-   "followUp": "How would you simulate a slow or broken network?"
+   "followUp": "How would you simulate a slow or broken network?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-2bf21b42f2ff",
@@ -1594,7 +1703,8 @@
    ],
    "why": "Process death bugs are missed unless someone tests for them.",
    "mistake": "Testing only rotation.",
-   "followUp": "What state would you lose without `SavedStateHandle`?"
+   "followUp": "What state would you lose without `SavedStateHandle`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-76d8fb81d8c7",
@@ -1607,7 +1717,8 @@
    ],
    "why": "Flaky tests destroy trust in CI.",
    "mistake": "Adding retries or sleeps instead of removing the cause.",
-   "followUp": "How do you find which test is flaky?"
+   "followUp": "How do you find which test is flaky?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-ba9e14267285",
@@ -1620,7 +1731,8 @@
    ],
    "why": "They're looking for honesty and judgement.",
    "mistake": "Claiming you always do it when you don't.",
-   "followUp": "When do you not write the test first?"
+   "followUp": "When do you not write the test first?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "testing-dab40e10ec99",
@@ -1633,7 +1745,8 @@
    ],
    "why": "It reveals whether you value useful tests over numbers.",
    "mistake": "Chasing 100% with tests that assert nothing.",
-   "followUp": "How do you find important untested code?"
+   "followUp": "How do you find important untested code?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "security-privacy-a426f8233682",
@@ -1646,7 +1759,8 @@
    ],
    "why": "Token handling mistakes expose user accounts.",
    "mistake": "Saying plain SharedPreferences is safe because it's private.",
-   "followUp": "What happens to a Keystore key after a restore to a new phone?"
+   "followUp": "What happens to a Keystore key after a restore to a new phone?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "security-privacy-f851f8cdb216",
@@ -1660,7 +1774,8 @@
    ],
    "why": "It tests whether you accept the limits of client-side security.",
    "mistake": "Believing obfuscation or native code hides a secret.",
-   "followUp": "What does Play Integrity add here?"
+   "followUp": "What does Play Integrity add here?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "security-privacy-6f7b905f2587",
@@ -1673,7 +1788,8 @@
    ],
    "why": "They want both the benefit and the operational risk.",
    "mistake": "Pinning one certificate with no backup, which can cut off every user.",
-   "followUp": "How would you update pins safely?"
+   "followUp": "How would you update pins safely?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "security-privacy-e7fc75e39b2b",
@@ -1686,7 +1802,8 @@
    ],
    "why": "OAuth done wrong on mobile is exploitable.",
    "mistake": "Embedding a client secret in the app.",
-   "followUp": "How does the code verifier work?"
+   "followUp": "How does the code verifier work?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "security-privacy-cde00101e549",
@@ -1699,7 +1816,8 @@
    ],
    "why": "It checks that authentication is backed by cryptography.",
    "mistake": "Trusting only the success callback with a boolean.",
-   "followUp": "What happens when the user adds a new fingerprint?"
+   "followUp": "What happens when the user adds a new fingerprint?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "security-privacy-e250bb0c98d2",
@@ -1713,7 +1831,8 @@
    ],
    "why": "Deep links are untrusted input from anyone.",
    "mistake": "Passing URL parameters straight into a WebView or a payment action.",
-   "followUp": "How do you prove a link was meant for your app?"
+   "followUp": "How do you prove a link was meant for your app?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "security-privacy-83d4cfa88ff4",
@@ -1727,7 +1846,8 @@
    ],
    "why": "To see that you know where the sandbox stops protecting data.",
    "mistake": "Assuming private storage means encrypted storage.",
-   "followUp": "How would you manage the database encryption key?"
+   "followUp": "How would you manage the database encryption key?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "security-privacy-02f51a39e5f4",
@@ -1740,7 +1860,8 @@
    ],
    "why": "It shows how you protect server actions from tampered clients.",
    "mistake": "Checking the verdict only inside the app.",
-   "followUp": "What should your server do if the verdict is bad?"
+   "followUp": "What should your server do if the verdict is bad?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-5a98632ac0cc",
@@ -1753,7 +1874,8 @@
    ],
    "why": "Slow builds cost the whole team, so they test your diagnostic method.",
    "mistake": "Changing random Gradle flags without profiling.",
-   "followUp": "How do you read a Build Scan?"
+   "followUp": "How do you read a Build Scan?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-30506911c926",
@@ -1767,7 +1889,8 @@
    ],
    "why": "It shows what quality gates you consider necessary.",
    "mistake": "Describing only a build step, with no tests or release stages.",
-   "followUp": "How do you keep CI fast as the app grows?"
+   "followUp": "How do you keep CI fast as the app grows?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-863e2a266737",
@@ -1781,7 +1904,8 @@
    ],
    "why": "A mobile release can't be pulled back from phones already updated.",
    "mistake": "Relying on a quick hotfix instead of staged rollout and a kill switch.",
-   "followUp": "Which metrics would stop a rollout?"
+   "followUp": "Which metrics would stop a rollout?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-695d349bcb17",
@@ -1794,7 +1918,8 @@
    ],
    "why": "They're testing how you behave during an incident.",
    "mistake": "Debugging for hours while the rollout keeps going.",
-   "followUp": "What would you put in the post-mortem?"
+   "followUp": "What would you put in the post-mortem?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-89742d55d1ed",
@@ -1808,7 +1933,8 @@
    ],
    "why": "Almost every shipping team meets this bug.",
    "mistake": "Turning off shrinking permanently.",
-   "followUp": "Why shouldn't you add a broad keep rule?"
+   "followUp": "Why shouldn't you add a broad keep rule?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-53a0639399e3",
@@ -1821,7 +1947,8 @@
    ],
    "why": "A basic check of Android publishing.",
    "mistake": "Thinking users download the whole bundle.",
-   "followUp": "What does Play generate from a bundle?"
+   "followUp": "What does Play generate from a bundle?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-2f02597ce834",
@@ -1834,7 +1961,8 @@
    ],
    "why": "It tests whether you weigh complexity against the size saving.",
    "mistake": "Using dynamic modules only to organise code.",
-   "followUp": "How does a user get the module the first time?"
+   "followUp": "How does a user get the module the first time?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-b541abcefcbe",
@@ -1848,7 +1976,8 @@
    ],
    "why": "Library authors can break many apps at once.",
    "mistake": "Removing or changing public APIs in a minor release.",
-   "followUp": "How do you detect an accidental API break?"
+   "followUp": "How do you detect an accidental API break?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "build-release-4332528779b6",
@@ -1861,7 +1990,8 @@
    ],
    "why": "It affects build speed and the shape of module APIs.",
    "mistake": "Using `api` everywhere so that compile errors go away.",
-   "followUp": "How does `api` affect incremental builds?"
+   "followUp": "How does `api` affect incremental builds?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "system-design-498ac1a99fcc",
@@ -1875,7 +2005,8 @@
    ],
    "why": "They assess structure and communication as much as the design.",
    "mistake": "Jumping into classes and libraries before clarifying requirements.",
-   "followUp": "What would you ask first for a news feed app?"
+   "followUp": "What would you ask first for a news feed app?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "system-design-adb1f463c0f1",
@@ -1889,7 +2020,8 @@
    ],
    "why": "Reliability under failure is the core of mobile design.",
    "mistake": "Sending directly from the screen with no local record or idempotency key.",
-   "followUp": "How would you order messages from two devices?"
+   "followUp": "How would you order messages from two devices?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "system-design-40ae029a46d7",
@@ -1903,7 +2035,8 @@
    ],
    "why": "It tests data consistency in a very common feature.",
    "mistake": "Giving offset pagination with a larger page size as the fix.",
-   "followUp": "How does the server build the next cursor?"
+   "followUp": "How does the server build the next cursor?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "system-design-097a16241345",
@@ -1917,7 +2050,8 @@
    ],
    "why": "They want trade-offs tied to a context.",
    "mistake": "Naming a favourite without asking about the clients and backend.",
-   "followUp": "When would you add a backend-for-frontend?"
+   "followUp": "When would you add a backend-for-frontend?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "system-design-de233f88e45b",
@@ -1931,7 +2065,8 @@
    ],
    "why": "Conflict handling shows whether you've thought about data loss.",
    "mistake": "Applying last-write-wins to the whole record and silently losing edits.",
-   "followUp": "When would you use CRDTs?"
+   "followUp": "When would you use CRDTs?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "system-design-1b1bac57500b",
@@ -1945,7 +2080,8 @@
    ],
    "why": "It probes whether you can design for organisations, not only code.",
    "mistake": "Talking only about folder structure.",
-   "followUp": "How do you keep app startup fast with so many teams?"
+   "followUp": "How do you keep app startup fast with so many teams?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "system-design-5965fcb9934b",
@@ -1959,7 +2095,8 @@
    ],
    "why": "It tests whether you weigh freshness against battery and data use.",
    "mistake": "Keeping a socket open in the background or polling every few seconds.",
-   "followUp": "How would you handle messages missed while disconnected?"
+   "followUp": "How would you handle messages missed while disconnected?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "modern-platform-6af3059b4cc8",
@@ -1972,7 +2109,8 @@
    ],
    "why": "Large-screen requirements affect apps that assumed portrait phones.",
    "mistake": "Assuming a locked orientation will still be honoured everywhere.",
-   "followUp": "Which layouts break first on a large window?"
+   "followUp": "Which layouts break first on a large window?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "modern-platform-e9ea87a51291",
@@ -1985,7 +2123,8 @@
    ],
    "why": "Recent Android versions make this unavoidable.",
    "mistake": "Adding fixed padding in dp to avoid the system bars.",
-   "followUp": "How do you handle the keyboard inset in a list?"
+   "followUp": "How do you handle the keyboard inset in a list?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "modern-platform-4aa6343a99ba",
@@ -1998,7 +2137,8 @@
    ],
    "why": "It checks that you know why the old back callback no longer fits.",
    "mistake": "Intercepting back all the time, even when there's nothing to handle.",
-   "followUp": "How do you animate with the back gesture?"
+   "followUp": "How do you animate with the back gesture?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "modern-platform-9d0af8ce175b",
@@ -2011,7 +2151,8 @@
    ],
    "why": "To see that you design for window sizes rather than device types.",
    "mistake": "Reading the physical screen size or checking for \"tablet\".",
-   "followUp": "What are the window width size classes?"
+   "followUp": "What are the window width size classes?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "modern-platform-a3ecb9f5e567",
@@ -2025,7 +2166,8 @@
    ],
    "why": "They're looking for a realistic, low-risk adoption plan.",
    "mistake": "Proposing to share all UI and logic from the first day.",
-   "followUp": "What would you not share?"
+   "followUp": "What would you not share?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "modern-platform-7cacd763deba",
@@ -2039,7 +2181,8 @@
    ],
    "why": "Accessibility is a quality requirement and often a legal one.",
    "mistake": "Relying only on an automated scanner.",
-   "followUp": "Which automated accessibility checks can run in CI?"
+   "followUp": "Which automated accessibility checks can run in CI?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "modern-platform-ee288fe134d5",
@@ -2052,7 +2195,8 @@
    ],
    "why": "It shows whether you've shipped to more than one language.",
    "mistake": "Handling plurals with an `if` for count equals one.",
-   "followUp": "How do you handle right-to-left languages?"
+   "followUp": "How do you handle right-to-left languages?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "modern-platform-6e9efcb02259",
@@ -2065,7 +2209,8 @@
    ],
    "why": "They want you to weigh privacy, latency, cost and device support.",
    "mistake": "Assuming every device can run the model.",
-   "followUp": "What is your fallback if the model is unavailable?"
+   "followUp": "What is your fallback if the model is unavailable?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "leadership-59913676edd6",
@@ -2078,7 +2223,8 @@
    ],
    "why": "They want evidence that you can influence others and handle disagreement.",
    "mistake": "Telling a story where you were simply right and others eventually saw it.",
-   "followUp": "What would you do differently next time?"
+   "followUp": "What would you do differently next time?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "leadership-d96c17824640",
@@ -2091,7 +2237,8 @@
    ],
    "why": "It tests ownership and what you learned.",
    "mistake": "Blaming someone else or picking a trivial incident.",
-   "followUp": "How did you make sure it didn't happen again?"
+   "followUp": "How did you make sure it didn't happen again?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "leadership-b93aec693d0b",
@@ -2104,7 +2251,8 @@
    ],
    "why": "Senior engineers are expected to raise the team's level.",
    "mistake": "Describing mentoring in general terms, with no person or outcome.",
-   "followUp": "How did you know the mentoring worked?"
+   "followUp": "How did you know the mentoring worked?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "leadership-03a335b0b162",
@@ -2117,7 +2265,8 @@
    ],
    "why": "To see whether you connect engineering work to business impact.",
    "mistake": "Asking for a rewrite because the code is ugly.",
-   "followUp": "How did you get time for the work?"
+   "followUp": "How did you get time for the work?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "leadership-baab8316f1fb",
@@ -2131,7 +2280,8 @@
    ],
    "why": "Reviews show how you work with other people.",
    "mistake": "Focusing on style nits that tools should catch.",
-   "followUp": "How do you handle a disagreement in a review?"
+   "followUp": "How do you handle a disagreement in a review?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "leadership-d81b27347bca",
@@ -2144,7 +2294,8 @@
    ],
    "why": "They're checking how you handle conflict with non-engineers.",
    "mistake": "Either refusing outright or agreeing and quietly missing the date.",
-   "followUp": "What did you learn about the product side?"
+   "followUp": "What did you learn about the product side?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "leadership-3640da0ff584",
@@ -2157,7 +2308,8 @@
    ],
    "why": "It reveals how you see your own responsibility.",
    "mistake": "Answering with years of experience or a list of technologies.",
-   "followUp": "Give an example from your own work."
+   "followUp": "Give an example from your own work.",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-fc500dfd4728",
@@ -2172,7 +2324,8 @@
    "why": "It tests data structure choice under complexity constraints.",
    "mistake": "Using only a list, which makes lookups or moves O(n).",
    "followUp": "How would you make it thread-safe?",
-   "code": "class LruCache<K, V>(private val capacity: Int) {\n    // accessOrder = true moves an entry to the end whenever it is read.\n    private val map = object : LinkedHashMap<K, V>(16, 0.75f, true) {\n        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) =\n            size > capacity\n    }\n\n    fun get(key: K): V? = map[key]\n    fun put(key: K, value: V) { map[key] = value }\n}"
+   "code": "class LruCache<K, V>(private val capacity: Int) {\n    // accessOrder = true moves an entry to the end whenever it is read.\n    private val map = object : LinkedHashMap<K, V>(16, 0.75f, true) {\n        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) =\n            size > capacity\n    }\n\n    fun get(key: K): V? = map[key]\n    fun put(key: K, value: V) { map[key] = value }\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-768f6de91bef",
@@ -2186,7 +2339,8 @@
    "why": "A warm-up that checks you can trade memory for speed.",
    "mistake": "Stopping at the nested-loop O(n^2) solution.",
    "followUp": "What changes if the array is already sorted?",
-   "code": "fun twoSum(numbers: IntArray, target: Int): Pair<Int, Int>? {\n    val seen = HashMap<Int, Int>()              // value -> index\n    numbers.forEachIndexed { i, n ->\n        seen[target - n]?.let { return it to i }\n        seen[n] = i\n    }\n    return null\n}"
+   "code": "fun twoSum(numbers: IntArray, target: Int): Pair<Int, Int>? {\n    val seen = HashMap<Int, Int>()              // value -> index\n    numbers.forEachIndexed { i, n ->\n        seen[target - n]?.let { return it to i }\n        seen[n] = i\n    }\n    return null\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-3ead0b483a44",
@@ -2200,7 +2354,8 @@
    "why": "It tests the sliding window technique.",
    "mistake": "Restarting the window from scratch after every repeat.",
    "followUp": "What changes if you need the substring itself?",
-   "code": "fun longestUnique(text: String): Int {\n    val last = HashMap<Char, Int>()\n    var start = 0\n    var best = 0\n    text.forEachIndexed { i, c ->\n        last[c]?.let { start = maxOf(start, it + 1) }\n        last[c] = i\n        best = maxOf(best, i - start + 1)\n    }\n    return best\n}"
+   "code": "fun longestUnique(text: String): Int {\n    val last = HashMap<Char, Int>()\n    var start = 0\n    var best = 0\n    text.forEachIndexed { i, c ->\n        last[c]?.let { start = maxOf(start, it + 1) }\n        last[c] = i\n        best = maxOf(best, i - start + 1)\n    }\n    return best\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-6f9af7fa8e42",
@@ -2214,7 +2369,8 @@
    "why": "It checks grid traversal and visited tracking.",
    "mistake": "Forgetting to mark cells visited, which loops or counts an island twice.",
    "followUp": "How would you solve it without changing the grid?",
-   "code": "fun countIslands(grid: Array<CharArray>): Int {\n    val seen = HashSet<Pair<Int, Int>>()\n    var islands = 0\n    for (r in grid.indices) for (c in grid[r].indices) {\n        if (grid[r][c] != '1' || !seen.add(r to c)) continue\n        islands++\n        val queue = ArrayDeque(listOf(r to c))\n        while (queue.isNotEmpty()) {\n            val (y, x) = queue.removeFirst()\n            for ((ny, nx) in listOf(y - 1 to x, y + 1 to x, y to x - 1, y to x + 1)) {\n                if (grid.getOrNull(ny)?.getOrNull(nx) == '1' && seen.add(ny to nx)) {\n                    queue.add(ny to nx)\n                }\n            }\n        }\n    }\n    return islands\n}"
+   "code": "fun countIslands(grid: Array<CharArray>): Int {\n    val seen = HashSet<Pair<Int, Int>>()\n    var islands = 0\n    for (r in grid.indices) for (c in grid[r].indices) {\n        if (grid[r][c] != '1' || !seen.add(r to c)) continue\n        islands++\n        val queue = ArrayDeque(listOf(r to c))\n        while (queue.isNotEmpty()) {\n            val (y, x) = queue.removeFirst()\n            for ((ny, nx) in listOf(y - 1 to x, y + 1 to x, y to x - 1, y to x + 1)) {\n                if (grid.getOrNull(ny)?.getOrNull(nx) == '1' && seen.add(ny to nx)) {\n                    queue.add(ny to nx)\n                }\n            }\n        }\n    }\n    return islands\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-e4639c561bcb",
@@ -2228,7 +2384,8 @@
    "why": "It tests knowing when sorting everything is unnecessary.",
    "mistake": "Sorting all items without discussing a heap or buckets.",
    "followUp": "What if the data is a stream?",
-   "code": "fun topK(numbers: IntArray, k: Int): List<Int> {\n    val counts = numbers.asList().groupingBy { it }.eachCount()\n    val heap = PriorityQueue<Map.Entry<Int, Int>>(compareBy { it.value })\n    for (entry in counts.entries) {\n        heap.add(entry)\n        if (heap.size > k) heap.poll()          // drop the least frequent\n    }\n    return heap.map { it.key }\n}"
+   "code": "fun topK(numbers: IntArray, k: Int): List<Int> {\n    val counts = numbers.asList().groupingBy { it }.eachCount()\n    val heap = PriorityQueue<Map.Entry<Int, Int>>(compareBy { it.value })\n    for (entry in counts.entries) {\n        heap.add(entry)\n        if (heap.size > k) heap.poll()          // drop the least frequent\n    }\n    return heap.map { it.key }\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-d704366ede7f",
@@ -2243,7 +2400,8 @@
    "why": "It shows whether you can use cancellation correctly.",
    "mistake": "Using threads or timers and never cancelling the earlier job.",
    "followUp": "How would you write a throttle instead?",
-   "code": "fun <T> debounce(\n    waitMs: Long,\n    scope: CoroutineScope,\n    action: suspend (T) -> Unit,\n): (T) -> Unit {\n    var job: Job? = null\n    return { value ->\n        job?.cancel()\n        job = scope.launch {\n            delay(waitMs)\n            action(value)\n        }\n    }\n}"
+   "code": "fun <T> debounce(\n    waitMs: Long,\n    scope: CoroutineScope,\n    action: suspend (T) -> Unit,\n): (T) -> Unit {\n    var job: Job? = null\n    return { value ->\n        job?.cancel()\n        job = scope.launch {\n            delay(waitMs)\n            action(value)\n        }\n    }\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-061d5cb2bec0",
@@ -2257,7 +2415,8 @@
    "why": "It tests bounded concurrency with structured coroutines.",
    "mistake": "Launching all 100 at once, or processing them one at a time.",
    "followUp": "How do you handle one failed download without cancelling the rest?",
-   "code": "suspend fun downloadAll(urls: List<String>): List<String> = coroutineScope {\n    val permits = Semaphore(4)\n    urls.map { url ->\n        async { permits.withPermit { download(url) } }\n    }.awaitAll()\n}"
+   "code": "suspend fun downloadAll(urls: List<String>): List<String> = coroutineScope {\n    val permits = Semaphore(4)\n    urls.map { url ->\n        async { permits.withPermit { download(url) } }\n    }.awaitAll()\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-3e345c413800",
@@ -2272,7 +2431,8 @@
    "why": "A small snippet that exposes cancellation bugs.",
    "mistake": "Saying it's fine because the error is logged.",
    "followUp": "How would you write this so it never swallows cancellation?",
-   "code": "try {\n    repository.refresh()\n} catch (e: CancellationException) {\n    throw e\n} catch (e: IOException) {                      // or just what you expect\n    showError(e)\n}"
+   "code": "try {\n    repository.refresh()\n} catch (e: CancellationException) {\n    throw e\n} catch (e: IOException) {                      // or just what you expect\n    showError(e)\n}",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "coding-round-2524e9a540a6",
@@ -2285,7 +2445,8 @@
    ],
    "why": "Reviewers judge how clearly you explain your decisions.",
    "mistake": "Listing only run instructions and no trade-offs.",
-   "followUp": "What would you build next, and why?"
+   "followUp": "What would you build next, and why?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-42f067bf2fb0",
@@ -2298,7 +2459,8 @@
    ],
    "why": "A fast check of Kotlin basics.",
    "mistake": "Saying they're interchangeable.",
-   "followUp": "Where can you declare a `const val`?"
+   "followUp": "Where can you declare a `const val`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-44aaf8feda96",
@@ -2311,7 +2473,8 @@
    ],
    "why": "It checks that you know where `lateinit` can't be used.",
    "mistake": "Trying `lateinit var count: Int`.",
-   "followUp": "How do you check whether a `lateinit` property is set?"
+   "followUp": "How do you check whether a `lateinit` property is set?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-29df5d1f065b",
@@ -2324,7 +2487,8 @@
    ],
    "why": "Equality mistakes cause subtle bugs.",
    "mistake": "Assuming `==` compares references, as it does for Java objects.",
-   "followUp": "When do two data class instances satisfy `==`?"
+   "followUp": "When do two data class instances satisfy `==`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-01b699f58fa9",
@@ -2337,7 +2501,8 @@
    ],
    "why": "These types appear throughout Kotlin signatures.",
    "mistake": "Treating `Nothing` and `Unit` as the same.",
-   "followUp": "Where does the compiler use `Nothing`?"
+   "followUp": "Where does the compiler use `Nothing`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-0771807b7967",
@@ -2350,7 +2515,8 @@
    ],
    "why": "A short probe of whether you understand suspension.",
    "mistake": "Saying it always runs on a background thread.",
-   "followUp": "What is a continuation?"
+   "followUp": "What is a continuation?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-ba85eb9d793a",
@@ -2364,7 +2530,8 @@
    ],
    "why": "Failure handling is a frequent follow-up.",
    "mistake": "Thinking a supervisor catches the exception for you.",
-   "followUp": "Where have you used a `SupervisorJob`?"
+   "followUp": "Where have you used a `SupervisorJob`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-fb029281b71b",
@@ -2377,7 +2544,8 @@
    ],
    "why": "It checks that you can apply supervision inside a suspend function.",
    "mistake": "Expecting `supervisorScope` to ignore a failure in its own body.",
-   "followUp": "What happens to the exception in each?"
+   "followUp": "What happens to the exception in each?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-270237ff282c",
@@ -2391,7 +2559,8 @@
    ],
    "why": "Using the wrong one loses or repeats events.",
    "mistake": "Treating `StateFlow` as an event stream.",
-   "followUp": "How do you configure replay?"
+   "followUp": "How do you configure replay?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-d13f451cf008",
@@ -2404,7 +2573,8 @@
    ],
    "why": "It underpins how you reason about Flow work.",
    "mistake": "Assuming a cold flow shares one execution between collectors.",
-   "followUp": "How do you turn a cold flow into a hot one?"
+   "followUp": "How do you turn a cold flow into a hot one?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-ebde5a623dce",
@@ -2418,7 +2588,8 @@
    ],
    "why": "It checks that you can match an operator to a use case.",
    "mistake": "Using it for work that must not be cancelled, such as saving.",
-   "followUp": "How is it different from `collectLatest`?"
+   "followUp": "How is it different from `collectLatest`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-8659a3070e23",
@@ -2431,7 +2602,8 @@
    ],
    "why": "It shows lifecycle awareness in Compose.",
    "mistake": "Using `collectAsState` for flows that do expensive work.",
-   "followUp": "Why does the difference matter for battery?"
+   "followUp": "Why does the difference matter for battery?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-c093c6f44343",
@@ -2444,7 +2616,8 @@
    ],
    "why": "A basic Compose state check.",
    "mistake": "Expecting `remember` to survive rotation.",
-   "followUp": "What types can't be saved without a `Saver`?"
+   "followUp": "What types can't be saved without a `Saver`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-907e134c09da",
@@ -2457,7 +2630,8 @@
    ],
    "why": "It tests targeted performance knowledge.",
    "mistake": "Using it simply to combine two values.",
-   "followUp": "When is it the wrong tool?"
+   "followUp": "When is it the wrong tool?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-9dd034b02ac0",
@@ -2470,7 +2644,8 @@
    ],
    "why": "Stability explains many recomposition questions.",
    "mistake": "Thinking `val` alone makes a type stable.",
-   "followUp": "What does `@Immutable` promise?"
+   "followUp": "What does `@Immutable` promise?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-a5d81cbfd5b7",
@@ -2483,7 +2658,8 @@
    ],
    "why": "It checks the most common ViewModel misunderstanding.",
    "mistake": "Answering yes because it survives rotation.",
-   "followUp": "How do you restore state after it?"
+   "followUp": "How do you restore state after it?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-b833f2b1bc43",
@@ -2497,7 +2673,8 @@
    ],
    "why": "A limit behind real crashes.",
    "mistake": "Assuming the whole 1 MB is available to one screen.",
-   "followUp": "How would you find a transaction that is too large?"
+   "followUp": "How would you find a transaction that is too large?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-1af88751d9bd",
@@ -2510,7 +2687,8 @@
    ],
    "why": "A quick IPC basics check.",
    "mistake": "Saying there's no difference on Android.",
-   "followUp": "What does `@Parcelize` generate?"
+   "followUp": "What does `@Parcelize` generate?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-72338ccd71a2",
@@ -2524,7 +2702,8 @@
    ],
    "why": "It catches lost updates in older codebases.",
    "mistake": "Expecting every `postValue` to be delivered.",
-   "followUp": "Which should a background thread use?"
+   "followUp": "Which should a background thread use?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-13152cdac318",
@@ -2538,7 +2717,8 @@
    ],
    "why": "It connects storage APIs to ANRs.",
    "mistake": "Believing `apply()` can never block the main thread.",
-   "followUp": "When would you use DataStore instead?"
+   "followUp": "When would you use DataStore instead?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-c7f39a01d3b1",
@@ -2551,7 +2731,8 @@
    ],
    "why": "To check you pick modern background tools.",
    "mistake": "Still proposing `IntentService`.",
-   "followUp": "When do you need a foreground service?"
+   "followUp": "When do you need a foreground service?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-d2e171a34c19",
@@ -2564,7 +2745,8 @@
    ],
    "why": "Choosing wrongly can starve threads.",
    "mistake": "Running blocking I/O on `Default`.",
-   "followUp": "How would you inject dispatchers for tests?"
+   "followUp": "How would you inject dispatchers for tests?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-9ba7ee00c6b3",
@@ -2577,7 +2759,8 @@
    ],
    "why": "A quick check of ANR knowledge.",
    "mistake": "Giving one number for every kind of ANR.",
-   "followUp": "What does the system do when one happens?"
+   "followUp": "What does the system do when one happens?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-76c8db730ca2",
@@ -2591,7 +2774,8 @@
    ],
    "why": "A short test of modern performance tooling.",
    "mistake": "Saying it's generated by R8 at runtime.",
-   "followUp": "How is a baseline profile generated?"
+   "followUp": "How is a baseline profile generated?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-d746e0897ca0",
@@ -2604,7 +2788,8 @@
    ],
    "why": "It checks release-build basics.",
    "mistake": "Saying it only obfuscates.",
-   "followUp": "When do you need a keep rule?"
+   "followUp": "When do you need a keep rule?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-178c94efab26",
@@ -2618,7 +2803,8 @@
    ],
    "why": "A standard Dagger and Hilt check.",
    "mistake": "Swapping the two.",
-   "followUp": "When must you use `@Provides`?"
+   "followUp": "When must you use `@Provides`?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-4bc416bee7c5",
@@ -2631,7 +2817,8 @@
    ],
    "why": "It tests precise scoping.",
    "mistake": "Choosing `@Singleton` for screen-only state.",
-   "followUp": "Which component does that scope live in?"
+   "followUp": "Which component does that scope live in?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-9628f21e3099",
@@ -2644,7 +2831,8 @@
    ],
    "why": "A platform security change you should know.",
    "mistake": "Setting every component to exported.",
-   "followUp": "Which components need it?"
+   "followUp": "Which components need it?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-6c3ed7529218",
@@ -2658,7 +2846,8 @@
    ],
    "why": "It's a required security decision.",
    "mistake": "Defaulting to mutable.",
-   "followUp": "When would `FLAG_MUTABLE` be needed?"
+   "followUp": "When would `FLAG_MUTABLE` be needed?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-4d079210db6e",
@@ -2671,7 +2860,8 @@
    ],
    "why": "It shows you understand some history behind app startup.",
    "mistake": "Adding more providers for initialisation today.",
-   "followUp": "What does App Startup change?"
+   "followUp": "What does App Startup change?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-dd2b6abfd954",
@@ -2684,7 +2874,8 @@
    ],
    "why": "It probes how Android's main thread machinery works.",
    "mistake": "Thinking every thread already has a looper.",
-   "followUp": "Which threads already have a Looper?"
+   "followUp": "Which threads already have a Looper?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-6cd34ebf29b5",
@@ -2697,7 +2888,8 @@
    ],
    "why": "It checks power management basics.",
    "mistake": "Assuming alarms and jobs always fire on time.",
-   "followUp": "How do you test behaviour in Doze?"
+   "followUp": "How do you test behaviour in Doze?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-220ef8866c15",
@@ -2710,7 +2902,8 @@
    ],
    "why": "It checks awareness of a recent compatibility requirement.",
    "mistake": "Thinking pure Kotlin or Java apps need native rebuilds.",
-   "followUp": "How do you check a native library's alignment?"
+   "followUp": "How do you check a native library's alignment?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-d5ae236cc572",
@@ -2723,7 +2916,8 @@
    ],
    "why": "A Kotlin design basics check.",
    "mistake": "Putting every utility in a companion object.",
-   "followUp": "When does a companion object implement an interface?"
+   "followUp": "When does a companion object implement an interface?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "rapid-fire-feca78402bba",
@@ -2736,7 +2930,8 @@
    ],
    "why": "A quick scope function check.",
    "mistake": "Mixing up what each returns.",
-   "followUp": "When would you use `also` instead?"
+   "followUp": "When would you use `also` instead?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jvm-concurrency-patterns-ec1f7c789647",
@@ -2749,7 +2944,8 @@
    ],
    "why": "It tests whether you can explain leaks from first principles.",
    "mistake": "Saying anything with a reference to it is leaked.",
-   "followUp": "Is an object referenced only by a dead object a leak?"
+   "followUp": "Is an object referenced only by a dead object a leak?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jvm-concurrency-patterns-3371aba1a548",
@@ -2762,7 +2958,8 @@
    ],
    "why": "They want to know if you see it as a fallback, not a fix.",
    "mistake": "Wrapping references in `WeakReference` instead of unregistering them.",
-   "followUp": "How is `SoftReference` different?"
+   "followUp": "How is `SoftReference` different?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jvm-concurrency-patterns-c74ada0b4443",
@@ -2776,7 +2973,8 @@
    ],
    "why": "It exposes confusion between visibility and atomicity.",
    "mistake": "Saying volatile makes `count++` thread-safe.",
-   "followUp": "When is `synchronized` still the right tool?"
+   "followUp": "When is `synchronized` still the right tool?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jvm-concurrency-patterns-948b2c50a83b",
@@ -2789,7 +2987,8 @@
    ],
    "why": "A classic test of the memory model.",
    "mistake": "Saying the lock alone is enough.",
-   "followUp": "Why is a Kotlin `object` or `lazy` simpler?"
+   "followUp": "Why is a Kotlin `object` or `lazy` simpler?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jvm-concurrency-patterns-15abbe83789a",
@@ -2802,7 +3001,8 @@
    ],
    "why": "It shows practical concurrency experience.",
    "mistake": "Adding more locks without a fixed order.",
-   "followUp": "How would you detect a deadlock?"
+   "followUp": "How would you detect a deadlock?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jvm-concurrency-patterns-5148fb3cfb34",
@@ -2815,7 +3015,8 @@
    ],
    "why": "To check the mental model behind coroutines.",
    "mistake": "Calling coroutines lightweight threads without explaining suspension.",
-   "followUp": "When can a coroutine still block a thread?"
+   "followUp": "When can a coroutine still block a thread?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jvm-concurrency-patterns-1304794063f8",
@@ -2829,7 +3030,8 @@
    ],
    "why": "They want patterns tied to real APIs.",
    "mistake": "Reciting definitions with no Android example.",
-   "followUp": "Which pattern would you avoid overusing?"
+   "followUp": "Which pattern would you avoid overusing?",
+   "reviewed": "2026-11-27"
   },
   {
    "id": "jvm-concurrency-patterns-dde7a19bfa8a",
@@ -2844,7 +3046,8 @@
    ],
    "why": "It tests whether you can apply a principle rather than name it.",
    "mistake": "Confusing the principle with using a DI library.",
-   "followUp": "Which other SOLID principle does this support?"
+   "followUp": "Which other SOLID principle does this support?",
+   "reviewed": "2026-11-27"
   }
  ],
  "quiz": [
