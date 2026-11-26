@@ -8,6 +8,7 @@ Every topic in this guide is written the way you will use it in an interview: a 
 - **Say this in the interview:** a 20-40 second spoken answer. Practise it aloud until it sounds like your own words.
 - **Example:** the smallest code or scenario that proves you understand it. Mention it when you answer.
 - **How it works:** what happens underneath. Use it when the interviewer asks "why?" or "how?".
+- **Common mistake:** the slip to avoid. Check your own answer against it.
 - **Follow-ups:** the next questions you will probably get, with short answers.
 
 ### How to answer any technical question

@@ -18,6 +18,12 @@ Android limits background execution to save battery. Interviewers want to see th
 | Exact time | `AlarmManager.setExactAndAllowWhileIdle` | Alarm clock, calendar reminder |
 | Server-triggered | Push message, then WorkManager | New messages to sync |
 
+**Common mistake:** Using a foreground service for work that could simply be deferred with WorkManager.
+
+**Follow-ups:**
+
+- *Which do you use to refresh data while the user watches the screen?* A coroutine tied to the ViewModel or the screen. The work doesn't need to outlive it.
+
 ### 8.2 WorkManager
 
 **In one line:** WorkManager runs deferrable work that must finish: it respects constraints, retries with backoff, and survives app restarts and reboots.
@@ -42,6 +48,8 @@ val request = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)        /
 WorkManager.getInstance(context).enqueueUniquePeriodicWork("sync", ExistingPeriodicWorkPolicy.KEEP, request)
 ```
 
+**Common mistake:** Enqueuing the same job again and again instead of using unique work.
+
 **Follow-ups:**
 
 - *Does WorkManager run at an exact time?* No. It guarantees the work runs eventually when constraints are met; periodic work can drift.
@@ -64,17 +72,61 @@ WorkManager.getInstance(context).enqueueUniquePeriodicWork("sync", ExistingPerio
 ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
 ```
 
+**Common mistake:** Starting a foreground service from the background without checking that this case is allowed.
+
+**Follow-ups:**
+
+- *What must a foreground service show?* A notification, so the user can see that the app is doing ongoing work.
+
 ### 8.4 Exact alarms
 
 **In one line:** `AlarmManager` can fire at an exact time, but exact alarms need a special permission and are for user-facing, time-critical features only.
 
 **Say this in the interview:** "For an alarm clock or a calendar reminder I use `setExactAndAllowWhileIdle`, which also fires in Doze. Since Android 12 that needs the `SCHEDULE_EXACT_ALARM` permission, which the user can revoke, so I check `canScheduleExactAlarms()` first. Alarms are cleared on reboot, so I listen for `BOOT_COMPLETED` and reschedule from the database. Anything that doesn't need an exact time uses inexact alarms or WorkManager."
 
+**Example:**
+
+```kotlin
+/** Returns false if the app may not schedule exact alarms. */
+fun scheduleReminder(context: Context, triggerAtMillis: Long, operation: PendingIntent): Boolean {
+    val alarms = context.getSystemService(AlarmManager::class.java)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarms.canScheduleExactAlarms()) {
+        return false   // explain why and offer Settings, or use an inexact alarm
+    }
+    alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, operation)
+    return true
+}
+```
+
+**Common mistake:** Using exact alarms for routine syncing.
+
+**Follow-ups:**
+
+- *What do you do if exact alarm permission is not granted?* Explain why it is needed, or fall back to an inexact alarm or WorkManager if the feature can allow some delay.
+
 ### 8.5 Doze and App Standby
 
 **In one line:** when the phone is idle, Doze delays network, jobs and alarms to maintenance windows, and App Standby Buckets limit rarely used apps.
 
 **Say this in the interview:** "When the device is unplugged and still, Doze batches background work into short maintenance windows, and normal alarms are delayed. App Standby Buckets give apps fewer jobs the less the user opens them. This is why I let WorkManager decide when to run, and use high-priority push messages only for truly urgent, user-visible events. I test with `adb shell dumpsys deviceidle force-idle`."
+
+**Example:** test your background work under Doze and App Standby on a test device or emulator:
+
+```bash
+adb shell dumpsys battery unplug                         # pretend the device is not charging
+adb shell dumpsys deviceidle force-idle                  # enter Doze now
+adb shell dumpsys deviceidle unforce                     # leave forced idle
+adb shell dumpsys battery reset                          # restore the real battery state
+
+adb shell am set-standby-bucket com.example.app rare     # treat the app as rarely used
+adb shell am get-standby-bucket com.example.app
+```
+
+**Common mistake:** Testing only on a charging, active phone, so delays from Doze never show up.
+
+**Follow-ups:**
+
+- *Why test with forced idle?* Normal development devices are often charging and active, so Doze delays are otherwise hard to see.
 
 ### 8.6 Push-triggered sync
 
@@ -94,6 +146,12 @@ override fun onMessageReceived(message: RemoteMessage) {
     }
 }
 ```
+
+**Common mistake:** Putting the real data in the push payload and assuming every message arrives once and in order.
+
+**Follow-ups:**
+
+- *What if two pushes arrive for the same change?* Run the sync as unique work and make it idempotent, so the repeat is harmless.
 
 ### Interview questions
 

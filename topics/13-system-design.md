@@ -16,6 +16,12 @@ This round often decides between senior and staff level. You have 45-60 minutes 
 4. **Deep dives (15-20 min):** two or three of offline sync, caching, pagination, images, real-time, conflicts, background work, performance, security.
 5. **Wrap-up (5 min):** trade-offs, metrics, rollout, what you'd do with more time.
 
+**Common mistake:** Drawing a solution before agreeing on requirements and scope.
+
+**Follow-ups:**
+
+- *What do you do if requirements are vague?* State your assumptions, check them with the interviewer and design from there.
+
 ### 13.2 Worked example: a chat app
 
 **In one line:** Room is the source of truth, messages are sent through an outbox with idempotency keys, a WebSocket delivers live updates in the foreground, and push messages trigger sync in the background.
@@ -44,6 +50,12 @@ data class MessageEntity(
 - **Images:** compress and upload first (resumable), then send the message with the media URL.
 - **Security:** TLS, pinning for high-risk apps; mention end-to-end encryption as a separate deep topic.
 
+**Common mistake:** Relying on the WebSocket alone, so messages are missed while the app is in the background.
+
+**Follow-ups:**
+
+- *How do you keep messages in order?* Use ordering information from the server, such as a sequence number. Device clocks can be wrong.
+
 ### 13.3 Worked example: a news feed
 
 **In one line:** an infinite feed paged by cursor into Room through a `RemoteMediator`, with images sized for the screen, optimistic likes and a capped local cache.
@@ -60,6 +72,12 @@ POST /posts/{id}/like                   (idempotent)
 
 **Deep-dive points to mention:** ranking stays on the server so it can change without a release; video uses one shared player that autoplays muted only when mostly visible and the network allows; stable keys and precomputed UI models keep scrolling smooth; JankStats and a Macrobenchmark scroll test track performance.
 
+**Common mistake:** Using offset paging for a feed where new items arrive at the top.
+
+**Follow-ups:**
+
+- *Why cursor paging instead of offset paging?* New items shift offsets, causing duplicates or gaps. A cursor marks a position in the results.
+
 ### 13.4 Quick estimates
 
 **In one line:** do quick arithmetic out loud to show your design fits the device and the network.
@@ -68,9 +86,17 @@ POST /posts/{id}/like                   (idempotent)
 
 **Example, server-side scale:** 10M daily users x 10 feed opens x 3 pages = 300M requests a day, about 3,500 per second on average. That's a reason for the client to cache and avoid refetching on every visit.
 
+**Common mistake:** Skipping the numbers, or spending minutes on exact arithmetic when a rough figure is enough.
+
+**Follow-ups:**
+
+- *What do you do with an estimate once you have it?* Use it to make a decision, such as the size of a cache or of the images to request.
+
 ### 13.5 What a strong opening sounds like
 
 **In one line:** clarify scope, name the hardest problem early, propose a concrete approach with its trade-off, and let the interviewer steer.
+
+**Say this in the interview:** "Before I design anything, I'd like to check what users need to do, whether it has to work offline, and roughly how much data there is. Once we agree on that, I'll name what I think is the hardest part, suggest an approach and its main trade-off, and then check which area you'd like me to go into."
 
 **Example:**
 
@@ -78,6 +104,12 @@ POST /posts/{id}/like                   (idempotent)
 - **You:** Before designing, a few questions. Do notes sync across devices? Can two devices edit the same note at the same time? Are there attachments? Roughly how many notes per user?
 - **Interviewer:** Yes, they sync; concurrent edits are rare but possible; images are allowed; a few thousand notes.
 - **You:** Then the hard parts are offline edits and conflicts. Room is the source of truth, each note has a version and an `updatedAt`, local changes go into an outbox, and WorkManager syncs them. For conflicts I'd use last-write-wins per field, and if both sides changed the same field, keep both and show a conflict copy, so nothing is lost. Shall I start with the overall architecture and then go deep on sync?
+
+**Common mistake:** Reciting a generic architecture before asking what the product needs to do.
+
+**Follow-ups:**
+
+- *What if the interviewer redirects you?* Follow their lead. It usually shows which part they want to explore.
 
 ### 13.6 Common prompts and what to go deep on
 

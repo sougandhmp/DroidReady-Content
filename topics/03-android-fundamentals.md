@@ -10,6 +10,8 @@ These questions check that you understand how Android treats your app: component
 
 **Example:** a music app uses an Activity for the player screen, a foreground Service for playback, a BroadcastReceiver for headphones being unplugged, and a ContentProvider (`FileProvider`) to share a playlist file.
 
+**Common mistake:** Assuming a component runs on its own thread. Service and BroadcastReceiver callbacks normally run on the main thread.
+
 **Follow-ups:**
 
 - *Why must components be in the manifest?* The system, not your code, creates them; the manifest tells it what exists and who may start it.
@@ -29,6 +31,8 @@ These questions check that you understand how Android treats your app: component
 | Rotation | onPause, onStop, onSaveInstanceState, onDestroy, then onCreate(bundle), onStart, onRestoreInstanceState, onResume |
 | Home button | onPause, onStop (state is saved) |
 | Dialog-themed activity on top | onPause only |
+
+**Common mistake:** Saving important data only in `onDestroy`.
 
 **Follow-ups:**
 
@@ -60,6 +64,8 @@ override fun onDestroyView() { _binding = null; super.onDestroyView() }   // don
 
 **How it works:** shared ViewModels use the same owner: `by activityViewModels()`, `by viewModels({ requireParentFragment() })` or `by navGraphViewModels(R.id.checkout_graph)`. The Fragment Result API stores a result until the listener is at least `STARTED`, delivers it once and clears it.
 
+**Common mistake:** Observing in a fragment with `this` as the lifecycle owner, so observers pile up each time the view is recreated.
+
 **Follow-ups:**
 
 - *Why can `commit()` throw after `onSaveInstanceState`?* The transaction would be lost on recreation. Don't commit then; collect with `repeatOnLifecycle` so UI work stops before state is saved.
@@ -87,6 +93,8 @@ class SignUpViewModel @Inject constructor(private val state: SavedStateHandle) :
 }
 ```
 
+**Common mistake:** Testing only rotation and believing that proves state survives process death.
+
 **Follow-ups:**
 
 - *Why is the saved Bundle size limited?* It crosses Binder to the system, and the transaction buffer is about 1 MB per process; too much causes `TransactionTooLargeException`. Save IDs, not lists.
@@ -96,6 +104,32 @@ class SignUpViewModel @Inject constructor(private val state: SavedStateHandle) :
 **In one line:** the Activity keeps its `ViewModelStore` across configuration changes and clears it only when the Activity finishes for good.
 
 **Say this in the interview:** "`ComponentActivity` hands its `ViewModelStore` to the new instance during a configuration change, so `by viewModels()` returns the same object. When the Activity really finishes, `onCleared()` is called and `viewModelScope` is cancelled. Because the ViewModel outlives the Activity, it must never hold a reference to an Activity, Fragment, View or Context, or it leaks them."
+
+**Example:**
+
+```kotlin
+class CounterViewModel : ViewModel() {
+    var launches = 0
+
+    override fun onCleared() {
+        Log.d("Counter", "cleared")
+    }
+}
+
+class CounterActivity : ComponentActivity() {
+    private val viewModel: CounterViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        viewModel.launches++
+        Log.d("Counter", "activity ${hashCode()}, viewModel ${viewModel.hashCode()}, ${viewModel.launches}")
+    }
+}
+```
+
+Rotate the screen: the log shows a different Activity hash, the same ViewModel hash and a higher count. Call `finish()`, and `onCleared()` runs.
+
+**Common mistake:** Passing an Activity or View into a ViewModel, which keeps it alive after the screen is recreated.
 
 **Follow-ups:**
 
@@ -116,6 +150,12 @@ ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObser
 })
 ```
 
+**Common mistake:** Starting something in one callback and forgetting to stop it in the matching one.
+
+**Follow-ups:**
+
+- *What does adding an observer to an already resumed lifecycle do?* The observer receives the earlier events, such as `onCreate`, `onStart` and `onResume`, so it catches up to the current state.
+
 ### 3.7 Intents, PendingIntents and App Links
 
 **In one line:** an Intent describes an action to perform; an explicit Intent names the target class, an implicit one names an action and lets the system find an app.
@@ -129,6 +169,8 @@ startActivity(Intent(this, CheckoutActivity::class.java))                       
 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Opera+House")))   // implicit
 ```
 
+**Common mistake:** Using a mutable PendingIntent with an implicit intent, which lets another app change where it goes.
+
 **Follow-ups:**
 
 - *Why does my App Link open a chooser?* Verification failed, most often because `assetlinks.json` lists the upload or debug key instead of Play's app signing key. Check with `adb shell pm get-app-links <package>`.
@@ -139,11 +181,67 @@ startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Opera+House")))   
 
 **Say this in the interview:** "`standard` creates a new instance every time; `singleTop` reuses the activity if it's already on top and calls `onNewIntent`; `singleTask` keeps one instance per task and clears what's above it; `singleInstance` puts it alone in its own task. In a modern single-activity app, these matter mainly for deep links and notifications, where `singleTop` avoids stacking duplicate screens."
 
+**Example:** what happens to a back stack (the top is on the right):
+
+| Stack before | Start | Launch mode of the started activity | Stack after |
+| --- | --- | --- | --- |
+| A, B | B | `standard` | A, B, B |
+| A, B | B | `singleTop` | A, B (`onNewIntent`) |
+| A, B, C | B | `singleTask`, same task affinity | A, B (`onNewIntent`, C is removed) |
+
+```kotlin
+fun orderIntent(context: Context, orderId: String): Intent =
+    Intent(context, OrdersActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)   // reuse it if it is already on top
+        .putExtra("orderId", orderId)
+
+class OrdersActivity : ComponentActivity() {
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)                            // so getIntent() returns the new one
+        intent.getStringExtra("orderId")?.let(::openOrder)
+    }
+
+    private fun openOrder(id: String) { /* show the order */ }
+}
+```
+
+**Common mistake:** Choosing `singleTask` to stop duplicate screens without checking what it removes from the back stack.
+
+**Follow-ups:**
+
+- *What does `onNewIntent` do?* It delivers a new intent to an existing activity instance. Handle it, because `getIntent()` keeps returning the old one unless you call `setIntent()`.
+
 ### 3.9 The main thread, Looper and Handler
 
 **In one line:** the main thread runs a `Looper` that processes a queue of messages: input events, lifecycle callbacks and frame drawing.
 
 **Say this in the interview:** "Everything UI-related runs on the main thread, one message at a time. If I block it, input stops responding; about 5 seconds of that gives an ANR, and even 16 ms per frame causes visible jank at 60 Hz. A `Handler` posts work to a specific looper's queue, and `Dispatchers.Main` uses this under the hood. A `postDelayed` runnable that captures an Activity is a classic leak, so I prefer coroutines tied to a lifecycle."
+
+**Example:**
+
+```kotlin
+fun showReportWithHandler(textView: TextView) {
+    val mainHandler = Handler(Looper.getMainLooper())
+    thread {
+        val report = buildReport()                    // slow work off the main thread
+        mainHandler.post { textView.text = report }   // touch the UI on the main thread
+    }
+}
+
+// The same with a coroutine, which is cancelled when the lifecycle is destroyed
+fun LifecycleOwner.showReport(textView: TextView) {
+    lifecycleScope.launch {
+        textView.text = withContext(Dispatchers.Default) { buildReport() }
+    }
+}
+```
+
+**Common mistake:** Thinking `Handler.post` runs work in the background. It runs on the handler's looper, often the main thread.
+
+**Follow-ups:**
+
+- *What is a `Looper`?* It runs a thread's message loop, taking messages from a queue one at a time. A thread can have at most one.
 
 ### 3.10 Context
 
@@ -151,11 +249,55 @@ startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Opera+House")))   
 
 **Say this in the interview:** "There are two main kinds. The application context lives as long as the process, so it's safe for singletons, Room or DataStore. An Activity context has the theme and is needed for UI, dialogs and inflation, but it dies with the screen, so storing it in anything long-lived leaks the whole Activity."
 
+**Example:**
+
+```kotlin
+// Long-lived: keep only the application context
+class FileStore(context: Context) {
+    private val appContext = context.applicationContext
+
+    fun cachedFile(name: String) = File(appContext.cacheDir, name)
+}
+
+// UI: use the Activity, which carries the theme and the window
+fun confirmDelete(activity: Activity) {
+    AlertDialog.Builder(activity).setMessage("Delete this item?").show()
+}
+```
+
+**Common mistake:** Using the application context to inflate themed UI or show a dialog.
+
+**Follow-ups:**
+
+- *Can you keep a reference to the application context in a singleton?* Yes. It lives as long as the process, so it doesn't leak a screen.
+
 ### 3.11 Binder, IPC and Parcelable
 
 **In one line:** Binder is Android's mechanism for calls between processes, and `Parcelable` is the fast format for sending data across it.
 
 **Say this in the interview:** "Each app runs in its own process, so even `startActivity` is a Binder call to the system server. Data crossing Binder is written to a `Parcel`, which is why intent extras must be `Parcelable` or primitives; I generate it with `@Parcelize`. Binder calls are synchronous by default, so a slow system service called on the main thread can cause an ANR. For my own cross-app APIs I'd use a bound service with AIDL or a `Messenger`."
+
+**Example:**
+
+```kotlin
+@Parcelize   // needs the kotlin-parcelize Gradle plugin
+data class SearchFilter(val query: String, val maxPrice: Int) : Parcelable
+
+fun openResults(context: Context, filter: SearchFilter) {
+    context.startActivity(
+        Intent(context, ResultsActivity::class.java).putExtra("filter", filter)
+    )
+}
+
+class ResultsActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val filter = IntentCompat.getParcelableExtra(intent, "filter", SearchFilter::class.java)
+    }
+}
+```
+
+**Common mistake:** Passing large objects or bitmaps in intent extras. Pass an ID and load the data instead.
 
 **Follow-ups:**
 
@@ -176,6 +318,12 @@ class PlayerService : Service() {
 }
 ```
 
+**Common mistake:** Assuming a Service has its own background thread.
+
+**Follow-ups:**
+
+- *When do you bind to a service instead of starting it?* When a client needs to call it and use the results while connected. A bound-only service stops when its clients unbind.
+
 ### 3.13 BroadcastReceivers and ContentProviders
 
 **In one line:** a BroadcastReceiver reacts to broadcast events, and a ContentProvider exposes data or files to other apps through `content://` URIs.
@@ -191,6 +339,12 @@ startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
 }, "Share invoice"))
 ```
 
+**Common mistake:** Starting long asynchronous work in `onReceive`, where the process may be killed once it returns.
+
+**Follow-ups:**
+
+- *Why can a `ContentProvider` affect startup time?* Providers declared by the app are created at process start, before `Application.onCreate`.
+
 ### 3.14 Permissions
 
 **In one line:** dangerous permissions are granted by the user at runtime, so you ask in context and handle refusal.
@@ -205,6 +359,12 @@ val launcher = rememberLauncherForActivityResult(ActivityResultContracts.Request
 }
 Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }) { Text("Scan receipt") }
 ```
+
+**Common mistake:** Asking for every permission at first launch, before the user knows why.
+
+**Follow-ups:**
+
+- *What if the user keeps denying a permission?* The system may stop showing the dialog. Explain what is unavailable, offer a way to Settings and keep the rest of the app working.
 
 ### 3.15 Notifications
 
@@ -224,6 +384,12 @@ val notification = NotificationCompat.Builder(context, "orders")
 NotificationManagerCompat.from(context).notify(orderId.hashCode(), notification)
 ```
 
+**Common mistake:** Posting without a channel, or without the runtime permission, and wondering why nothing appears.
+
+**Follow-ups:**
+
+- *Can an app change a channel's importance after creating it?* Not by creating it again. After that, the user controls its importance in system settings.
+
 ### 3.16 The View system: RecyclerView and custom views
 
 **In one line:** RecyclerView shows long lists by recycling a small number of item views, and a custom view draws itself by overriding `onMeasure` and `onDraw`.
@@ -239,6 +405,12 @@ object Diff : DiffUtil.ItemCallback<ArticleUi>() {
 }
 adapter.submitList(state.articles)
 ```
+
+**Common mistake:** Calling `notifyDataSetChanged` for every change, or creating objects such as `Paint` inside `onDraw`.
+
+**Follow-ups:**
+
+- *`invalidate()` vs `requestLayout()`?* `invalidate()` asks for a redraw. `requestLayout()` asks for measuring and layout again when size or position may change.
 
 ### Interview questions
 

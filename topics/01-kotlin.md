@@ -29,6 +29,8 @@ fun transfer(from: Account?, amount: Long) {
 - Java types without annotations are **platform types** (`String!`): Kotlin lets you treat them either way, and a wrong guess crashes at runtime.
 - `requireNotNull` and `checkNotNull` use **contracts** to tell the compiler the value is non-null afterwards.
 
+**Common mistake:** Using `!!` to quiet the compiler. It only moves the crash to runtime.
+
 **Follow-ups:**
 
 - *Why is `!!` a code smell?* It throws an NPE at runtime; prefer an early return, a default, or `requireNotNull` with a message.
@@ -55,6 +57,8 @@ fun onLoading() = _state.update { it.copy(isLoading = true) }   // new object, o
 - A data class generates `equals`/`hashCode`/`toString`/`copy`/`componentN` from the **primary constructor** properties only.
 - Data classes can't be `open`, but can implement interfaces or extend sealed types.
 - `copy` is shallow: nested mutable objects are shared.
+
+**Common mistake:** Treating `val` as deep immutability. A `val` can still point to a list that changes.
 
 **Follow-ups:**
 
@@ -95,6 +99,8 @@ cancel(userId, orderId)                         // compile error: arguments swap
 - Compare the weak alternative `data class State(val loading: Boolean, val user: User?, val error: String?)`: 8 combinations, several impossible. Sealed types make invalid states unrepresentable.
 - A value class is usually compiled to its single underlying value, so there's no object allocation (it is boxed when used as a generic or nullable type).
 
+**Common mistake:** Adding an `else` branch to a `when` over a sealed type, which hides the compile error you would get for a new subtype.
+
 **Follow-ups:**
 
 - *Sealed class vs enum?* Enum constants are single instances with the same shape; sealed subtypes can have different properties and many instances.
@@ -129,9 +135,10 @@ with(binding) { title.text = article.title; author.text = article.author }  // g
 
 **How it works:** they are small `inline` functions in the standard library, so they cost nothing at runtime. `inline fun <T> T.apply(block: T.() -> Unit): T { block(); return this }` takes a lambda with a receiver (hence `this`); `inline fun <T, R> T.let(block: (T) -> R): R = block(this)` passes the object as a parameter (hence `it`).
 
+**Common mistake:** Deeply nesting `?.let` (use names or a plain `if`), or forgetting that `let` returns the lambda's result while `also` returns the object.
+
 **Follow-ups:**
 
-- *Common mistakes?* Deeply nested `?.let` (use names or a plain `if`); using `also` to change the object (use `apply`); forgetting that `let` returns the lambda's result.
 - *What are `takeIf` and `takeUnless`?* They return the object or `null` depending on a condition: `input.takeIf { it.isNotBlank() }?.let(::search)`.
 
 ### 1.5 Extension functions
@@ -149,6 +156,8 @@ fun ArticleEntity.toDomain() = Article(id, title, publishedAt)   // mappers betw
 ```
 
 **How it works:** `fun Context.toast(...)` compiles to a static method `toast(Context, String)`. If a class has a member with the same signature, the member wins.
+
+**Common mistake:** Expecting an extension to be chosen by the runtime type. It is resolved from the declared type.
 
 **Follow-ups:**
 
@@ -191,6 +200,8 @@ val req = request { url = "https://api.example.com"; header("Accept", "applicati
 - A capturing lambda is an object; if it captures a local `var`, Kotlin wraps the variable in a `Ref` object.
 - Java SAM interfaces (`Runnable`, `View.OnClickListener`) accept lambdas; declare your own as `fun interface` to get the same.
 
+**Common mistake:** Giving a long-lived object a lambda that captures an Activity and never removing it.
+
 **Follow-ups:**
 
 - *Higher-order function vs Java callback interface?* No interface per callback, shorter syntax, and `inline` removes the allocation.
@@ -221,6 +232,8 @@ fun findAdmin(users: List<User>): User? {
 - `noinline` keeps one lambda as an object, for example because you store it.
 - `crossinline` is for a lambda called from another context (inside a `Runnable` or another lambda); it forbids non-local `return`.
 
+**Common mistake:** Marking functions `inline` everywhere for speed. The benefit is mainly for small functions that take lambdas.
+
 **Follow-ups:**
 
 - *When is `inline` harmful?* Large function bodies (bigger APK), public inline functions in libraries (their body becomes part of your API), or lambdas that are stored.
@@ -243,6 +256,8 @@ fun <T> save(item: T) where T : Parcelable, T : Validatable { }                 
 ```
 
 **How it works:** `out`/`in` at the declaration is declaration-site variance; `List<out Animal>` at a use site is use-site variance (like Java wildcards). `List<*>` is a star projection: an unknown type you can read as `Any?`.
+
+**Common mistake:** Expecting `MutableList<Cat>` to work where `MutableList<Animal>` is needed because `Cat` is an `Animal`.
 
 **Follow-ups:**
 
@@ -267,6 +282,8 @@ class LoggingList<T>(private val inner: MutableList<T>) : MutableList<T> by inne
 ```
 
 **How it works:** the compiler generates a hidden field holding the delegate and calls its `getValue`/`setValue`. `lazy` uses double-checked locking by default (`LazyThreadSafetyMode.SYNCHRONIZED`); `NONE` is faster for main-thread-only use.
+
+**Common mistake:** Using `by lazy` for a value that must change when its inputs change. It is computed once and kept.
 
 **Follow-ups:**
 
@@ -303,6 +320,8 @@ val watcher = object : TextWatcher { /* ... */ }                  // object expr
 | `@JvmStatic fun create()` | A real static method on `Foo` |
 | `object Analytics` | A class with a static `INSTANCE`, initialised lazily and thread-safely |
 
+**Common mistake:** Using a companion object as a home for unrelated helpers and mutable global state.
+
 **Follow-ups:**
 
 - *Is a companion object the same as static?* No: it's an object instance; add `@JvmStatic` or `const` for true statics.
@@ -322,6 +341,8 @@ val first = (1..1_000_000).asSequence()
     .filter { it % 3 == 0 }
     .first()           // processes only 3 elements, then stops; no intermediate lists
 ```
+
+**Common mistake:** Switching to a sequence for every chain. For small lists, the overhead can outweigh the saving.
 
 **Follow-ups:**
 
@@ -349,6 +370,8 @@ val discount = 15 percentOf 200                      // 30
 typealias OnArticleClick = (articleId: String) -> Unit
 ```
 
+**Common mistake:** Overloading an operator with a meaning readers would not guess from the symbol.
+
 **Follow-ups:**
 
 - *Other operator names?* `get`/`set` (`a[i]`), `contains` (`in`), `invoke` (`a()`), `componentN` (destructuring), `rangeTo` (`..`), `iterator` (`for`).
@@ -371,6 +394,8 @@ class Tracker @JvmOverloads constructor(          // Java gets Tracker(String), 
     @Throws(IOException::class) fun flush() { }   // Java can now catch IOException
 }
 ```
+
+**Common mistake:** Trusting values from unannotated Java as non-null.
 
 **Follow-ups:**
 
@@ -395,6 +420,8 @@ fun label(s: UploadState) = when (s) {
 
 for (batch in batches) batch.items.forEach { if (it.isCorrupt) continue; upload(it) }   // non-local continue (2.2)
 ```
+
+**Common mistake:** Presenting an experimental feature as stable. Check its status for the Kotlin version you name.
 
 **Follow-ups:**
 

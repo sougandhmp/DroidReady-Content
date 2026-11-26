@@ -20,6 +20,8 @@ suspend fun loadProfile(id: String): Profile {
 
 **How it works:** the compiler adds a `Continuation` parameter and turns the function into a `when (label)` state machine that stores local variables in an object. At a suspension point the function returns the special value `COROUTINE_SUSPENDED`, releasing the thread; later the continuation is resumed and jumps to the saved label. A suspended coroutine is just a small object on the heap, not a 1 MB thread stack.
 
+**Common mistake:** Assuming `suspend` moves work off the main thread. Blocking code inside a suspend function still blocks its thread.
+
 **Follow-ups:**
 
 - *Does `suspend` make code run in the background?* No. It only means the function can pause. Which thread it runs on depends on the dispatcher.
@@ -56,6 +58,8 @@ supervisorScope {
 | `coroutineScope { }` | The block's result | Grouping children; fails if any child fails |
 | `runBlocking` | The block's result | Tests and `main` only; it blocks the thread |
 
+**Common mistake:** Launching in `GlobalScope`, or any scope nobody cancels, so the work outlives the screen that started it.
+
 **Follow-ups:**
 
 - *Why avoid `GlobalScope`?* It isn't tied to any lifecycle, so the work can leak and can't be cancelled or tested. For app-wide work, inject an application-scoped `CoroutineScope(SupervisorJob() + Dispatchers.Default)`.
@@ -78,6 +82,8 @@ class ArticleRepository(
 ```
 
 **How it works:** `viewModelScope` and `lifecycleScope` use `Dispatchers.Main.immediate`, which runs straight away if already on the main thread. `IO` allows 64 threads (or more on many-core devices) because those threads mostly wait.
+
+**Common mistake:** Running blocking I/O on `Dispatchers.Default`, which has only a few threads meant for CPU work.
 
 **Follow-ups:**
 
@@ -103,6 +109,8 @@ viewModelScope.launch {
 }
 ```
 
+**Common mistake:** Catching `Exception` around a suspend call and swallowing `CancellationException`.
+
 **Follow-ups:**
 
 - *Why is `runCatching` risky in coroutines?* It also catches `CancellationException`; rethrow it if you use it.
@@ -125,6 +133,8 @@ scope.launch {
 }
 ```
 
+**Common mistake:** Wrapping `launch` in `try`/`catch` and expecting it to catch what happens inside the coroutine.
+
 **Follow-ups:**
 
 - *What is `CoroutineExceptionHandler` for?* A last-resort logger for root coroutines; it can't recover the failed work.
@@ -146,6 +156,8 @@ repository.observeArticles()                    // Flow<List<Article>> from Room
 ```
 
 **How it works:** `flowOn` changes the context of everything above it. Inside `flow { }` you must not emit from another context (for example inside `withContext`); use `flowOn` or `channelFlow`.
+
+**Common mistake:** Collecting the same cold flow twice and expecting the work to run only once.
 
 **Follow-ups:**
 
@@ -175,6 +187,8 @@ val uiState: StateFlow<SearchUiState> = query
 | Skips equal values | Yes | No | No |
 | Use for | UI state | Broadcast events | Work queues, one consumer |
 
+**Common mistake:** Using `StateFlow` for one-time events. It replays its latest value and drops equal ones.
+
 **Follow-ups:**
 
 - *StateFlow vs LiveData?* StateFlow needs an initial value, is pure Kotlin (testable, works in KMP) and has all Flow operators; it isn't lifecycle-aware by itself, so collect it with the lifecycle.
@@ -199,6 +213,8 @@ viewLifecycleOwner.lifecycleScope.launch {
 val state by viewModel.uiState.collectAsStateWithLifecycle()
 ```
 
+**Common mistake:** Collecting in a bare `lifecycleScope.launch`, which keeps running while the screen is in the background.
+
 **Follow-ups:**
 
 - *Why was `launchWhenStarted` deprecated?* It only paused the coroutine, so upstream producers kept running in the background.
@@ -215,6 +231,12 @@ val state by viewModel.uiState.collectAsStateWithLifecycle()
 data class UiState(val items: List<Item> = emptyList(), val userMessage: Int? = null)
 fun messageShown() = _state.update { it.copy(userMessage = null) }
 ```
+
+**Common mistake:** Sending an important event through a `SharedFlow` with no replay, so it is lost when nobody is collecting.
+
+**Follow-ups:**
+
+- *How do you stop a message showing twice?* Clear it from the UI state once the UI has shown it, for example by calling `messageShown()`.
 
 ### 2.10 Flow errors, retry, flattening and backpressure
 
@@ -241,6 +263,12 @@ api.liveScores()
 | `buffer()` | Producer runs ahead of the collector | Overlap production and rendering |
 | `conflate()` | Slow collector gets only the latest | Progress, sensors |
 
+**Common mistake:** Expecting `catch` to handle an exception thrown inside `collect`.
+
+**Follow-ups:**
+
+- *`collect` vs `collectLatest`?* `collect` finishes handling one value before taking the next. `collectLatest` cancels the current handling when a new value arrives.
+
 ### 2.11 Shared mutable state
 
 **In one line:** coroutines on `Default` or `IO` run on several threads, so shared mutable state needs atomics, a `Mutex`, or confinement to one thread.
@@ -258,6 +286,12 @@ class TokenCache(private val api: AuthApi) {
     }
 }
 ```
+
+**Common mistake:** Relying on `@Volatile` to make `counter++` safe.
+
+**Follow-ups:**
+
+- *Why not use `synchronized` around a suspend call?* You can't suspend inside a `synchronized` block. Use a coroutine `Mutex` with `withLock`.
 
 ### 2.12 Turning callbacks into coroutines
 
@@ -277,6 +311,12 @@ fun FusedLocationProviderClient.locations(request: LocationRequest): Flow<Locati
 }
 ```
 
+**Common mistake:** Forgetting to unregister the callback when the coroutine is cancelled or the collector stops.
+
+**Follow-ups:**
+
+- *What if the callback can fire more than once?* A continuation can be resumed only once, so use `callbackFlow` for repeated values.
+
 ### 2.13 Coroutines vs RxJava
 
 **In one line:** both handle async streams; coroutines use sequential-looking code and structured concurrency, while RxJava uses operator chains and manual disposal.
@@ -290,6 +330,12 @@ val user: User = legacyRepo.getUser(id).await()                  // Single -> su
 val feed: Flow<List<Post>> = legacyRepo.observeFeed().asFlow()   // Observable -> Flow
 fun loadUserRx(id: String): Single<User> = rxSingle { newRepo.getUser(id) }   // suspend -> Single
 ```
+
+**Common mistake:** Translating Rx chains operator by operator when plain suspend code would be simpler.
+
+**Follow-ups:**
+
+- *What is the closest thing to `CompositeDisposable`?* A `CoroutineScope`. Cancelling it cancels all the coroutines started in it.
 
 ### 2.14 Testing coroutines
 
@@ -310,6 +356,12 @@ fun loadUserRx(id: String): Single<User> = rxSingle { newRepo.getUser(id) }   //
     }
 }
 ```
+
+**Common mistake:** Hardcoding `Dispatchers.IO`, so tests can't control when that work runs.
+
+**Follow-ups:**
+
+- *How do you test code that has a long `delay`?* Run it in `runTest`, which uses virtual time. Make sure the delayed code runs on a test dispatcher.
 
 ### Interview questions
 
