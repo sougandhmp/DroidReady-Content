@@ -84,14 +84,14 @@
       "number": 11,
       "title": "Security and privacy",
       "path": "topics/11-security-privacy.md",
-      "sha256": "99f729d6d33d7c8b5ed792e27eba9a7733bc78a9e2d64a215551ea0cb2377a37"
+      "sha256": "e40172e2f6c5d2f1bcad202e356be65dc5fa89c36f60f9dc2804ae6e86d499b2"
     },
     {
       "id": "build-release",
       "number": 12,
-      "title": "Build, Gradle, CI/CD, release and observability",
+      "title": "Build, release and SDKs",
       "path": "topics/12-build-release.md",
-      "sha256": "2625494b0d470574c7eb94981df5f03d8de6074303fa8bbd45b919084cffac2d"
+      "sha256": "7e73d72db883d9cb85791586653eb125e2887dc4013f97156883168a57353444"
     },
     {
       "id": "system-design",

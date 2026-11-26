@@ -1,255 +1,119 @@
-# Build, Gradle, CI/CD, release and observability
+# Build, release and SDKs
 
-Seniors often own build health and the release train. Expect questions on slow builds, safe rollouts and production monitoring.
+Seniors often own build health and the release process. Expect questions on slow builds, safe rollouts, monitoring in production, and building libraries other teams depend on.
 
 ### 12.1 Gradle essentials
 
-- **Phases:** initialization (which projects) → configuration (build the task graph; must be fast and side-effect free) → execution.
-- **Kotlin DSL + version catalog:**
+**In one line:** Gradle builds in three phases, initialization, configuration and execution, and a modern setup uses the Kotlin DSL, a version catalog and convention plugins.
 
-```toml
-# gradle/libs.versions.toml
-[versions]
-kotlin = "2.2.0"
-room = "2.7.2"
-[libraries]
-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-[plugins]
-ksp = { id = "com.google.devtools.ksp", version = "2.2.0-2.0.2" }
-```
+**Say this in the interview:** "Gradle first decides which projects are in the build, then configures every task, then runs the tasks it needs. Configuration must be fast and free of side effects, which is what the configuration cache relies on. I keep dependency versions in `libs.versions.toml`, share module setup through convention plugins so a feature module's build file is a few lines, and use build types and flavours for debug/release and staging/production. I use KSP instead of kapt, because it's faster and works with the K2 compiler."
 
-(Version numbers are illustrative; check current releases.)
-
-- **Convention plugins** in `build-logic` share `compileSdk`, Kotlin options, lint and test setup across modules.
-- **Build variants:** build types (`debug`, `release`) × product flavours (`free`/`paid`, `staging`/`prod`). Use `buildConfigField` or resource values per variant.
-- **KSP** over **kapt**: KSP is up to \~2x faster and works with K2; migrate Room, Hilt and Moshi to KSP.
-
-### 12.2 Making builds faster
-
-1. Enable the **configuration cache** and **build cache** (local + remote).
-2. Modularise so changes recompile fewer modules; use `implementation` instead of `api`.
-3. Use KSP, avoid kapt; enable non-transitive R classes.
-4. Run `./gradlew assembleDebug --scan` (Build Scan) or the Build Analyzer to find slow tasks and configuration time.
-5. Give Gradle enough heap (`org.gradle.jvmargs`), and keep AGP, Kotlin and Gradle up to date.
-
-### 12.3 CI/CD pipeline
-
-A typical pipeline (GitHub Actions, Bitrise, GitLab CI, Jenkins):
-
-1. On every PR: static analysis (Android Lint, Detekt, ktlint/Spotless), unit tests, screenshot tests, build debug, dependency checks.
-2. On merge to main: instrumented tests on Gradle Managed Devices or Firebase Test Lab, build release AAB, upload to an internal track.
-3. Release: signed AAB (Play App Signing; upload key kept in CI secrets), versionCode auto-incremented, release notes, Fastlane or Gradle Play Publisher to promote tracks.
-
-### 12.4 Safe releases
-
-- **Staged rollout:** 1% → 5% → 20% → 50% → 100%, gated on crash-free users and ANR rate. Halt the rollout if vitals regress.
-- **Feature flags / remote config:** ship dark, enable gradually, kill switch for risky features. Decouple deploy from release.
-- **Release trains:** e.g. weekly or bi-weekly cut, code freeze, regression testing, hotfix branch policy.
-- **In-app updates API:** flexible or immediate updates; force-update for critical security fixes through a minimum-version check.
-- **Backward compatibility:** old app versions stay in use for months, so APIs must stay compatible (versioned endpoints, additive changes).
-
-### 12.5 Observability
-
-- **Crash and ANR reporting:** Firebase Crashlytics, Sentry, Play Console vitals. Upload R8 mapping files.
-- **Performance monitoring:** Firebase Performance, custom traces around key journeys, JankStats.
-- **Analytics and logging:** structured events, funnels, non-fatal error logging with context (no PII).
-- **Alerting:** dashboards per release; alert on crash-free rate dropping below target (e.g. 99.8% users).
-
-### 12.6 Deeper dive: a convention plugin
-
-Without convention plugins, 30 modules each repeat the same 40 lines of Gradle. With one, a feature module's build file shrinks to a few lines.
+**Example:**
 
 ```kotlin
-// build-logic/convention/src/main/kotlin/AndroidFeatureConventionPlugin.kt
-class AndroidFeatureConventionPlugin : Plugin<Project> {
-    override fun apply(target: Project) = with(target) {
-        pluginManager.apply("com.android.library")
-        pluginManager.apply("org.jetbrains.kotlin.android")
-        pluginManager.apply("com.google.devtools.ksp")
-        pluginManager.apply("com.google.dagger.hilt.android")
-
-        extensions.configure<LibraryExtension> {
-            compileSdk = 36
-            defaultConfig { minSdk = 26; testInstrumentationRunner = "com.example.testing.HiltTestRunner" }
-        }
-        val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
-        dependencies {
-            add("implementation", project(":core:designsystem"))
-            add("implementation", project(":core:data"))
-            add("implementation", libs.findLibrary("hilt.android").get())
-            add("ksp", libs.findLibrary("hilt.compiler").get())
-            add("testImplementation", project(":core:testing"))
-        }
-    }
-}
-```
-
-```kotlin
-// feature/settings/build.gradle.kts - the whole file
+// feature/settings/build.gradle.kts: everything shared lives in the convention plugin
 plugins { id("example.android.feature") }
 android { namespace = "com.example.feature.settings" }
 ```
 
-Changing the minimum SDK or adding a lint rule now happens in one place for every module.
+**Follow-ups:**
 
-### 12.7 Deeper dive: a pull-request CI workflow
+- *`api` vs `implementation`?* `api` exposes a dependency to consumers, so they recompile when it changes; `implementation` keeps it internal. Default to `implementation`.
+
+### 12.2 Making builds faster
+
+**In one line:** profile first, then turn on caching, avoid kapt, and split modules so a change recompiles less.
+
+**Say this in the interview:** "I start with a Build Scan or the Build Analyzer to see whether time goes into configuration or execution. Then I enable the configuration cache and build cache, including a remote cache for CI, replace kapt with KSP, use non-transitive R classes, give Gradle enough memory, and split large modules so a change recompiles fewer of them. I track build time as a team metric."
+
+### 12.3 CI/CD
+
+**In one line:** every pull request runs static analysis, unit tests and a build; merges to main run slower tests and produce a signed release build.
+
+**Say this in the interview:** "On each PR I run lint, Detekt and formatting checks, unit and screenshot tests, and an assemble, aiming for under about 15 minutes, cancelling outdated runs and caching Gradle. On merge I run instrumented tests on managed emulators or Firebase Test Lab and build a signed App Bundle that goes to an internal track. Releases are promoted with Fastlane or Gradle Play Publisher. Play App Signing keeps the signing key; CI only has the upload key, as a secret."
+
+**Example:**
 
 ```yaml
-# .github/workflows/pr.yml
-name: PR checks
 on: pull_request
-concurrency: { group: pr-${{ github.ref }}, cancel-in-progress: true }   # stop outdated runs
+concurrency: { group: pr-${{ github.ref }}, cancel-in-progress: true }
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 17 }
-      - uses: gradle/actions/setup-gradle@v4        # caches Gradle between runs
-      - run: ./gradlew spotlessCheck detekt lintDebug
-      - run: ./gradlew testDebugUnitTest verifyRoborazziDebug
-      - run: ./gradlew assembleDebug
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with: { name: reports, path: "**/build/reports/**" }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew lintDebug detekt testDebugUnitTest assembleDebug
 ```
 
-Talking points: cancel superseded runs to save CI minutes, cache Gradle, upload reports only on failure, keep the PR check under about 15 minutes, and run slower instrumented tests on merge or nightly instead.
+### 12.4 Safe releases and feature flags
 
-### 12.8 Deeper dive: feature flags in code
+**In one line:** release gradually, watch the numbers, and use feature flags so you can turn features off without a new release.
+
+**Say this in the interview:** "I use staged rollouts on Play, for example 1, 5, 20, 50 and 100 percent, and halt if crash-free users or ANR rates get worse. Risky features ship behind remote feature flags, so deploying code and releasing a feature are separate decisions, and there's a kill switch. Each flag has an owner and a removal date. Because old app versions stay in use for months, APIs must stay backwards-compatible, and for critical fixes I use Play's in-app updates or a minimum-version check."
+
+**Example:**
 
 ```kotlin
-interface FeatureFlags {
-    fun isEnabled(flag: Flag): Boolean
-}
-
-enum class Flag(val key: String, val default: Boolean) {
-    NEW_CHECKOUT("new_checkout", false),
-    OFFLINE_MODE("offline_mode", true)
-}
-
-class RemoteConfigFlags @Inject constructor(private val rc: FirebaseRemoteConfig) : FeatureFlags {
-    override fun isEnabled(flag: Flag) = rc.getBoolean(flag.key)   // defaults set from Flag.default
-}
-
-// Call site
 if (flags.isEnabled(Flag.NEW_CHECKOUT)) NewCheckoutScreen() else LegacyCheckoutScreen()
 ```
 
-Good practice: every flag has an owner and a removal date; tests use a `FakeFeatureFlags`; a debug menu lets QA flip flags locally; once a feature is at 100% for a release or two, delete the flag and the old code path.
+**Follow-ups:**
 
-### 12.9 Deeper dive: R8 keep rules that actually matter
+- *A crash hits 0.5% of users after release. What do you do?* Halt the rollout, read the de-obfuscated stack trace and affected devices, turn the feature off with a flag if possible, ship a tested hotfix, resume the rollout, and run a blameless post-mortem.
+
+### 12.5 R8 keep rules
+
+**In one line:** R8 removes and renames code it thinks is unused, so code reached only by reflection needs keep rules.
+
+**Say this in the interview:** "Most release-only crashes after enabling R8 come from reflection: JSON libraries that read fields by name, classes named in XML or native code, or enums looked up with `valueOf`. I add the narrowest keep rule that fixes it, keep line numbers for readable crash reports, upload the mapping file, and prefer libraries that ship their own consumer rules. To debug, I reproduce with a local release build and check `usage.txt` and `mapping.txt`."
+
+**Example:**
 
 ```proguard
-# Keep classes used by reflection-based JSON (Gson); not needed for kotlinx.serialization with its plugin
--keep class com.example.data.network.dto.** { *; }
-
-# Keep a class referenced only from native code or from XML by name
--keep class com.example.NativeBridge { native <methods>; }
-
-# Keep enum values used via valueOf(String) from a server response
--keepclassmembers enum com.example.model.** { public static **[] values(); public static ** valueOf(java.lang.String); }
-
-# Keep line numbers so crash reports are readable, and hide original file names
--keepattributes SourceFile,LineNumberTable
--renamesourcefileattribute SourceFile
+-keep class com.example.data.network.dto.** { *; }      # DTOs read by reflection (Gson)
+-keepattributes SourceFile,LineNumberTable               # readable stack traces
 ```
 
-How to debug a release-only crash caused by R8: reproduce with a release build locally, check `build/outputs/mapping/release/usage.txt` (what was removed) and `mapping.txt` (renames), add the narrowest keep rule, and add a test that runs against the minified build so it cannot happen again. Prefer libraries that ship their own consumer rules.
+### 12.6 App Bundles, dynamic features, in-app updates and reviews
 
-### 12.10 App Bundles, Play Feature Delivery, in-app updates and reviews
+**In one line:** you upload an App Bundle and Play generates per-device APKs; dynamic feature modules can be installed on demand; Play also offers in-app update and review prompts.
 
-**Android App Bundle (AAB).** You upload one `.aab`; Google Play builds and serves optimised APKs for each device (only its screen density, CPU architecture and languages). This makes downloads smaller than a universal APK. New apps on Play must be published as bundles, and Play App Signing holds the app signing key while you keep an upload key.
+**Say this in the interview:** "With an App Bundle, each device downloads only its density, CPU architecture and languages, so installs are smaller, and bundles are required for new apps on Play. For a large, rarely used feature I can use an on-demand dynamic feature module, accepting more complex navigation and testing. The in-app updates API gives flexible updates in the background or immediate full-screen updates for critical fixes. The in-app review API shows Play's rating sheet, but Play limits how often it appears, so I ask after a positive moment and never from a 'rate us' button."
 
-**Play Feature Delivery** splits rarely used features into dynamic feature modules:
+### 12.7 Building and versioning an SDK
 
-| Delivery option | When the module is installed | Example |
-| --- | --- | --- |
-| Install-time | With the app | Default; useful to split code while keeping it always present |
-| Conditional | At install, if the device matches (country, features, SDK) | AR feature only on ARCore devices |
-| On-demand | When the app requests it at runtime | A rarely used video editor |
+**In one line:** an SDK needs a small, deliberate public API, semantic versioning, binary-compatibility checks and good manners inside the host app.
 
-```kotlin
-val splitInstall = SplitInstallManagerFactory.create(context)
-val request = SplitInstallRequest.newBuilder().addModule("video_editor").build()
-splitInstall.startInstall(request)
-    .addOnSuccessListener { openEditor() }
-    .addOnFailureListener { showError(it) }
-```
+**Say this in the interview:** "When other teams or companies depend on my library, I can't change their code, so I'm careful. I turn on Kotlin explicit API mode so nothing becomes public by accident, keep one small entry point, avoid exposing third-party types, and make it Java-friendly. I version with semantic versioning and deprecate before removing. The binary-compatibility-validator plugin fails CI if the public API changes unexpectedly. Inside the host app, I ship consumer R8 rules, keep dependencies minimal, never block the main thread in `initialize`, never crash the host, and let the app control data collection."
 
-Trade-offs to mention: dynamic modules depend on the base app (the reverse of normal modules), cross-module navigation needs reflection or a service-loader pattern, and testing needs `bundletool` or internal app sharing. Many teams use normal Gradle modules for build speed and save dynamic features for large, rarely used parts.
-
-**In-app updates.** The Play Core library can prompt users to update without leaving the app.
-
-```kotlin
-val updateManager = AppUpdateManagerFactory.create(context)
-updateManager.appUpdateInfo.addOnSuccessListener { info ->
-    val critical = info.updatePriority() >= 4                       // priority set when you publish
-    if (info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
-        info.isUpdateTypeAllowed(if (critical) AppUpdateType.IMMEDIATE else AppUpdateType.FLEXIBLE)) {
-        updateManager.startUpdateFlowForResult(
-            info, updateLauncher,
-            AppUpdateOptions.defaultOptions(if (critical) AppUpdateType.IMMEDIATE else AppUpdateType.FLEXIBLE)
-        )
-    }
-}
-```
-
-**Flexible** downloads in the background while the user keeps working; you then ask them to restart. **Immediate** is a full-screen flow for critical fixes. For a hard minimum version (e.g. a breaking API change), also check a minimum version from your own remote config.
-
-**In-app reviews.** `ReviewManager` shows the Play rating sheet inside your app. Play applies a quota, so the sheet may not appear, and your app is not told whether the user rated. Ask after a positive moment (an order delivered, a task completed), never from a "Rate us" button, and never offer rewards for ratings.
-
-### 12.11 Building and versioning an Android library or SDK
-
-Senior roles often include building an internal SDK or a library other teams or companies consume. The bar is higher than app code, because you can't change your callers.
-
-**Design the public API on purpose.**
-
-- Turn on Kotlin **explicit API mode** (`kotlin { explicitApi() }`) so every public declaration needs a visibility modifier and a return type. Nothing becomes public by accident.
-- Keep the surface small: one entry point (`Analytics.initialize(context, config)`), immutable config objects built with a builder or DSL, and `internal` for everything else.
-- Avoid exposing third-party types (OkHttp, Retrofit, RxJava) in your API, so you can replace them later.
-- Make it Java-friendly if Java apps may use it (`@JvmStatic`, `@JvmOverloads`, see 1.17).
+**Example:**
 
 ```kotlin
 public object Analytics {
-    @JvmStatic
-    public fun initialize(context: Context, config: AnalyticsConfig) { /* ... */ }
-
-    @JvmStatic
-    public fun track(event: String, properties: Map<String, Any> = emptyMap()) { /* ... */ }
-}
-
-public class AnalyticsConfig private constructor(public val apiKey: String, public val flushIntervalSec: Int) {
-    public class Builder(private val apiKey: String) {
-        private var flush = 30
-        public fun flushIntervalSec(value: Int): Builder = apply { flush = value }
-        public fun build(): AnalyticsConfig = AnalyticsConfig(apiKey, flush)
-    }
+    @JvmStatic public fun initialize(context: Context, config: AnalyticsConfig) { /* lazy, off the main thread */ }
+    @JvmStatic public fun track(event: String, properties: Map<String, Any> = emptyMap()) { }
 }
 ```
 
-**Version with semantic versioning (MAJOR.MINOR.PATCH).** PATCH for fixes, MINOR for backwards-compatible additions, MAJOR for breaking changes. Deprecate before removing: `@Deprecated(message, ReplaceWith(...), level = WARNING)` in one release, `ERROR` in the next, removal in the next major.
+**Follow-ups:**
 
-**Protect binary compatibility.** A change that compiles for you can still break apps built against the old version (for example adding a parameter with a default value, or changing a return type from `List` to `Collection`). Use the Kotlin **binary-compatibility-validator** Gradle plugin: it writes the public API to an `.api` file, and CI fails if the API changes without the file being updated in the same pull request.
+- *Which changes break binary compatibility even though they compile?* Adding a parameter with a default value, changing a return type, or removing a public member. That's why an API check in CI matters.
 
-**Be a good guest in the host app.**
+### 12.8 Observability
 
-- Ship **consumer ProGuard/R8 rules** inside the AAR (`consumerProguardFiles`) so apps that minify don't break your SDK.
-- Keep dependencies few and use `implementation`, so you don't force versions on the app; document the minimum `minSdk` and Kotlin version.
-- Never block the main thread in `initialize`; do work lazily or in the background.
-- Don't crash the host: catch your own failures and report them through a callback or logs.
-- Let the app control data collection (consent, opt-out) and declare what you collect for the Play Data safety form.
+**In one line:** measure the app in production: crashes, ANRs, performance and key user journeys.
 
-**Publish and support.** Publish AARs to Maven Central or an internal repository (with a sources JAR and KDoc), keep a changelog and migration guides, and test against a sample app on several API levels in CI.
+**Say this in the interview:** "I use Crashlytics or Sentry for crashes and non-fatal errors with context, Play vitals for ANRs and startup, custom traces around key journeys, and structured analytics events. Each release has a dashboard, and we alert when crash-free users drop below our target, for example 99.8 percent."
 
 ### Interview questions
 
-1. **Your clean build takes 12 minutes. What do you do?** Profile with a Build Scan, check configuration time vs execution, enable configuration and remote build caches, replace kapt with KSP, split large modules, parallelise CI, and cache Gradle in CI. {Medium}
-2. **A crash appears in 0.5% of users after release. What is your process?** Halt the staged rollout, triage the stack trace (de-obfuscated), check which devices/OS versions, disable via feature flag if possible, hotfix with a test reproducing it, resume the rollout, then run a blameless post-mortem. {Medium}
-3. **`api` vs `implementation`?** `api` leaks the dependency to consumers (they recompile when it changes); `implementation` keeps it internal. Default to `implementation`. {Easy}
-4. **APK vs App Bundle?** An APK is the installable file. An AAB is a publishing format: Play generates per-device APKs from it, so users download only the code and resources their device needs. Bundles are required for new apps on Play. {Easy}
-5. **When would you use an on-demand dynamic feature module?** For a large, rarely used feature (an editor, an AR mode) where the saving in install size is worth the extra complexity in navigation, testing and release. {Hard}
-6. **How do you avoid breaking apps that use your SDK?** Semantic versioning, explicit API mode, a binary-compatibility check in CI, deprecation cycles before removal, consumer R8 rules in the AAR, and no third-party types in the public API. {Hard}
+1. **Your clean build takes 12 minutes. What do you do?** Profile with a Build Scan, check configuration vs execution time, enable configuration and remote build caches, replace kapt with KSP, split large modules and cache Gradle in CI. {Medium}
+2. **What does your CI pipeline look like?** On PRs: lint, static analysis, unit and screenshot tests and a build. On merge: instrumented tests and a signed bundle to an internal track. Releases promoted through staged rollout. {Medium}
+3. **How do you release safely?** Staged rollout watching crash and ANR rates, features behind remote flags with a kill switch, backwards-compatible APIs, and a rollback or hotfix plan. {Medium}
+4. **A crash appears in 0.5% of users after a release. What's your process?** Halt the rollout, triage the de-obfuscated trace and affected devices, disable via flag if possible, ship a tested hotfix, resume, and run a blameless post-mortem. {Medium}
+5. **Why does an app crash only in release builds?** Usually R8 removed or renamed something used through reflection. Reproduce with a release build, check the mapping and usage files, and add the narrowest keep rule. {Medium}
+6. **APK or App Bundle?** An APK is the installable file. An App Bundle is the publishing format from which Play generates per-device APKs, so users download less. Bundles are required for new apps on Play. {Easy}
+7. **When would you use an on-demand dynamic feature module?** For a large, rarely used feature where the install-size saving is worth the extra complexity in navigation, testing and release. {Hard}
+8. **How do you avoid breaking apps that use your SDK?** Semantic versioning, explicit API mode, a binary-compatibility check in CI, deprecation before removal, consumer R8 rules, and no third-party types in the public API. {Hard}
+9. **`api` or `implementation` in Gradle?** `implementation` by default, so dependencies stay internal and changes recompile fewer modules; `api` only when a dependency is part of your module's public API. {Easy}

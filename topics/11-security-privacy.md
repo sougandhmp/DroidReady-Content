@@ -1,14 +1,14 @@
 # Security and privacy
 
-Assume the device and the APK are in the attacker's hands. The client can make attacks harder; the **server** must enforce anything that matters.
+Assume the attacker has your APK and a rooted phone. The client can make attacks harder, but the server must enforce anything that really matters. Interviewers want to hear both halves of that.
 
-### 11.1 Storing secrets and data
+### 11.1 Storing secrets and sensitive data
 
-- **Never** ship API secrets in the APK (strings, `BuildConfig`, NDK). They can be extracted in minutes. Use a backend proxy or short-lived tokens.
-- Store keys in the **Android Keystore** (hardware-backed, StrongBox where available); keys never leave secure hardware.
-- Encrypt sensitive local data with a Keystore-held AES-GCM key (e.g. with Tink). Note that Jetpack `security-crypto` (`EncryptedSharedPreferences`) has been deprecated; know it, but prefer Tink + DataStore for new code.
-- App-specific storage (`filesDir`) is private to your UID; external/shared storage is not.
-- Exclude secrets from cloud backups (`android:dataExtractionRules` / `fullBackupContent`).
+**In one line:** never ship secrets in the app, keep keys in the Android Keystore, and encrypt sensitive local data with a key the Keystore holds.
+
+**Say this in the interview:** "Anything in the APK, including `BuildConfig` fields and native code, can be extracted in minutes, so I don't ship API secrets; sensitive calls go through my backend with short-lived user tokens. Encryption keys live in the Android Keystore, which is hardware-backed on most devices, so the key never leaves secure hardware. I encrypt sensitive data with an AES-GCM key from the Keystore, for example with Tink, and I exclude secrets from cloud backups. Jetpack's `EncryptedSharedPreferences` is deprecated now, so for new code I'd use Tink with DataStore."
+
+**Example:**
 
 ```kotlin
 val keyGen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
@@ -16,128 +16,97 @@ keyGen.init(
     KeyGenParameterSpec.Builder("token_key", KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
         .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
         .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-        .setUserAuthenticationRequired(false)
         .build()
 )
-val key = keyGen.generateKey()
+val key = keyGen.generateKey()     // stays inside the Keystore; the app gets only a handle
 ```
 
-### 11.2 Network security
+**Follow-ups:**
 
-- HTTPS only; cleartext is blocked by default since Android 9. Configure exceptions in `network_security_config.xml`.
-- **Certificate pinning** (OkHttp `CertificatePinner` or network security config `<pin-set>`) defends against compromised CAs and MITM proxies. Always pin backup keys and have a remote kill switch, or a rotation can brick your app.
-- Don't log tokens or PII; strip logs in release with R8 rules or a logging wrapper.
+- *How would you protect an API key the app must use?* You can't fully. Move the call to your backend, restrict the key (package name and certificate for Google APIs), and verify requests with Play Integrity.
 
-### 11.3 Authentication
+### 11.2 Network security and certificate pinning
 
-- OAuth 2.0 / OIDC with **Authorization Code + PKCE**, using Custom Tabs (never an embedded WebView for third-party login).
-- **Credential Manager** unifies passwords, passkeys and Sign in with Google.
-- Short-lived access token + refresh token; refresh tokens stored encrypted.
-- Biometrics with `BiometricPrompt`, ideally bound to a Keystore key (`setUserAuthenticationRequired(true)`) so a bypass cannot unlock data.
+**In one line:** use HTTPS only, and optionally pin your server's public key so a fake or compromised certificate authority can't intercept traffic.
 
-### 11.4 Component and IPC safety
+**Say this in the interview:** "Cleartext traffic is blocked by default since Android 9, and I configure exceptions only in the network security config. For high-risk apps, like banking, I pin the public key of my server's certificate chain, so even a trusted-but-wrong certificate authority or a user-installed proxy can't read the traffic. The risk is locking users out when certificates rotate, so I pin a backup key too, set an expiry date on the pin set, and keep a remote way to turn pinning off."
 
-- Set `android:exported="false"` unless another app must start the component.
-- Validate all intent extras and deep-link parameters (a deep link is untrusted input).
-- Use `FLAG_IMMUTABLE` PendingIntents; use explicit intents for internal communication.
-- WebView: disable JavaScript unless needed, never `addJavascriptInterface` on untrusted content, restrict file access, validate URLs.
-- Use `FileProvider` with `content://` URIs instead of `file://`.
-
-### 11.5 App integrity and tampering
-
-- **Play Integrity API:** the server verifies that requests come from your genuine app on a genuine device.
-- R8 obfuscation raises the cost of reverse engineering; root/hook detection only raises the bar.
-
-### 11.6 Privacy
-
-- Request the minimum permissions, at the moment they are needed; use the Photo Picker instead of storage permissions; approximate location when precise is not needed.
-- Fill in the Play **Data safety** form accurately (it includes SDKs' data collection).
-- Handle consent (GDPR, Australian Privacy Act), data deletion requests and account deletion (required by Play).
-
-### 11.7 Deeper dive: OAuth login with PKCE, step by step
-
-PKCE (Proof Key for Code Exchange) stops a stolen authorization code from being useful, because only your app knows the secret verifier.
-
-1. The app creates a random `code_verifier` (43-128 characters) and its SHA-256 hash, the `code_challenge`.
-2. It opens the login page in a Custom Tab with `code_challenge` and `code_challenge_method=S256`.
-3. The user signs in; the identity provider redirects to your app link (`https://example.com/oauth/callback?code=...`).
-4. The app sends the `code` **plus the original `code_verifier`** to the token endpoint.
-5. The server hashes the verifier, checks it matches the challenge, and returns access and refresh tokens.
-
-```kotlin
-fun newPkce(): Pair<String, String> {
-    val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
-    val verifier = Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-    val digest = MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray())
-    val challenge = Base64.encodeToString(digest, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-    return verifier to challenge
-}
-```
-
-Use the AppAuth library in production rather than writing this yourself. Also send a random `state` value and check it on return to prevent CSRF.
-
-### 11.8 Deeper dive: certificate pinning configured
+**Example:**
 
 ```xml
-<!-- res/xml/network_security_config.xml -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
     <domain-config>
         <domain includeSubdomains="true">api.example.com</domain>
         <pin-set expiration="2027-06-30">
-            <pin digest="SHA-256">7HIpactkIAq2Y49orFOOQKurWxmmSFZhBCoQYcRhJ3Y=</pin>  <!-- current intermediate -->
-            <pin digest="SHA-256">fwza0LRMXouZHRC8Ei+4PyuldPDcf3UKgO/04cDM1oE=</pin>  <!-- backup key -->
+            <pin digest="SHA-256">CURRENT_KEY_HASH_PLACEHOLDER=</pin>
+            <pin digest="SHA-256">BACKUP_KEY_HASH_PLACEHOLDER=</pin>
         </pin-set>
     </domain-config>
-    <debug-overrides><trust-anchors><certificates src="user" /></trust-anchors></debug-overrides>
 </network-security-config>
 ```
 
-(The pin values above are placeholders.) The `expiration` date makes pinning switch off automatically if you forget to update an old app version, which avoids locking users out. `debug-overrides` lets debug builds use a proxy such as Charles for inspection.
+### 11.3 Authentication
 
-### 11.9 Deeper dive: a key that needs the user's fingerprint
+**In one line:** use OAuth 2.0 with PKCE in a Custom Tab for login, short-lived access tokens with refresh tokens, and Credential Manager for passkeys.
+
+**Say this in the interview:** "For third-party or enterprise login I use the OAuth authorization-code flow with PKCE in a Custom Tab, never a WebView, usually through the AppAuth library. PKCE means a stolen authorization code is useless without the secret verifier only my app knows. I keep access tokens short-lived and refresh tokens encrypted. For passwords and passkeys I use Credential Manager, which also supports Sign in with Google."
+
+**Example, the PKCE flow:**
+
+1. The app creates a random `code_verifier` and its SHA-256 hash, the `code_challenge`.
+2. It opens the login page in a Custom Tab, sending the challenge.
+3. After sign-in, the identity provider redirects back to the app with a `code`.
+4. The app sends the `code` plus the original verifier to the token endpoint.
+5. The server checks that the verifier matches the challenge and returns tokens.
+
+### 11.4 Biometrics done properly
+
+**In one line:** bind the biometric prompt to a Keystore key, so data can only be decrypted after a real biometric match.
+
+**Say this in the interview:** "A plain `if (biometricSucceeded) showSecrets()` can be bypassed with a hooking tool on a rooted device. Instead, I create a Keystore key that requires user authentication, pass a `Cipher` using that key to `BiometricPrompt` as a `CryptoObject`, and decrypt only inside the success callback. Then the secure hardware itself confirms the user."
+
+**Example:**
 
 ```kotlin
-val spec = KeyGenParameterSpec.Builder("vault_key", KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+KeyGenParameterSpec.Builder("vault_key", KeyProperties.PURPOSE_DECRYPT or KeyProperties.PURPOSE_ENCRYPT)
     .setUserAuthenticationRequired(true)
-    .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)   // every use needs a biometric
-    .setInvalidatedByBiometricEnrollment(true)                                  // new fingerprint added -> key dies
+    .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+    .setInvalidatedByBiometricEnrollment(true)          // adding a new fingerprint invalidates the key
+    // ...block mode and padding as above
     .build()
-
-val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv)) }
-
-BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
-    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-        val plain = result.cryptoObject!!.cipher!!.doFinal(encrypted)   // only works after a real biometric match
-    }
-}).authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
 ```
 
-Why this matters: a plain `if (biometricSucceeded) showSecrets()` can be bypassed with a hooking tool. Binding the key to authentication means the data cannot be decrypted without the secure hardware confirming the user.
+### 11.5 Safe components, deep links and WebViews
 
-### 11.10 Deeper dive: validating a deep link
+**In one line:** expose as little as possible, and treat every intent, deep link and web page as untrusted input.
+
+**Say this in the interview:** "Components are `exported=false` unless another app really needs them. I validate every intent extra and deep-link parameter: allow-list hosts and paths, check formats, and never perform a sensitive action straight from a link without a confirmation screen. PendingIntents are immutable. In WebViews I turn JavaScript off unless needed, never add a JavaScript interface to untrusted content, and don't load URLs that came from a link. For file sharing I use `FileProvider` with `content://` URIs."
+
+**Example:**
 
 ```kotlin
-// Incoming: https://example.com/reset?token=abc&redirect=https://evil.com
 fun handleDeepLink(uri: Uri) {
-    if (uri.scheme != "https" || uri.host != "example.com") return            // only our verified domain
+    if (uri.scheme != "https" || uri.host != "example.com") return                 // only our verified domain
     when (uri.path) {
-        "/reset" -> {
-            val token = uri.getQueryParameter("token")?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{16,128}")) } ?: return
-            navigateToReset(token)                                             // never auto-perform the action
-        }
-        "/article" -> uri.getQueryParameter("id")?.toLongOrNull()?.let { openArticle(it) }
+        "/article" -> uri.getQueryParameter("id")?.toLongOrNull()?.let(::openArticle) // validate type
+        "/reset" -> uri.getQueryParameter("token")?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{16,128}")) }?.let(::showResetScreen)
     }
-    // Ignore 'redirect' entirely: never follow an arbitrary URL from a link (open redirect)
 }
 ```
 
-Rules: allow-list hosts and paths, validate every parameter's type and format, never perform a sensitive action (payments, deletions, changing email) straight from a link without a confirmation screen, and do not load link-supplied URLs into a WebView.
+### 11.6 App integrity and privacy
+
+**In one line:** Play Integrity lets your server check that requests come from your genuine app on a genuine device; privacy means collecting the minimum and being honest about it.
+
+**Say this in the interview:** "For sensitive actions I send a Play Integrity token to my server, which verifies the app and device are genuine before trusting the request. Obfuscation with R8 and root detection only raise the bar. On privacy, I request the fewest permissions at the moment they're needed, prefer the Photo Picker and approximate location, fill in Play's Data safety form accurately including SDKs, support account and data deletion, and respect consent rules like GDPR."
 
 ### Interview questions
 
-1. **How would you protect an API key used by the app?** You cannot fully. Move the call behind your backend, use per-user tokens, restrict the key (package name + SHA-1 on Google APIs), and add Play Integrity checks. {Medium}
-2. **What does certificate pinning protect against, and what is the risk?** It stops interception by a trusted-but-wrong CA or a user-installed proxy cert. The risk is outages when certificates rotate; pin to the public key (SPKI) of intermediate + backup, and allow remote disable. {Hard}
-3. **Is data in Room secure?** It is private to the app sandbox, but readable on rooted devices or via backups. Encrypt it (SQLCipher) if it is sensitive, and exclude it from backup. {Medium}
+1. **Where do you store a user's auth token securely?** Encrypted with a Keystore-held key (for example Tink with DataStore), in app-private storage, excluded from backups. Never in plain SharedPreferences or logs. {Medium}
+2. **How would you protect an API key used by the app?** You can't fully protect it in the APK. Move the call to your backend, use per-user tokens, restrict the key to your package and certificate, and verify requests with Play Integrity. {Medium}
+3. **What does certificate pinning protect against, and what is the risk?** Interception by a wrong-but-trusted CA or a user-installed proxy certificate. The risk is outages when certificates change, so pin a backup key, set an expiry and keep a remote switch. {Hard}
+4. **Why use PKCE for OAuth on mobile?** A mobile app can't keep a client secret, and another app could intercept the authorization code. PKCE makes the code useless without the verifier that only your app has. {Medium}
+5. **How do you implement biometric login securely?** Use a Keystore key that requires biometric authentication and pass a `Cipher` as a `CryptoObject` to `BiometricPrompt`, decrypting only in the success callback, so it can't be bypassed by hooking. {Hard}
+6. **How do you handle deep links securely?** Allow-list hosts and paths, validate every parameter's type and format, never perform sensitive actions without confirmation, and never follow redirect URLs from a link. {Medium}
+7. **Is data in a Room database secure?** It's private to the app sandbox but readable on a rooted device or through backups. Encrypt sensitive data, for example with SQLCipher, and exclude it from backups. {Medium}
+8. **What is Play Integrity used for?** Your server checks a signed verdict that the request comes from your genuine app, installed from Play, on a genuine device, before trusting sensitive actions. {Medium}
