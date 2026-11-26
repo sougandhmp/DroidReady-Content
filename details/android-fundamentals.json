@@ -131,5 +131,22 @@
     "why": "It shows whether you understand the View drawing pass.",
     "mistake": "Calling `requestLayout()` for a colour change, which does needless work.",
     "followUp": "When do you need to override `onMeasure`?"
+  },
+  "When would you use `ConstraintLayout` over nested `LinearLayout`s, and what are `Barrier`s?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Legacy View maintenance still requires flat layouts that handle dynamic text lengths.",
+    "mistake": "Nesting `LinearLayout`s with `layout_weight`, which multiplies measure passes.",
+    "followUp": "How does a `Guideline` differ from a `Barrier`?"
+  },
+  "What is the difference between Back and Up navigation, and when do you use `TaskStackBuilder`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Notification and deep-link launches break if the app exits on the first back press.",
+    "mistake": "Assuming the parent Activity is already on the stack when launched from a notification.",
+    "followUp": "How does Jetpack Navigation handle deep-link back stacks?"
   }
 }

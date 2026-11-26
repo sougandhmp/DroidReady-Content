@@ -14,7 +14,7 @@
       "number": 1,
       "title": "Kotlin",
       "path": "topics/01-kotlin.md",
-      "sha256": "adf14bb999626eceff16b54fa7a5be1e8b9cd8a51fea6486410ecdba90c39b05"
+      "sha256": "82d7f08096eb475e1b5911ebc33f6001b7997ff403082153085ec973c9d051dd"
     },
     {
       "id": "coroutines-flow",
@@ -28,7 +28,7 @@
       "number": 3,
       "title": "Android fundamentals",
       "path": "topics/03-android-fundamentals.md",
-      "sha256": "99ed1d351f1eb03272a4f08a59a11e848729e2777d0ec109759f8392beb5d8eb"
+      "sha256": "c7bb82e21b1ffbcc594e37a9b655ef2c1adf11ece4eb5e12c722ea96c9a7efa1"
     },
     {
       "id": "jetpack-compose",
@@ -126,7 +126,7 @@
       "number": 17,
       "title": "Rapid-fire Q&A and final checklist",
       "path": "topics/17-rapid-fire.md",
-      "sha256": "38968be905c63726c054843198a85dc1c7aaba31e77123365bf03ca6ee58b1db"
+      "sha256": "7d8c80015413d5e268ac02309d5a14409193364c5762d55a04b16f6190280ddf"
     },
     {
       "id": "jvm-concurrency-patterns",
@@ -138,6 +138,6 @@
   ],
   "quiz": {
     "path": "quiz.json",
-    "sha256": "36b77bfe485df7fa98403d7f44dd4195e07bff19b063680509c428e0c1a5cd42"
+    "sha256": "5fb3a7b4cad0c8520a4982e3c886e52322bcd34f4be0b8eaaaf84ac102c0847e"
   }
 }

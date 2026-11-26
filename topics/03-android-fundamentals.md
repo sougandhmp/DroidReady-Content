@@ -411,6 +411,7 @@ adapter.submitList(state.articles)
 **Follow-ups:**
 
 - *`invalidate()` vs `requestLayout()`?* `invalidate()` asks for a redraw. `requestLayout()` asks for measuring and layout again when size or position may change.
+- *Why use `ConstraintLayout` in Views, and what is `ConcatAdapter`?* `ConstraintLayout` keeps complex View layouts flat (avoiding nested `LinearLayout` weights) with `Guideline` and `Barrier` helpers; `ConcatAdapter` combines multiple `RecyclerView.Adapter`s sequentially (e.g. header + list + footer) without one giant adapter.
 
 ### Interview questions
 
@@ -430,3 +431,5 @@ adapter.submitList(state.articles)
 14. **Why did my notification not show on Android 13?** The app lacks the `POST_NOTIFICATIONS` permission, or its channel is missing or turned off by the user. {Easy}
 15. **`ListAdapter` with `DiffUtil` or `notifyDataSetChanged()`?** `ListAdapter` diffs the lists in the background and updates only changed items, with animations. `notifyDataSetChanged()` rebinds everything and loses animations. {Easy}
 16. **What's the difference between `invalidate()` and `requestLayout()` in a custom view?** `invalidate()` only redraws (`onDraw`). `requestLayout()` re-measures and re-lays out, for when the size or position changes. {Medium}
+17. **When would you use `ConstraintLayout` over nested `LinearLayout`s, and what are `Barrier`s?** `ConstraintLayout` flattens complex View hierarchies to avoid double-measurement from nested weights; a `Barrier` dynamically aligns to the widest or tallest of a group of referenced views (useful for localized labels). {Easy}
+18. **What is the difference between Back and Up navigation, and when do you use `TaskStackBuilder`?** Back returns in chronological history across apps; Up navigates within your app's hierarchy. When launching a deep screen from a notification, use `TaskStackBuilder` to build a synthetic back stack so Up/Back returns to the parent screen instead of exiting. {Medium}

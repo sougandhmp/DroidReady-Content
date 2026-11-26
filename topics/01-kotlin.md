@@ -427,6 +427,25 @@ for (batch in batches) batch.items.forEach { if (it.isCorrupt) continue; upload(
 
 - *Which features are still experimental?* Context parameters (preview in 2.2), explicit backing fields and the unused-return-value checker (experimental in 2.3).
 
+### 1.15 Interfaces, abstract classes and initialization order
+
+**In one line:** prefer interfaces for shared capabilities without state, abstract classes when subclasses share state or constructors, and never call `open` members inside `init`.
+
+**Say this in the interview:** "A class can implement many interfaces but extend only one class. Kotlin interfaces can hold default method bodies and abstract properties, though no backing fields. I use an abstract class when subclasses share mutable state or constructor logic. During construction, `init` blocks and property initializers run top-to-bottom in declaration order before any secondary constructor body—and a superclass `init` runs before subclass properties are initialized, so calling an `open` method there can read `null` even on a non-null property."
+
+**Example:**
+
+```kotlin
+interface Clickable { fun onClick() }
+abstract class BaseAdapter(protected val tag: String)   // holds shared state
+```
+
+**Common mistake:** Calling an `open` method from a superclass `init` block, which runs before subclass properties are set.
+
+**Follow-ups:**
+
+- *Can a Kotlin interface have properties?* Yes—abstract properties or properties with custom `get()` accessors, as long as they have no backing field.
+
 ### Interview questions
 
 1. **Why should you avoid `!!`, and what do you use instead?** `!!` throws a NullPointerException at runtime, which throws away Kotlin's compile-time safety. Use a safe call with a default, an early return, or `requireNotNull` with a clear message. {Easy}
@@ -444,3 +463,4 @@ for (batch in batches) batch.items.forEach { if (it.isCorrupt) continue; upload(
 13. **What is the difference between a sealed class and an enum?** Enum values are fixed single instances with the same properties. Sealed subtypes can each carry different data and have many instances, and `when` is still checked for every case. {Easy}
 14. **Explain `out` and `in` in Kotlin generics.** `out T` means the type only produces `T`, so `Source<Cat>` can be used as `Source<Animal>`. `in T` means it only consumes `T`, so `Sink<Animal>` can be used as `Sink<Cat>`. Without either, the type is invariant. {Hard}
 15. **When would you use a sequence instead of a list?** For long chains of operations over large data, or when you only need the first few results, because sequences are lazy and avoid intermediate lists. For small lists, plain collections are simpler and often faster. {Medium}
+16. **When do you choose an interface over an abstract class in Kotlin?** Use an interface for capabilities a class can combine with others (multiple inheritance, no backing fields); use an abstract class when subclasses share state, backing fields or constructor setup. {Easy}

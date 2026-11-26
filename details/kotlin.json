@@ -124,5 +124,13 @@
     "why": "It tests whether you pick collection tools for a reason rather than by habit.",
     "mistake": "Switching to sequences everywhere and expecting a speed-up on small lists.",
     "followUp": "How can a sequence be slower than a list?"
+  },
+  "When do you choose an interface over an abstract class in Kotlin?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks OOP fundamentals in Kotlin where interfaces can also have default implementations.",
+    "mistake": "Claiming interfaces cannot contain any method bodies in Kotlin.",
+    "followUp": "Can a Kotlin interface declare a property?"
   }
 }

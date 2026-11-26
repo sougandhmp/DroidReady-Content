@@ -1793,6 +1793,62 @@
       "tracks": [
         "junior"
       ]
+    },
+    {
+      "id": "kotlin-interface-vs-abstract",
+      "topic": "kotlin",
+      "question": "Which capability does an abstract class have in Kotlin that an interface does not?",
+      "options": [
+        "Default method implementations",
+        "Constructors and backing fields for state",
+        "Abstract methods",
+        "Generic type parameters"
+      ],
+      "answer": 1,
+      "explanation": "Kotlin interfaces can have default methods and abstract properties, but cannot have constructors or store state in backing fields.",
+      "why": "It tests whether you know the real boundary between interfaces and abstract classes in Kotlin.",
+      "mistake": "Saying interfaces cannot have method implementations, as in older Java.",
+      "tracks": [
+        "junior"
+      ]
+    },
+    {
+      "id": "android-taskstackbuilder",
+      "topic": "android-fundamentals",
+      "question": "A user taps a notification to open DetailActivity and presses Back, but the app exits instead of going to MainActivity. What fixes this?",
+      "options": [
+        "Set launchMode=\"singleInstance\"",
+        "Build the PendingIntent with TaskStackBuilder and parentActivityName",
+        "Call finishAffinity() in DetailActivity",
+        "Use FLAG_ACTIVITY_NO_HISTORY"
+      ],
+      "answer": 1,
+      "explanation": "TaskStackBuilder constructs a synthetic back stack from the manifest parent hierarchy so navigating back from a notification goes to MainActivity.",
+      "why": "Notification entry points often feel broken if Back exits the app immediately.",
+      "mistake": "Creating a PendingIntent with a single Activity Intent when the user expects parent navigation.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "work-chaining",
+      "topic": "background-work",
+      "question": "What happens when you chain WorkManager requests with beginWith(compress).then(upload).enqueue()?",
+      "options": [
+        "Both workers run in parallel",
+        "upload runs only after compress succeeds, and receives compress's output Data as its input",
+        "upload runs even if compress fails",
+        "It requires a ForegroundService"
+      ],
+      "answer": 1,
+      "explanation": "Chained work runs sequentially: if compress fails or is cancelled, upload never runs; if compress succeeds, its output Data merges into upload's inputData.",
+      "why": "Multi-step background pipelines (e.g. compress then upload) rely on WorkManager chaining.",
+      "mistake": "Enqueueing both requests independently and assuming they will run in order.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     }
   ]
 }
