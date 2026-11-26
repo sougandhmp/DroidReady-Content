@@ -1,6 +1,6 @@
 /* Colours, type and shapes follow the DroidReady Android app. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #F5F6F1; --surface: #FFFFFF; --ink: #14201A; --muted: #55625A;
   --line: #E1E5DE; --line-strong: #D3D9CF; --track: #E8ECE5; --chip-ink: #3D4A42;
   --primary: #1F7A4D; --primary-text: #1F7A4D; --on-primary: #FFFFFF;
@@ -9,17 +9,6 @@
   --warn: #FCEBD9; --on-warn: #8A4200; --warn-line: #B45309;
   --solid: #14201A; --on-solid: #FFFFFF;
   --hero: #14201A; --hero-track: #2C3A32; --code-bg: #14201A; --code-ink: #E6ECE8;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0E1612; --surface: #17221C; --ink: #E9EFEB; --muted: #A3B1A9;
-    --line: #27352D; --line-strong: #36473D; --track: #27352D; --chip-ink: #C9D3CD;
-    --primary-text: #5BC28A; --soft: #1D3A2A; --on-soft: #A9D8BC;
-    --info: #1B2A4A; --on-info: #B4C8FF;
-    --warn: #3A2A18; --on-warn: #F5B98A; --warn-line: #D08A4A;
-    --solid: #E9EFEB; --on-solid: #14201A;
-    --hero: #1E2D25; --hero-track: #354A3E; --code-bg: #08100C;
-  }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 Inter, system-ui, sans-serif; }
