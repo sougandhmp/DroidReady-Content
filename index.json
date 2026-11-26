@@ -54,16 +54,16 @@
     {
       "id": "data-layer",
       "number": 7,
-      "title": "Data layer: networking, persistence, offline-first",
+      "title": "Data layer: networking, storage and offline-first",
       "path": "topics/07-data-layer.md",
-      "sha256": "b9e69d392e4aad2ebbddb1020ffda68bb37934ade15b1d07f27b04270ca713d2"
+      "sha256": "be132246ebfb891297f94cc4077e4a88538102caae66dc98bc997183a30bce4c"
     },
     {
       "id": "background-work",
       "number": 8,
       "title": "Background work",
       "path": "topics/08-background-work.md",
-      "sha256": "2f4bedff13fd151b4ba76fed954575456007e0b40d0d5077566db37506b4df80"
+      "sha256": "9af494522814e594b662c816a35bd7ce3ddb9e1c1a24343d8e3055b664b1f4ac"
     },
     {
       "id": "performance",

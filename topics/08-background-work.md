@@ -1,165 +1,107 @@
 # Background work
 
-Android aggressively limits background execution to save battery. Pick the tool by **who started the work, whether it must finish, and whether it needs an exact time**.
+Android limits background execution to save battery. Interviewers want to see that you pick the right tool for each job and understand the system's restrictions.
 
-### 8.1 Choosing the right API
+### 8.1 Choosing the right tool
+
+**In one line:** pick the API by three questions: must the work finish, must it run at an exact time, and does the user know it's happening?
+
+**Say this in the interview:** "If the work only matters while the screen is open, a coroutine in `viewModelScope` is enough. If it must finish even if the app is closed or the phone restarts, like an upload or a sync, I use WorkManager. If it's long-running and the user is aware of it, like music or navigation, I use a foreground service with a notification. If it must happen at an exact time, like an alarm clock, I use `AlarmManager`. And if the server needs to wake the app, I use a push message that schedules WorkManager."
+
+**Example:**
 
 | Need | Use | Example |
 | --- | --- | --- |
-| Short work while the app is open | Coroutine in `viewModelScope` / app scope | Load a screen |
-| Deferrable work that must complete, even after reboot | **WorkManager** | Upload photos, sync, send analytics |
-| Long work the user is aware of, now | **Foreground service** with a notification | Music, navigation, an active call, workout tracking |
-| User-initiated data transfer | WorkManager expedited / user-initiated data transfer job (Android 14+) | Large file download the user tapped |
-| Exact time | `AlarmManager.setExactAndAllowWhileIdle` (needs `SCHEDULE_EXACT_ALARM` or `USE_EXACT_ALARM`) | Alarm clock, calendar reminder |
-| Server-driven | FCM high-priority message → WorkManager | New message sync |
+| Work while the screen is open | Coroutine in `viewModelScope` | Load a screen |
+| Must finish, can wait | WorkManager | Upload photos, sync, send logs |
+| Long, user-visible, now | Foreground service | Music, navigation, workout tracking |
+| Exact time | `AlarmManager.setExactAndAllowWhileIdle` | Alarm clock, calendar reminder |
+| Server-triggered | Push message, then WorkManager | New messages to sync |
 
 ### 8.2 WorkManager
 
-Persists work in its own database, respects constraints, retries with backoff, and survives process death and reboot.
+**In one line:** WorkManager runs deferrable work that must finish: it respects constraints, retries with backoff, and survives app restarts and reboots.
+
+**Say this in the interview:** "WorkManager stores work in its own database, so it runs even after the app is killed or the device reboots. I set constraints like 'unmetered network' or 'battery not low', a backoff policy for retries, and use unique work so the same job isn't queued twice. Workers can be chained, report progress, and run as expedited work for important short jobs. With Hilt I use `@HiltWorker` to inject dependencies."
+
+**Example:**
 
 ```kotlin
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
-    @Assisted ctx: Context,
-    @Assisted params: WorkerParameters,
-    private val repo: ArticleRepository
+    @Assisted ctx: Context, @Assisted params: WorkerParameters, private val repo: ArticleRepository
 ) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result =
-        if (repo.refresh().isSuccess) Result.success()
-        else if (runAttemptCount < 3) Result.retry() else Result.failure()
+        if (repo.sync().isSuccess) Result.success() else if (runAttemptCount < 3) Result.retry() else Result.failure()
 }
 
-val request = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)   // minimum 15 min
-    .setConstraints(Constraints(requiredNetworkType = NetworkType.UNMETERED, requiresBatteryNotLow = true))
+val request = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)        // minimum interval is 15 minutes
+    .setConstraints(Constraints(requiredNetworkType = NetworkType.UNMETERED))
     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
     .build()
-
-WorkManager.getInstance(context)
-    .enqueueUniquePeriodicWork("sync", ExistingPeriodicWorkPolicy.KEEP, request)
+WorkManager.getInstance(context).enqueueUniquePeriodicWork("sync", ExistingPeriodicWorkPolicy.KEEP, request)
 ```
 
-Also know: chaining (`beginWith(a).then(b)`), unique work policies (`KEEP`, `REPLACE`, `APPEND`), input/output `Data` (small, < 10 KB), observing with `getWorkInfoByIdFlow`, `setExpedited()` for important short work, and `setForeground()` for long-running work.
+**Follow-ups:**
+
+- *Does WorkManager run at an exact time?* No. It guarantees the work runs eventually when constraints are met; periodic work can drift.
+- *What if the user force-stops the app?* Scheduled work is cancelled until the app is opened again.
+- *How do you chain work?* `beginUniqueWork(...).then(upload).then(cleanup).enqueue()`; if one step fails, the rest are marked failed.
 
 ### 8.3 Foreground services
 
-- Must show a notification within \~5 s of `startForegroundService`.
-- Since Android 14 you must declare a **`foregroundServiceType`** (`mediaPlayback`, `location`, `dataSync`, `camera`, `health`, `shortService`...) plus the matching permission, and Play reviews the declaration.
-- Apps cannot start foreground services from the background (Android 12+), with a few exemptions (e.g. high-priority FCM, exact alarms).
-- Android 15 limits `dataSync` foreground services to about 6 hours per 24 h; prefer WorkManager for syncs.
+**In one line:** a foreground service runs ongoing, user-visible work and must show a notification while it runs.
 
-### 8.4 Doze, App Standby and buckets
+**Say this in the interview:** "I use a foreground service only for work the user is actively aware of, like playing music or recording a run. It must show a notification within a few seconds of starting, and since Android 14 it must declare a type, such as `mediaPlayback` or `location`, with a matching permission, which Play reviews. Apps generally can't start one from the background, and Android 15 limits `dataSync` services to about 6 hours a day, so syncing belongs in WorkManager."
 
-- **Doze:** when the device is idle and unplugged, network and wakelocks are deferred to maintenance windows; alarms are delayed unless `AllowWhileIdle`.
-- **App Standby Buckets:** active, working set, frequent, rare, restricted. Rarely used apps get fewer jobs and alarms.
-- Test with `adb shell dumpsys deviceidle force-idle` and `adb shell am set-standby-bucket <pkg> rare`.
-
-### 8.5 Deeper dive: chaining workers for a photo upload
-
-Compress, then upload, then clean up, where each step only runs if the previous one succeeded:
-
-```kotlin
-val input = workDataOf("uri" to photoUri.toString())
-
-val compress = OneTimeWorkRequestBuilder<CompressWorker>().setInputData(input).build()
-val upload = OneTimeWorkRequestBuilder<UploadWorker>()
-    .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
-    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
-    .build()
-val cleanup = OneTimeWorkRequestBuilder<CleanupWorker>().build()
-
-WorkManager.getInstance(context)
-    .beginUniqueWork("upload-$photoId", ExistingWorkPolicy.KEEP, compress)
-    .then(upload)        // receives CompressWorker's output Data as its input
-    .then(cleanup)
-    .enqueue()
-```
-
-If `compress` fails, `upload` and `cleanup` are marked failed too. Unique work with `KEEP` prevents the same photo being uploaded twice if the user taps again.
-
-Observing progress in the UI:
-
-```kotlin
-val info by WorkManager.getInstance(context)
-    .getWorkInfosForUniqueWorkFlow("upload-$photoId")
-    .collectAsStateWithLifecycle(initialValue = emptyList())
-```
-
-### 8.6 Deeper dive: a foreground service, complete
-
-A workout tracker that records location while the screen is off:
+**Example:**
 
 ```xml
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 <service android:name=".TrackingService" android:foregroundServiceType="location" android:exported="false" />
 ```
 
 ```kotlin
-@AndroidEntryPoint
-class TrackingService : LifecycleService() {
-    @Inject lateinit var tracker: LocationTracker
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
-        val notification = NotificationCompat.Builder(this, CHANNEL_TRACKING)
-            .setContentTitle("Recording your run")
-            .setSmallIcon(R.drawable.ic_run)
-            .setOngoing(true)
-            .addAction(R.drawable.ic_stop, "Stop", stopPendingIntent())
-            .build()
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-        lifecycleScope.launch { tracker.locations().collect { saveToDb(it) } }
-        return START_STICKY
-    }
-}
-
-// Start it from the UI, while the app is visible
-ContextCompat.startForegroundService(context, Intent(context, TrackingService::class.java))
+ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
 ```
 
-Points to mention: request location permission (and `POST_NOTIFICATIONS` on Android 13+) before starting; the user can stop it from the notification; save points to Room so nothing is lost if the process dies; return `START_STICKY` only if restarting makes sense.
+### 8.4 Exact alarms
 
-### 8.7 Deeper dive: exact alarms done right
+**In one line:** `AlarmManager` can fire at an exact time, but exact alarms need a special permission and are for user-facing, time-critical features only.
+
+**Say this in the interview:** "For an alarm clock or a calendar reminder I use `setExactAndAllowWhileIdle`, which also fires in Doze. Since Android 12 that needs the `SCHEDULE_EXACT_ALARM` permission, which the user can revoke, so I check `canScheduleExactAlarms()` first. Alarms are cleared on reboot, so I listen for `BOOT_COMPLETED` and reschedule from the database. Anything that doesn't need an exact time uses inexact alarms or WorkManager."
+
+### 8.5 Doze and App Standby
+
+**In one line:** when the phone is idle, Doze delays network, jobs and alarms to maintenance windows, and App Standby Buckets limit rarely used apps.
+
+**Say this in the interview:** "When the device is unplugged and still, Doze batches background work into short maintenance windows, and normal alarms are delayed. App Standby Buckets give apps fewer jobs the less the user opens them. This is why I let WorkManager decide when to run, and use high-priority push messages only for truly urgent, user-visible events. I test with `adb shell dumpsys deviceidle force-idle`."
+
+### 8.6 Push-triggered sync
+
+**In one line:** use a push message as a signal to sync, not as the data itself.
+
+**Say this in the interview:** "Push payloads have size limits and messages can be delayed, duplicated or lost. So my push only says 'something changed', and the handler schedules a unique WorkManager job that fetches the real data since the last sync cursor. Because the sync is idempotent, missed or duplicate pushes do no harm."
+
+**Example:**
 
 ```kotlin
-val alarmManager = context.getSystemService<AlarmManager>()!!
-if (Build.VERSION.SDK_INT >= 31 && !alarmManager.canScheduleExactAlarms()) {
-    context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))   // ask the user
-    return
-}
-val pi = PendingIntent.getBroadcast(
-    context, reminder.id.hashCode(),
-    Intent(context, ReminderReceiver::class.java).putExtra("id", reminder.id),
-    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-)
-alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, reminder.timeMillis, pi)
-```
-
-Alarms are cleared on reboot, so also listen for `BOOT_COMPLETED` and reschedule from the database. Use exact alarms only for user-visible, time-critical features (alarm clocks, calendar reminders); everything else should use inexact alarms or WorkManager.
-
-### 8.8 Deeper dive: push-triggered sync
-
-Sending the whole payload in a push message is fragile (size limits, ordering, missed messages). A robust pattern is "tickle and sync":
-
-```kotlin
-class AppMessagingService : FirebaseMessagingService() {
-    override fun onMessageReceived(message: RemoteMessage) {
-        when (message.data["type"]) {
-            "sync" -> WorkManager.getInstance(this).enqueueUniqueWork(
-                "sync", ExistingWorkPolicy.REPLACE,
-                OneTimeWorkRequestBuilder<SyncWorker>().setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST).build()
-            )
-        }
+override fun onMessageReceived(message: RemoteMessage) {
+    if (message.data["type"] == "sync") {
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "sync", ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<SyncWorker>().setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST).build()
+        )
     }
-    override fun onNewToken(token: String) { /* send the new token to your backend */ }
 }
 ```
-
-The push only says "something changed"; the worker fetches the real data with the last sync cursor. Missed or duplicate pushes do no harm because the sync is idempotent.
 
 ### Interview questions
 
-1. **Why not just use a background Service for syncing?** Background services are killed within about a minute after the app leaves the foreground (Android 8+). WorkManager is the supported, battery-friendly path. {Easy}
-2. **Does WorkManager guarantee exact timing?** No. It guarantees eventual execution when constraints are met. Periodic work has a 15-minute minimum and can drift. {Easy}
-3. **What happens to WorkManager work if the user force-stops the app?** It is cancelled and does not run until the app is opened again; force-stop clears scheduled jobs and alarms. {Medium}
-4. **How do you report progress from a worker?** `setProgress(workDataOf("progress" to 40))` and observe `WorkInfo.progress` from the UI. {Medium}
+1. **How do you choose between a coroutine, WorkManager, a foreground service and AlarmManager?** Coroutine for work tied to a screen; WorkManager for work that must finish but can wait; foreground service for long, user-visible work; AlarmManager for an exact time. {Medium}
+2. **Why not use a plain background Service for syncing?** Since Android 8, background services are stopped soon after the app leaves the foreground. WorkManager is the supported, battery-friendly way. {Easy}
+3. **Does WorkManager guarantee exact timing?** No. It guarantees the work eventually runs when constraints are met; periodic work has a 15-minute minimum and can drift. {Easy}
+4. **How do you stop the same upload from being queued twice?** Use unique work (`enqueueUniqueWork` with a stable name and `KEEP`), and make the upload idempotent on the server. {Medium}
+5. **What changed for foreground services in Android 14?** Every foreground service must declare a type with a matching permission, and Play reviews the declared types. {Medium}
+6. **How does Doze affect your app?** Network access, jobs and normal alarms are deferred to maintenance windows while the device is idle. Use WorkManager, and high-priority push only for urgent user-visible events. {Medium}
+7. **How would you sync data when the server has new content?** Send a small push that only signals a change; its handler schedules a unique WorkManager job that fetches changes since the last cursor. {Medium}
+8. **How do you show progress of a long upload in the UI?** Call `setProgress` in the worker and observe `WorkInfo` as a Flow from the UI; for long work, use `setForeground` to show a notification. {Easy}
