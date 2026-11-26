@@ -64,6 +64,15 @@ class BundleTest(unittest.TestCase):
             "quiz without why": lambda b: b["quiz"][0].pop("why"),
             "quiz with a blank mistake": lambda b: b["quiz"][0].update(mistake=" "),
             "unknown kind": lambda b: b["quiz"][0].update(kind="riddle"),
+            "bug lines on a concept question": lambda b: b["quiz"][0].update(bugLines=[1]),
+            "bug line past the code": lambda b: b["quiz"][0].update(
+                kind="bug", code="a\nb", bugLines=[3]),
+            "bug line that is blank": lambda b: b["quiz"][0].update(
+                kind="bug", code="a\n\nb", bugLines=[2]),
+            "no bug lines listed": lambda b: b["quiz"][0].update(
+                kind="bug", code="a", bugLines=[]),
+            "bug line not a number": lambda b: b["quiz"][0].update(
+                kind="bug", code="a", bugLines=[True]),
             "code question without code": lambda b: b["quiz"][0].update(kind="output"),
             "badly written review date":
                 lambda b: b["questions"][0].update(reviewed="27/11/2026"),

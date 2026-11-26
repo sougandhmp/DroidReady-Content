@@ -142,6 +142,12 @@ The first set of tracks, reasons, common mistakes, follow-ups and code samples w
 `kind` is optional: `output` for "What does this print?" and `bug` for "find the bug".
 Both need `code`. Run an `output` snippet before you publish it.
 
+A `bug` question can add `bugLines`, the lines of `code` (counted from 1) that count as
+finding it, such as `"bugLines": [5]`. The app then asks the user to tap a line instead of
+choosing an option; the website still shows the options. Keep `options` and `answer`, which
+older app versions use. Leave `bugLines` out when no single line causes the bug, such as a
+missing call. List the clearest line first: it is the one the app names.
+
 `topic` is a topic slug and `answer` is the zero-based index of the right option.
 
 Every quiz question needs `why` and `mistake`, as every interview question does; CI fails

@@ -45,7 +45,7 @@ QUESTION = {"id": str, "topic": str, "text": str, "answer": str, "level": Option
             "followUp": Optional(str), "code": Optional(str)}
 QUIZ = {"id": str, "topic": str, "question": str, "code": Optional(str),
         "options": list, "answer": int, "explanation": str, "why": str, "mistake": str,
-        "tracks": list, "kind": Optional(str)}
+        "tracks": list, "kind": Optional(str), "bugLines": Optional(list)}
 
 
 def load_json(data: bytes, name: str, errors: list):
@@ -175,6 +175,8 @@ def validate_bundle(version_bytes: bytes, bundle_bytes: bytes) -> list:
                 errors.append(f"{label}: kind must be one of {', '.join(KINDS)}")
             elif not (quiz.get("code") or "").strip():
                 errors.append(f"{label}: a '{quiz['kind']}' question needs code")
+        if quiz.get("bugLines") is not None:
+            check_bug_lines(quiz, label, errors)
         if quiz["topic"] not in topic_ids:
             errors.append(f"{label}: unknown topic '{quiz['topic']}'")
         options = quiz["options"]
@@ -185,6 +187,20 @@ def validate_bundle(version_bytes: bytes, bundle_bytes: bytes) -> list:
         if not 0 <= quiz["answer"] < len(options):
             errors.append(f"{label}: answer must be the zero-based position of an option")
     return errors
+
+
+def check_bug_lines(quiz: dict, label: str, errors: list):
+    """The lines a user can tap to answer a "find the bug" question, counted from 1."""
+    numbers = quiz["bugLines"]
+    if quiz.get("kind") != "bug":
+        errors.append(f"{label}: only a 'bug' question can have bugLines")
+        return
+    code = (quiz.get("code") or "").split("\n")
+    if (not numbers or not all(type(n) is int and 1 <= n <= len(code) for n in numbers)
+            or len(set(numbers)) != len(numbers)):
+        errors.append(f"{label}: bugLines must list different line numbers of the code")
+    elif not all(code[n - 1].strip() for n in numbers):
+        errors.append(f"{label}: bugLines points at a blank line")
 
 
 def validate_markdown(name: str, text: str) -> list:
