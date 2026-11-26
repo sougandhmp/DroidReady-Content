@@ -1,112 +1,152 @@
 # Jetpack Compose
 
-Compose is now the default UI toolkit. Seniors must explain recomposition, state ownership, side effects and performance, not just write composables.
+Compose is now the default UI toolkit. Interviewers want to hear that you understand recomposition, who owns state, how side effects work and how to keep screens fast.
 
-### 4.1 Mental model
+### 4.1 The mental model
 
-- UI = f(state). A `@Composable` function describes UI for the current state; when state changes, Compose **recomposes** only the functions that read that state.
-- Three phases per frame: **Composition** (what to show) → **Layout** (measure and place) → **Drawing**. Reading state in a later phase skips the earlier ones (a key performance trick).
-- Composables can run in any order, in parallel, and very often. They must be **side-effect free** and fast.
+**In one line:** in Compose, the UI is a function of state: you describe what the screen should look like for the current state, and Compose updates it when the state changes.
 
-### 4.2 State and remember
+**Say this in the interview:** "Instead of finding views and changing them, I write `@Composable` functions that take state and emit UI. When state that a composable read changes, Compose re-runs just that composable, which is called recomposition. Each frame has three phases: composition decides what to show, layout measures and places, and drawing renders. Composables can run often and in any order, so they must be fast and free of side effects."
+
+**Example:**
 
 ```kotlin
 @Composable
-fun Counter() {
-    var count by remember { mutableStateOf(0) }          // survives recomposition
-    var text by rememberSaveable { mutableStateOf("") }   // also survives rotation + process death
-    Button(onClick = { count++ }) { Text("Clicked $count") }
+fun Greeting(name: String) {
+    Text("Hello, $name")      // when 'name' changes, only this recomposes
 }
 ```
 
-- `remember`: keeps a value across recompositions; lost when the composable leaves the composition or on config change.
-- `rememberSaveable`: stores in the saved-instance Bundle.
-- `derivedStateOf`: create state derived from other state that changes less often than its inputs.
+**How it works:** the Compose compiler plugin rewrites composables to track which state they read through the snapshot system. Reading state in a later phase (layout or draw) means a change can skip the earlier phases, which is a key performance trick.
+
+### 4.2 State: remember, rememberSaveable and derivedStateOf
+
+**In one line:** `remember` keeps a value across recompositions, `rememberSaveable` also keeps it across rotation and process death, and `derivedStateOf` creates state that changes less often than its inputs.
+
+**Say this in the interview:** "A composable's local variables reset on every recomposition, so I wrap state in `remember { mutableStateOf(...) }`. That survives recomposition but not rotation; `rememberSaveable` stores it in the saved Bundle so it survives both. When I compute something from fast-changing state, like whether to show a 'scroll to top' button from the scroll position, I use `derivedStateOf`, so the UI only recomposes when the result flips, not on every pixel."
+
+**Example:**
 
 ```kotlin
+var query by rememberSaveable { mutableStateOf("") }               // survives rotation
 val listState = rememberLazyListState()
 val showScrollToTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
 ```
 
-Without `derivedStateOf`, every scroll pixel would recompose the reader; with it, only the true/false flip does.
+**Follow-ups:**
+
+- *Where should screen state live: `remember` or a ViewModel?* Business and screen state in the ViewModel; pure UI element state (expanded, focus, scroll) in `remember` or a small state holder.
 
 ### 4.3 State hoisting and unidirectional data flow
 
-Move state up to the caller; pass the **value down** and **events up**. Stateless composables are reusable, previewable and testable.
+**In one line:** state hoisting moves state up to the caller, so a composable receives its value as a parameter and reports changes through callbacks.
+
+**Say this in the interview:** "I keep most composables stateless: values come down as parameters and events go up as lambdas. That makes them reusable, previewable and easy to test. A common pattern is a 'route' composable that talks to the ViewModel and a stateless 'screen' composable that only renders. For UI logic that doesn't belong in a ViewModel, like a search bar's expanded state, I write a small `@Stable` state-holder class with a `remember` function, the same way Compose provides `LazyListState`."
+
+**Example:**
 
 ```kotlin
 @Composable
 fun SearchRoute(viewModel: SearchViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    SearchScreen(state = state, onQueryChange = viewModel::onQueryChanged, onItemClick = viewModel::open)
+    SearchScreen(state = state, onQueryChange = viewModel::onQueryChanged)
 }
 
 @Composable
-fun SearchScreen(state: SearchUiState, onQueryChange: (String) -> Unit, onItemClick: (Id) -> Unit) {
-    // pure UI, no ViewModel reference - easy to preview and test
+fun SearchScreen(state: SearchUiState, onQueryChange: (String) -> Unit) {
+    // pure UI: easy to preview and test with fake state
 }
 ```
 
-The **Route / Screen split** above is a common pattern: the route wires the ViewModel; the screen is stateless.
+### 4.4 Side effects
 
-### 4.4 Side-effect APIs
+**In one line:** side-effect APIs run non-UI work from composables in a controlled way, tied to the composable's lifecycle.
 
-| API | Runs | Use for |
-| --- | --- | --- |
-| `LaunchedEffect(key)` | Coroutine on enter; restarts when key changes | Load data, show snackbar, animations |
-| `rememberCoroutineScope()` | Scope tied to composition | Launch from callbacks (e.g. onClick scroll) |
-| `DisposableEffect(key)` | On enter, with `onDispose` cleanup | Register/unregister listeners, observers |
-| `SideEffect` | After every successful recomposition | Push Compose state to non-Compose code (analytics) |
-| `rememberUpdatedState` | - | Capture the latest lambda in a long-running effect without restarting it |
-| `produceState` | Coroutine producing State | Turn non-Compose async source into State |
-| `snapshotFlow` | - | Turn Compose State into a Flow |
+**Say this in the interview:** "Composables shouldn't do work like network calls directly, because they can run many times. `LaunchedEffect(key)` starts a coroutine when the composable enters, and restarts it when the key changes. `rememberCoroutineScope` gives me a scope for launching from click handlers. `DisposableEffect` is for registering and unregistering listeners. `rememberUpdatedState` lets a long-running effect use the latest lambda without restarting."
+
+**Example:**
+
+| API | Use for |
+| --- | --- |
+| `LaunchedEffect(key)` | Run suspend work on enter or when the key changes (show a snackbar, start an animation) |
+| `rememberCoroutineScope()` | Launch from callbacks, like `onClick` scrolling a list |
+| `DisposableEffect(key)` | Register/unregister listeners, with `onDispose` cleanup |
+| `SideEffect` | Push Compose state to non-Compose code after each recomposition |
+| `rememberUpdatedState` | Use the latest value inside a long-running effect |
+| `produceState`, `snapshotFlow` | Convert between Flow/async sources and Compose state |
 
 ```kotlin
-@Composable
-fun LifecycleLogger(onEvent: (Lifecycle.Event) -> Unit) {
-    val currentOnEvent by rememberUpdatedState(onEvent)
-    val owner = LocalLifecycleOwner.current
-    DisposableEffect(owner) {
-        val observer = LifecycleEventObserver { _, e -> currentOnEvent(e) }
-        owner.lifecycle.addObserver(observer)
-        onDispose { owner.lifecycle.removeObserver(observer) }
-    }
+LaunchedEffect(state.userMessage) {
+    state.userMessage?.let { snackbarHostState.showSnackbar(it); viewModel.messageShown() }
 }
 ```
 
-### 4.5 Stability and skipping
+**Follow-ups:**
 
-- Compose can **skip** a composable if all its parameters are equal to last time. That needs parameters to be **stable**: primitives, String, lambdas, `@Stable`/`@Immutable` classes, or classes whose properties are all `val` and stable.
-- `List<T>` from Kotlin is an interface, so Compose treats it as unstable. Fix with `kotlinx.collections.immutable` (`ImmutableList`), annotate the wrapper with `@Immutable`, or add it to a stability configuration file.
-- **Strong skipping mode** (on by default with Kotlin 2.0.20+ Compose compiler): composables with unstable parameters can still skip, using instance equality (`===`) for them, and lambdas are remembered automatically. Stability still matters, but less than before.
-- Diagnose with **Compose compiler reports/metrics** and the **Layout Inspector recomposition counts**.
+- *`LaunchedEffect(Unit)` vs `LaunchedEffect(userId)`?* `Unit` runs once per entry into composition; `userId` cancels and restarts the effect whenever the ID changes.
+
+### 4.5 Recomposition, stability and skipping
+
+**In one line:** Compose skips a composable if its parameters haven't changed, but only if it can trust them: their types must be stable.
+
+**Say this in the interview:** "When a parent recomposes, Compose can skip a child whose parameters are equal to last time. That needs stable types: primitives, strings, lambdas, and immutable classes with `val` properties of stable types. A plain `List` is an interface, so Compose can't know it's immutable. Since Kotlin 2.0.20 strong skipping is on by default, which lets composables with unstable parameters skip when the same instance is passed, so stability matters less than before. When a screen recomposes too often, I check the Layout Inspector's recomposition counts and the Compose compiler reports, then use immutable UI models or `ImmutableList`."
+
+**Example:**
+
+```kotlin
+// Before: List and a class from a module without the Compose compiler are unstable
+data class Post(val id: String, val tags: List<String>, val author: Author)
+
+// After: a flat, immutable UI model
+@Immutable
+data class PostUi(val id: String, val title: String, val tags: ImmutableList<String>, val authorName: String)
+```
+
+**Follow-ups:**
+
+- *Why does my composable recompose when nothing changed?* An unstable parameter, a new list instance with the same content, or reading fast-changing state too high in the tree.
 
 ### 4.6 Performance techniques
 
-1. Give `LazyColumn` items a stable `key` and a `contentType`.
-2. Defer state reads: pass a lambda `() -> Float` instead of a `Float`, or use `Modifier.offset { IntOffset(...) }` (layout phase) and `Modifier.graphicsLayer { alpha = ... }` (draw phase) so scroll-driven animations skip composition.
-3. Avoid heavy work in composition; `remember` expensive calculations with the right keys, or move them to the ViewModel.
-4. Do not write to state you just read in the same composition (backwards write → infinite recomposition).
-5. Test performance in **release** builds with R8 and a **baseline profile**; debug builds of Compose are much slower.
+**In one line:** keep composition cheap: stable keys in lists, read fast-changing state as late as possible, and measure in release builds.
+
+**Say this in the interview:** "In lazy lists I always give items a stable `key` and a `contentType`. For scroll-driven animations I read state in the layout or draw phase, using lambda modifiers like `Modifier.offset { }` or `graphicsLayer { }`, so scrolling doesn't recompose. I never do heavy work during composition, and I never write to state I just read. And I measure in release builds with R8 and a baseline profile, because debug Compose is much slower."
+
+**Example:**
 
 ```kotlin
 LazyColumn {
-    items(items = messages, key = { it.id }, contentType = { it.type }) { msg ->
-        MessageRow(msg)
+    items(messages, key = { it.id }, contentType = { it.type }) { MessageRow(it) }
+}
+
+Box(Modifier.graphicsLayer { alpha = fadeProvider() })   // read in draw phase: no recomposition
+```
+
+### 4.7 Layouts, modifiers and custom layouts
+
+**In one line:** modifiers decorate a composable in order, and a custom `Layout` measures and places children yourself.
+
+**Say this in the interview:** "Modifier order matters: `padding` then `background` differs from `background` then `padding`. When the built-in layouts aren't enough, I write a `Layout` that measures each child once and places it. Compose's single-pass measurement is why deep nesting is cheap, unlike nested weights in old View layouts. `CompositionLocal` passes ambient values like the theme down the tree, and I use it sparingly."
+
+**Example:**
+
+```kotlin
+Layout(content = content) { measurables, constraints ->
+    val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0)) }   // measure once each
+    layout(constraints.maxWidth, placeables.sumOf { it.height }) {
+        var y = 0
+        placeables.forEach { it.place(0, y); y += it.height }
     }
 }
 ```
 
-### 4.7 Modifiers, layouts and CompositionLocal
-
-- Modifier order matters: `Modifier.padding(16.dp).background(Red)` differs from `.background(Red).padding(16.dp)`.
-- Custom layouts with `Layout {}` or `SubcomposeLayout` (used by `BoxWithConstraints`; expensive).
-- `CompositionLocal` passes values implicitly down the tree (theme, `LocalContext`). Use sparingly for truly ambient data, not to avoid passing parameters.
-
 ### 4.8 Navigation
 
-- **Navigation Compose (Nav2):** `NavHost` + `NavController`, with type-safe routes using `@Serializable` classes since 2.8.
-- **Navigation 3 (stable 1.0, Nov 2025):** you own the back stack as a Compose-state list of keys; `NavDisplay` renders it. Easier adaptive layouts (list-detail) and a single source of truth.
+**In one line:** Navigation Compose maps routes to screens; Navigation 3, stable since November 2025, lets you own the back stack as a list of keys.
+
+**Say this in the interview:** "With Navigation Compose I use type-safe routes, which are `@Serializable` classes, and pass IDs as arguments, not objects. Navigation 3 changes the model: the back stack is just a state list that I add to and remove from, and `NavDisplay` renders it. That makes adaptive layouts like list-detail easier and keeps a single source of truth for navigation state."
+
+**Example:**
 
 ```kotlin
 @Serializable data object Home : NavKey
@@ -123,126 +163,36 @@ NavDisplay(
 )
 ```
 
-### 4.9 Interop and migration
+### 4.9 Animations
 
-- `ComposeView` puts Compose inside Views; `AndroidView` puts Views (MapView, WebView, AdView) inside Compose.
-- Migrate screen by screen, leaf-first; share the theme via a Material 3 theme bridge.
+**In one line:** Compose has high-level animation APIs for values, visibility and content changes, and low-level ones for gestures.
 
-### 4.10 Deeper dive: recomposition traced
+**Say this in the interview:** "For one value I use `animate*AsState`, for appearing and disappearing content `AnimatedVisibility`, for switching content `AnimatedContent`, and `updateTransition` when several values follow one state. For gestures like swipe-to-dismiss I use `Animatable`. When I can, I apply animated values in the draw phase with `graphicsLayer` so they don't recompose every frame."
 
-```kotlin
-@Composable
-fun CartScreen(viewModel: CartViewModel) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    Column {
-        CartHeader(count = state.items.size)          // (A)
-        CartList(items = state.items)                 // (B)
-        CheckoutButton(total = state.total, onClick = viewModel::checkout)   // (C)
-    }
-}
-```
-
-The user changes a coupon code, so only `state.total` changes. What recomposes?
-
-- `CartScreen` recomposes, because it read `state`.
-- (A) is skipped: `count` is an `Int` equal to last time.
-- (B) is skipped only if `items` is stable and equal. With a plain `List<Item>` and strong skipping, it is skipped when it is the same list instance (`===`); if the ViewModel built a new list with the same contents, it recomposes.
-- (C) recomposes because `total` changed. `viewModel::checkout` is a stable function reference.
-
-The lesson: keep state granular and stable, and avoid creating new collections in the ViewModel when nothing changed.
-
-### 4.11 Deeper dive: fixing stability, before and after
+**Example:**
 
 ```kotlin
-// Before: unstable. 'tags' is a List interface, 'author' comes from a module without the Compose compiler
-data class Post(val id: String, val title: String, val tags: List<String>, val author: Author)
-
-// After, option 1: immutable collections and an annotation
-@Immutable
-data class PostUi(val id: String, val title: String, val tags: ImmutableList<String>, val authorName: String)
-
-// After, option 2: a stability configuration file for types you do not own
-// compose_stability.conf
-//   com.example.core.model.Author
-//   kotlin.collections.List
+val elevation by animateDpAsState(if (pressed) 2.dp else 8.dp, label = "elevation")
+AnimatedVisibility(visible = state.error != null) { ErrorBanner(state.error) }
 ```
 
-Option 1 is preferred for UI models: map domain models into small, flat, immutable `...Ui` classes that hold exactly what the screen shows. Verify with the Compose compiler report: `restartable skippable fun PostCard(stable post: PostUi)`.
+### 4.10 Interop and migration from Views
 
-### 4.12 Deeper dive: plain state holder classes
+**In one line:** `ComposeView` puts Compose inside Views, and `AndroidView` puts a View inside Compose, so you can migrate one screen at a time.
 
-Not all state belongs in a ViewModel. UI-element logic (expanded panels, a search bar's focus, which tab is selected) can live in a remembered state holder class:
-
-```kotlin
-@Stable
-class SearchBarState(initialQuery: String) {
-    var query by mutableStateOf(initialQuery)
-        private set
-    var expanded by mutableStateOf(false)
-        private set
-
-    fun onQueryChange(q: String) { query = q; expanded = q.isNotEmpty() }
-    fun clear() { query = ""; expanded = false }
-
-    companion object {
-        val Saver = Saver<SearchBarState, String>(save = { it.query }, restore = { SearchBarState(it) })
-    }
-}
-
-@Composable
-fun rememberSearchBarState(initial: String = "") =
-    rememberSaveable(saver = SearchBarState.Saver) { SearchBarState(initial) }
-```
-
-This is the same pattern Compose uses for `LazyListState`, `ScaffoldState` and `DrawerState`.
-
-### 4.13 Deeper dive: a custom layout
-
-A layout that places children in rows and wraps when a row is full (like tags):
-
-```kotlin
-@Composable
-fun SimpleFlowRow(modifier: Modifier = Modifier, spacing: Dp = 8.dp, content: @Composable () -> Unit) {
-    Layout(content = content, modifier = modifier) { measurables, constraints ->
-        val gap = spacing.roundToPx()
-        val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0)) }  // measure each child once
-        var x = 0; var y = 0; var rowHeight = 0
-        val positions = placeables.map { p ->
-            if (x + p.width > constraints.maxWidth) { x = 0; y += rowHeight + gap; rowHeight = 0 }
-            IntOffset(x, y).also { x += p.width + gap; rowHeight = maxOf(rowHeight, p.height) }
-        }
-        layout(constraints.maxWidth, y + rowHeight) {
-            placeables.forEachIndexed { i, p -> p.place(positions[i]) }
-        }
-    }
-}
-```
-
-Key rule: each child may be measured only once per layout pass. This single-pass measurement is why Compose layouts are fast even when deeply nested. (In production, use the built-in `FlowRow`.)
-
-### 4.14 Deeper dive: animations
-
-| API | Use for | Example |
-| --- | --- | --- |
-| `animate*AsState` | One value to a target | `animateDpAsState(if (selected) 8.dp else 0.dp)` |
-| `AnimatedVisibility` | Enter/exit of content | Expanding an error banner |
-| `AnimatedContent` | Switching between contents | Counter text, loading to content |
-| `updateTransition` | Several values driven by one state | Card selected: colour, size, elevation together |
-| `rememberInfiniteTransition` | Looping | Shimmer placeholders |
-| `Animatable` | Imperative, gesture-driven | Swipe to dismiss, fling |
-| Shared element transitions | Element moves between screens | List thumbnail to detail image |
-
-```kotlin
-val elevation by animateDpAsState(targetValue = if (pressed) 2.dp else 8.dp, label = "elevation")
-Card(elevation = CardDefaults.cardElevation(defaultElevation = elevation)) { /* ... */ }
-```
-
-Performance tip: animate in the draw phase when you can (`Modifier.graphicsLayer { alpha = animatedAlpha }`) so the animation does not trigger recomposition every frame.
+**Say this in the interview:** "I'd never rewrite a whole app at once. I start with new screens in Compose, then migrate leaf components and whole screens one by one, sharing the theme between both systems. Views with no Compose equivalent, like a map or an ad view, stay inside `AndroidView`. I measure performance before and after each step."
 
 ### Interview questions
 
-1. **What triggers recomposition?** A change to a `State` object that was read during composition of that scope. Compose tracks reads through the snapshot system. {Easy}
-2. **Why does my composable recompose even though data did not change?** An unstable parameter (e.g. `List`, a class from a non-Compose module, a `var` property), a new lambda instance capturing unstable values, or reading fast-changing state too high up. {Medium}
-3. **`LaunchedEffect(Unit)` vs `LaunchedEffect(userId)`?** `Unit` runs once per entry into composition; `userId` restarts the effect (cancelling the old coroutine) whenever the id changes. {Medium}
-4. **Where should UI state live: ViewModel or remember?** Screen-level business state in the ViewModel (survives config change, testable). Pure UI element state (expanded, scroll position, focus) in `remember`/state holders. {Easy}
-5. **How do you test a composable?** `createComposeRule()`, find with semantics (`onNodeWithText`, `onNodeWithTag`), perform actions, assert. Because composables are stateless, pass fake state directly. {Easy}
+1. **What triggers recomposition?** A change to a `State` object that a composable read during composition. Compose tracks those reads and re-runs only the composables that read the changed state. {Easy}
+2. **`remember` vs `rememberSaveable`?** `remember` keeps a value across recompositions only. `rememberSaveable` also saves it in the Bundle, so it survives rotation and process death. {Easy}
+3. **When do you use `derivedStateOf`?** When a value is computed from state that changes more often than the result, such as 'show the scroll-to-top button' from the scroll position, so the UI recomposes only when the result changes. {Medium}
+4. **What is state hoisting, and why do it?** Moving state up to the caller so a composable takes values as parameters and reports events through lambdas. Stateless composables are reusable, previewable and easy to test. {Easy}
+5. **`LaunchedEffect`, `rememberCoroutineScope` or `DisposableEffect`?** `LaunchedEffect` runs suspend work tied to a key; `rememberCoroutineScope` launches from callbacks like `onClick`; `DisposableEffect` registers listeners and cleans up in `onDispose`. {Medium}
+6. **Why does my composable recompose even though the data didn't change?** An unstable parameter type, a new list instance with the same contents, or reading fast-changing state too high up. Use immutable UI models, stable keys and lambda modifiers. {Medium}
+7. **What does strong skipping mode change?** It's on by default since Kotlin 2.0.20. Composables with unstable parameters can still skip when the same instances are passed, and lambdas are remembered automatically, so stability problems matter less. {Hard}
+8. **How do you make a `LazyColumn` perform well?** Stable `key`s and `contentType`s, cheap item composables with precomputed UI models, no heavy work in composition, and testing in release builds with a baseline profile. {Medium}
+9. **Why does Modifier order matter?** Each modifier wraps the next, so `padding().background()` pads outside the background, while `background().padding()` pads inside it. {Easy}
+10. **How would you migrate a large View-based app to Compose?** Screen by screen: new screens in Compose, then leaf components and existing screens, using `ComposeView` and `AndroidView` for interop and a shared theme, measuring performance as you go. {Medium}
+11. **How do you test a composable?** With `createComposeRule()`: set content with fake state, find nodes by text, content description or test tag, perform actions and assert. Stateless composables make this easy. {Easy}
+12. **What is different about Navigation 3?** You own the back stack as a state list of keys, and `NavDisplay` renders it, which simplifies adaptive layouts and keeps navigation state in one place. {Medium}

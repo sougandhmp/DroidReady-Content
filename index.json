@@ -28,14 +28,14 @@
       "number": 3,
       "title": "Android fundamentals",
       "path": "topics/03-android-fundamentals.md",
-      "sha256": "f18f70a85fd250e19043150d75dc3100c6b4d1b60d35ccec01612a493540928b"
+      "sha256": "33e1e92948e8ac1fc6e92f096f10cdece80ec8b5856438dd52be53d0ffc49d73"
     },
     {
       "id": "jetpack-compose",
       "number": 4,
       "title": "Jetpack Compose",
       "path": "topics/04-jetpack-compose.md",
-      "sha256": "6a5b19da215d14c58779366de725d89864ccd08a996e5cd8d68cd6cff6d7e995"
+      "sha256": "4e0065bc4a1bc1ad91bca92ba8b998cd89c0f0d09256e163dafcf31f7baea08c"
     },
     {
       "id": "architecture",
