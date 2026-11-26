@@ -4,6 +4,16 @@ Study material for the DroidReady Android app. The app reads `index.json` from t
 `main` branch, then downloads the Markdown files it lists. Changing content here
 does not need an app release.
 
+## Website
+
+<https://sougandhmp.github.io/DroidReady-Content/> shows the same content in a
+browser. GitHub Pages serves it from the root of `main`, with no build step:
+`index.html` and `assets/` read `index.json`, `topics/` and `quiz.json` directly,
+so pushing content to `main` updates the site too. Progress and bookmarks are
+saved in each visitor's browser and don't sync with the app.
+
+To preview locally, run `python3 -m http.server` and open <http://localhost:8000>.
+
 ## Update content
 
 1. Edit or add files in `topics/`, or edit `quiz.json`. Name them `NN-slug.md`; the first line is `# Title`.
