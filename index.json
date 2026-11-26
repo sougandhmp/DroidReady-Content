@@ -40,16 +40,16 @@
     {
       "id": "architecture",
       "number": 5,
-      "title": "App architecture",
+      "title": "App architecture and data flow",
       "path": "topics/05-architecture.md",
-      "sha256": "a4d3c64eb307680fd6408ab163f5cbf8227b9e8f6b3d0a9f4281142f4c95342f"
+      "sha256": "63f5b02fb1d785c11b0b8f5cbd385ea29f63d401ede78563cb780e7b1430b67b"
     },
     {
       "id": "dependency-injection",
       "number": 6,
       "title": "Dependency injection",
       "path": "topics/06-dependency-injection.md",
-      "sha256": "1e3fcc92977c9a6d1f2e5481c6c050a5cc11a820d65f111516bf23af10e74287"
+      "sha256": "ae069a8ed3948021c3b1031acb422b7780751b2efeee67d483faace87c38e486"
     },
     {
       "id": "data-layer",

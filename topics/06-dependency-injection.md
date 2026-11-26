@@ -1,37 +1,42 @@
 # Dependency injection
 
-DI means a class receives its dependencies instead of creating them. Benefits: testability (swap fakes), reuse, and clear lifetimes.
+DI questions check whether you can wire a large app so it's testable, and whether you understand what Hilt and Dagger actually do.
 
-### 6.1 Manual DI first
+### 6.1 What DI is and why it matters
 
-Know how to do it by hand; it shows you understand what the frameworks generate.
+**In one line:** dependency injection means a class receives the objects it needs, usually through its constructor, instead of creating them itself.
+
+**Say this in the interview:** "If a ViewModel creates its own Retrofit client, I can't test it without a network and can't change the client without editing it. With DI, the ViewModel just asks for an `ArticleRepository` in its constructor, and something else decides which implementation to give it: the real one in the app, a fake in tests. That gives testability, reuse and clear lifetimes. A DI framework like Hilt only automates building and scoping that object graph."
+
+**Example:**
 
 ```kotlin
-class AppContainer(context: Context) {
-    private val okHttp = OkHttpClient.Builder().build()
-    private val api = Retrofit.Builder().baseUrl(BASE).client(okHttp)
-        .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build()
-        .create(ArticleApi::class.java)
-    private val db = Room.databaseBuilder(context, AppDb::class.java, "app.db").build()
-    val articleRepository: ArticleRepository = OfflineFirstArticleRepository(api, db.articleDao())
-}
+// Without DI: hard-wired, untestable
+class ArticlesViewModel : ViewModel() { private val repo = ArticleRepositoryImpl(RetrofitClient.api) }
+
+// With DI: dependencies come in through the constructor
+class ArticlesViewModel @Inject constructor(private val repo: ArticleRepository) : ViewModel()
 ```
 
-### 6.2 Hilt (built on Dagger)
+**Follow-ups:**
 
-Compile-time, code-generated, Android-aware. Errors appear at build time, not at runtime.
+- *DI vs service locator?* With DI, dependencies are pushed in and visible in the constructor. A service locator is called from inside the class (`ServiceLocator.get<Repo>()`), which hides dependencies and makes tests harder.
+- *Why prefer constructor injection over field injection?* Dependencies are explicit, fields can be `val`, and tests can build the class without a framework. Field injection is only for classes the system creates, like Activities.
+
+### 6.2 Hilt basics
+
+**In one line:** Hilt is Android's recommended DI library, built on Dagger, that generates the object graph at compile time and wires it into Android classes.
+
+**Say this in the interview:** "I annotate the Application with `@HiltAndroidApp`, Activities and Fragments with `@AndroidEntryPoint`, and ViewModels with `@HiltViewModel`. Classes I own get `@Inject constructor`. For interfaces I use `@Binds` in an abstract module, and for third-party classes like Retrofit I use `@Provides`. Because the graph is checked at compile time, a missing dependency fails the build instead of crashing a user's app."
+
+**Example:**
 
 ```kotlin
-@HiltAndroidApp class App : Application()
-
-@AndroidEntryPoint class MainActivity : ComponentActivity()
-
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
     @Provides @Singleton
-    fun okHttp(authInterceptor: AuthInterceptor): OkHttpClient =
-        OkHttpClient.Builder().addInterceptor(authInterceptor).build()
+    fun okHttp(auth: AuthInterceptor): OkHttpClient = OkHttpClient.Builder().addInterceptor(auth).build()
 
     @Provides @Singleton
     fun api(client: OkHttpClient): ArticleApi = Retrofit.Builder()
@@ -43,159 +48,81 @@ object NetworkModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DataModule {
-    @Binds abstract fun bindRepo(impl: OfflineFirstArticleRepository): ArticleRepository
+    @Binds abstract fun articleRepository(impl: OfflineFirstArticleRepository): ArticleRepository
 }
 ```
 
-- `@Provides`: you write the construction code (third-party classes).
-- `@Binds`: map an interface to an implementation with an `@Inject constructor` (cheaper, abstract).
-- **Qualifiers:** `@Qualifier annotation class IoDispatcher` to provide two instances of the same type.
-- **Assisted injection:** `@AssistedInject` + `@AssistedFactory` for runtime parameters; Hilt ViewModels get nav args via `SavedStateHandle` or `@HiltViewModel(assistedFactory = ...)`.
-- **Entry points:** `@EntryPoint` to get dependencies in classes Hilt cannot inject (ContentProvider, some library callbacks).
-- **WorkManager:** `@HiltWorker` with `@AssistedInject constructor`.
+**How it works:** for every `@Inject` constructor, Dagger generates a factory class. Components connect the factories into a graph. A `@Singleton` binding is wrapped in `DoubleCheck`, which creates it once with double-checked locking. `@AndroidEntryPoint class MainActivity` really extends a generated `Hilt_MainActivity` that injects fields in `onCreate`.
+
+**Follow-ups:**
+
+- *`@Binds` vs `@Provides`?* `@Binds` maps an interface to an implementation that has an `@Inject` constructor; it's abstract and cheaper. `@Provides` is a function where you write the construction code yourself.
 
 ### 6.3 Components and scopes
 
-| Component | Scope annotation | Lifetime |
+**In one line:** each Hilt component lives as long as an Android class, and a scope annotation makes a binding one shared instance within that component.
+
+**Say this in the interview:** "Without a scope, Hilt creates a new instance every time something asks for it. `@Singleton` gives one per app, `@ViewModelScoped` one per ViewModel, `@ActivityRetainedScoped` one that survives rotation, and so on. I only scope objects that hold shared state or are expensive to create, because a scoped object stays in memory for the whole component's life."
+
+**Example:**
+
+| Component | Scope | Lives as long as |
 | --- | --- | --- |
-| SingletonComponent | `@Singleton` | Application |
-| ActivityRetainedComponent | `@ActivityRetainedScoped` | Survives config change |
-| ViewModelComponent | `@ViewModelScoped` | One ViewModel |
-| ActivityComponent | `@ActivityScoped` | One Activity instance |
-| FragmentComponent | `@FragmentScoped` | One Fragment |
-| ServiceComponent | `@ServiceScoped` | One Service |
+| `SingletonComponent` | `@Singleton` | The application process |
+| `ActivityRetainedComponent` | `@ActivityRetainedScoped` | An activity, across rotation |
+| `ViewModelComponent` | `@ViewModelScoped` | One ViewModel |
+| `ActivityComponent` | `@ActivityScoped` | One activity instance |
+| `FragmentComponent` | `@FragmentScoped` | One fragment |
+| `ServiceComponent` | `@ServiceScoped` | One service |
 
-Unscoped bindings create a **new instance every injection**. Scope only when you need shared state or the object is expensive; each scope holds memory and needs synchronisation.
+### 6.4 Qualifiers, assisted injection and multibindings
 
-### 6.4 Testing with Hilt
+**In one line:** qualifiers tell apart two bindings of the same type, assisted injection mixes graph dependencies with runtime values, and multibindings collect many implementations into a set or map.
 
-```kotlin
-@HiltAndroidTest
-@UninstallModules(DataModule::class)
-class ArticlesScreenTest {
-    @get:Rule val hilt = HiltAndroidRule(this)
+**Say this in the interview:** "When I need two `CoroutineDispatcher`s, I define qualifiers like `@IoDispatcher` and `@DefaultDispatcher`. When a class needs something only known at runtime, like an article ID, I use `@AssistedInject` with an `@AssistedFactory`. And when several modules each contribute an implementation, like app initializers or payment methods, I use `@IntoSet` or `@IntoMap` so no central list has to know about them all."
 
-    @Module @InstallIn(SingletonComponent::class)
-    abstract class FakeDataModule {
-        @Binds abstract fun repo(fake: FakeArticleRepository): ArticleRepository
-    }
-}
-```
-
-Or use `@TestInstallIn(components = [...], replaces = [DataModule::class])` once for the whole test source set.
-
-### 6.5 Koin and alternatives
-
-- **Koin:** a runtime service locator with a DSL; no codegen, quick to set up, works in Kotlin Multiplatform. Errors are found at runtime (mitigate with `verify()` tests). Koin Annotations adds compile-time checking.
-- **Dagger (plain):** more control, used in large multi-module apps; more boilerplate.
-- **kotlin-inject / Metro:** compile-time, KMP-friendly options.
-
-### 6.6 Deeper dive: what Dagger and Hilt generate
-
-For a class with an `@Inject` constructor, Dagger generates a factory at compile time:
-
-```kotlin
-class ArticleRepository @Inject constructor(private val api: ArticleApi, private val dao: ArticleDao)
-
-// Generated (simplified, Java in reality)
-class ArticleRepository_Factory(
-    private val api: Provider<ArticleApi>,
-    private val dao: Provider<ArticleDao>
-) : Factory<ArticleRepository> {
-    override fun get() = ArticleRepository(api.get(), dao.get())
-}
-```
-
-The component wires these factories into a graph. A `@Singleton` binding is wrapped in `DoubleCheck`, which creates the object once with double-checked locking. Because the graph is checked at compile time, a missing binding fails the build with a message like `[Dagger/MissingBinding] ArticleApi cannot be provided without an @Provides-annotated method`, instead of crashing a user's app.
-
-Hilt adds generated base classes: `@AndroidEntryPoint class MainActivity` really extends `Hilt_MainActivity`, which injects fields in `onCreate`.
-
-### 6.7 Deeper dive: qualifiers for dispatchers and scopes
+**Example:**
 
 ```kotlin
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class IoDispatcher
-@Qualifier @Retention(AnnotationRetention.BINARY) annotation class DefaultDispatcher
-@Qualifier @Retention(AnnotationRetention.BINARY) annotation class ApplicationScope
 
-@Module @InstallIn(SingletonComponent::class)
-object CoroutinesModule {
-    @Provides @IoDispatcher fun io(): CoroutineDispatcher = Dispatchers.IO
-    @Provides @DefaultDispatcher fun default(): CoroutineDispatcher = Dispatchers.Default
+@Provides @IoDispatcher fun io(): CoroutineDispatcher = Dispatchers.IO
 
-    @Provides @Singleton @ApplicationScope
-    fun appScope(@DefaultDispatcher d: CoroutineDispatcher): CoroutineScope = CoroutineScope(SupervisorJob() + d)
-}
-
-class SyncRepository @Inject constructor(
-    @IoDispatcher private val io: CoroutineDispatcher,
-    @ApplicationScope private val appScope: CoroutineScope   // for work that must outlive a screen
-)
-```
-
-In tests, replace `CoroutinesModule` with one that returns a `StandardTestDispatcher`.
-
-### 6.8 Deeper dive: assisted injection for runtime values
-
-Some dependencies come from the graph, others only exist at runtime (an ID, a callback):
-
-```kotlin
 class ArticleExporter @AssistedInject constructor(
-    private val repo: ArticleRepository,        // from the graph
-    @Assisted private val articleId: String     // supplied by the caller
+    private val repo: ArticleRepository,           // from the graph
+    @Assisted private val articleId: String        // from the caller
 ) {
     @AssistedFactory interface Factory { fun create(articleId: String): ArticleExporter }
 }
 
-class ShareViewModel @Inject constructor(private val exporterFactory: ArticleExporter.Factory) : ViewModel() {
-    fun export(id: String) = viewModelScope.launch { exporterFactory.create(id).export() }
-}
+@Binds @IntoSet abstract fun analyticsInit(i: AnalyticsInitializer): AppInitializer   // collected into Set<AppInitializer>
 ```
 
-For ViewModels, Hilt supports the same idea:
+### 6.5 Testing with Hilt, and alternatives
+
+**In one line:** in tests, replace production modules with test modules that bind fakes; outside Hilt, Koin and kotlin-inject are common choices.
+
+**Say this in the interview:** "For instrumented tests I use `@HiltAndroidTest` and replace a module with `@TestInstallIn(replaces = [DataModule::class])`, which binds a fake repository for the whole test suite. For plain unit tests I don't need Hilt at all: I just call the constructor with fakes. As for alternatives, Koin is a runtime service locator with a simple DSL that works in Kotlin Multiplatform, but errors show up at runtime; Dagger and Hilt catch them at compile time."
+
+**Example:**
 
 ```kotlin
-@HiltViewModel(assistedFactory = DetailViewModel.Factory::class)
-class DetailViewModel @AssistedInject constructor(
-    @Assisted val id: String,
-    private val repo: ArticleRepository
-) : ViewModel() {
-    @AssistedFactory interface Factory { fun create(id: String): DetailViewModel }
-}
-
-val vm = hiltViewModel<DetailViewModel, DetailViewModel.Factory> { it.create(articleId) }
-```
-
-### 6.9 Deeper dive: multibindings for plug-in style features
-
-Collect many implementations into a `Set` or `Map` without a central list. Useful for app initializers, analytics trackers or deep-link handlers contributed by different modules.
-
-```kotlin
-interface AppInitializer { fun init(app: Application) }
-
-// In :core:analytics
-@Module @InstallIn(SingletonComponent::class)
-abstract class AnalyticsInitModule {
-    @Binds @IntoSet abstract fun bind(i: AnalyticsInitializer): AppInitializer
-}
-
-// In :core:logging
-@Module @InstallIn(SingletonComponent::class)
-abstract class LoggingInitModule {
-    @Binds @IntoSet abstract fun bind(i: TimberInitializer): AppInitializer
-}
-
-@HiltAndroidApp
-class App : Application() {
-    @Inject lateinit var initializers: Set<@JvmSuppressWildcards AppInitializer>
-    override fun onCreate() { super.onCreate(); initializers.forEach { it.init(this) } }
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [DataModule::class])
+abstract class FakeDataModule {
+    @Binds abstract fun repo(fake: FakeArticleRepository): ArticleRepository
 }
 ```
-
-Adding a new module that contributes an initializer requires no change to `App`. `@IntoMap` with a `@StringKey` works the same way for keyed lookups.
 
 ### Interview questions
 
-1. **DI vs service locator?** With DI, dependencies are pushed in through the constructor and are visible in the signature. A service locator is pulled from inside the class, which hides dependencies and makes testing harder. {Easy}
-2. **Why is constructor injection preferred over field injection?** Dependencies are explicit, the object is valid when constructed, fields can be `val`, and tests can build it without the framework. Field injection is only for framework-created classes (Activity, Fragment). {Easy}
-3. **How does Hilt get a ViewModel with dependencies?** `@HiltViewModel` generates a factory registered in a map; `hiltViewModel()` / `by viewModels()` uses `HiltViewModelFactory`, which builds it from the `ViewModelComponent`. {Hard}
-4. **What does `@Singleton` on an unscoped module function mean?** That binding is created once per `SingletonComponent`, i.e. once per app process. It is not a Java static singleton; tests get a fresh component. {Medium}
+1. **What is dependency injection, and what problem does it solve?** A class receives its dependencies instead of creating them. It makes code testable (swap in fakes), reusable, and gives clear control over object lifetimes. {Easy}
+2. **Why prefer constructor injection over field injection?** Dependencies are visible and required, fields can be immutable, and tests can construct the class without a framework. Use field injection only for system-created classes like Activities. {Easy}
+3. **`@Binds` or `@Provides`?** `@Binds` maps an interface to an implementation with an `@Inject` constructor and generates less code. `@Provides` is for objects you must build yourself, like Retrofit or third-party classes. {Easy}
+4. **What does `@Singleton` mean in Hilt?** One instance per `SingletonComponent`, which lives as long as the app process. Unscoped bindings create a new instance every time they're injected. {Medium}
+5. **How does Hilt create a ViewModel with dependencies?** `@HiltViewModel` makes Hilt generate a factory; `hiltViewModel()` or `by viewModels()` uses Hilt's ViewModel factory to build it from the `ViewModelComponent`. {Medium}
+6. **How do you inject a runtime value, like an ID, along with graph dependencies?** Assisted injection: `@AssistedInject` on the constructor, `@Assisted` on the runtime parameter, and an `@AssistedFactory` interface the caller uses. {Medium}
+7. **How do you provide two objects of the same type?** Define qualifier annotations, like `@IoDispatcher` and `@DefaultDispatcher`, and put them on both the provider and the injection point. {Easy}
+8. **How do you replace a dependency with a fake in Hilt tests?** Use `@TestInstallIn(replaces = [...])` or `@UninstallModules` plus a test module that binds the fake. {Medium}
+9. **Hilt or Koin?** Hilt (Dagger) checks the graph at compile time and is fast at runtime but needs code generation. Koin is simpler and multiplatform but resolves at runtime, so errors appear when the app runs. {Medium}
+10. **What is the difference between DI and a service locator?** DI pushes dependencies in, so they're visible in the constructor. A service locator is pulled from inside the class, which hides dependencies and makes testing harder. {Easy}
