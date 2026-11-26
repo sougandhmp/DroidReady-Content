@@ -1,0 +1,85 @@
+{
+  "Implement an LRU cache with O(1) operations.": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It tests data structure choice under complexity constraints.",
+    "mistake": "Using only a list, which makes lookups or moves O(n).",
+    "followUp": "How would you make it thread-safe?",
+    "code": "class LruCache<K, V>(private val capacity: Int) {\n    // accessOrder = true moves an entry to the end whenever it is read.\n    private val map = object : LinkedHashMap<K, V>(16, 0.75f, true) {\n        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) =\n            size > capacity\n    }\n\n    fun get(key: K): V? = map[key]\n    fun put(key: K, value: V) { map[key] = value }\n}"
+  },
+  "Find two numbers that add up to a target.": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A warm-up that checks you can trade memory for speed.",
+    "mistake": "Stopping at the nested-loop O(n^2) solution.",
+    "followUp": "What changes if the array is already sorted?",
+    "code": "fun twoSum(numbers: IntArray, target: Int): Pair<Int, Int>? {\n    val seen = HashMap<Int, Int>()              // value -> index\n    numbers.forEachIndexed { i, n ->\n        seen[target - n]?.let { return it to i }\n        seen[n] = i\n    }\n    return null\n}"
+  },
+  "Longest substring without repeating characters?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It tests the sliding window technique.",
+    "mistake": "Restarting the window from scratch after every repeat.",
+    "followUp": "What changes if you need the substring itself?",
+    "code": "fun longestUnique(text: String): Int {\n    val last = HashMap<Char, Int>()\n    var start = 0\n    var best = 0\n    text.forEachIndexed { i, c ->\n        last[c]?.let { start = maxOf(start, it + 1) }\n        last[c] = i\n        best = maxOf(best, i - start + 1)\n    }\n    return best\n}"
+  },
+  "Count islands in a grid.": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks grid traversal and visited tracking.",
+    "mistake": "Forgetting to mark cells visited, which loops or counts an island twice.",
+    "followUp": "How would you solve it without changing the grid?",
+    "code": "fun countIslands(grid: Array<CharArray>): Int {\n    val seen = HashSet<Pair<Int, Int>>()\n    var islands = 0\n    for (r in grid.indices) for (c in grid[r].indices) {\n        if (grid[r][c] != '1' || !seen.add(r to c)) continue\n        islands++\n        val queue = ArrayDeque(listOf(r to c))\n        while (queue.isNotEmpty()) {\n            val (y, x) = queue.removeFirst()\n            for ((ny, nx) in listOf(y - 1 to x, y + 1 to x, y to x - 1, y to x + 1)) {\n                if (grid.getOrNull(ny)?.getOrNull(nx) == '1' && seen.add(ny to nx)) {\n                    queue.add(ny to nx)\n                }\n            }\n        }\n    }\n    return islands\n}"
+  },
+  "Top K frequent elements?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It tests knowing when sorting everything is unnecessary.",
+    "mistake": "Sorting all items without discussing a heap or buckets.",
+    "followUp": "What if the data is a stream?",
+    "code": "fun topK(numbers: IntArray, k: Int): List<Int> {\n    val counts = numbers.asList().groupingBy { it }.eachCount()\n    val heap = PriorityQueue<Map.Entry<Int, Int>>(compareBy { it.value })\n    for (entry in counts.entries) {\n        heap.add(entry)\n        if (heap.size > k) heap.poll()          // drop the least frequent\n    }\n    return heap.map { it.key }\n}"
+  },
+  "Write a debounce function with coroutines.": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It shows whether you can use cancellation correctly.",
+    "mistake": "Using threads or timers and never cancelling the earlier job.",
+    "followUp": "How would you write a throttle instead?",
+    "code": "fun <T> debounce(\n    waitMs: Long,\n    scope: CoroutineScope,\n    action: suspend (T) -> Unit,\n): (T) -> Unit {\n    var job: Job? = null\n    return { value ->\n        job?.cancel()\n        job = scope.launch {\n            delay(waitMs)\n            action(value)\n        }\n    }\n}"
+  },
+  "Run 100 downloads, at most 4 at a time.": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests bounded concurrency with structured coroutines.",
+    "mistake": "Launching all 100 at once, or processing them one at a time.",
+    "followUp": "How do you handle one failed download without cancelling the rest?",
+    "code": "suspend fun downloadAll(urls: List<String>): List<String> = coroutineScope {\n    val permits = Semaphore(4)\n    urls.map { url ->\n        async { permits.withPermit { download(url) } }\n    }.awaitAll()\n}"
+  },
+  "What's wrong with `catch (e: Exception)` inside a coroutine?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "A small snippet that exposes cancellation bugs.",
+    "mistake": "Saying it's fine because the error is logged.",
+    "followUp": "How would you write this so it never swallows cancellation?",
+    "code": "try {\n    repository.refresh()\n} catch (e: CancellationException) {\n    throw e\n} catch (e: IOException) {                      // or just what you expect\n    showError(e)\n}"
+  },
+  "What do you put in a take-home README?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Reviewers judge how clearly you explain your decisions.",
+    "mistake": "Listing only run instructions and no trade-offs.",
+    "followUp": "What would you build next, and why?"
+  }
+}

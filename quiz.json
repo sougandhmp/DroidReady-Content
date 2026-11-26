@@ -13,7 +13,12 @@
         "false, true"
       ],
       "answer": 1,
-      "explanation": "== calls the generated equals(), so equal data matches. === checks whether both are the same object, and these are two instances."
+      "explanation": "== calls the generated equals(), so equal data matches. === checks whether both are the same object, and these are two instances.",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "kind": "output"
     },
     {
       "id": "kotlin-apply",
@@ -26,7 +31,10 @@
         "also"
       ],
       "answer": 2,
-      "explanation": "apply exposes the object as this and returns it, which suits configuration. also returns the object too, but exposes it as it."
+      "explanation": "apply exposes the object as this and returns it, which suits configuration. also returns the object too, but exposes it as it.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "kotlin-copy",
@@ -40,7 +48,12 @@
         "It does not compile"
       ],
       "answer": 2,
-      "explanation": "val makes the reference read-only, not the object. The same mutable list is still changing, so its size is 3."
+      "explanation": "val makes the reference read-only, not the object. The same mutable list is still changing, so its size is 3.",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "kind": "output"
     },
     {
       "id": "coroutines-async",
@@ -53,7 +66,10 @@
         "withContext"
       ],
       "answer": 1,
-      "explanation": "async returns Deferred<T>, which you await(). launch returns a Job for side effects."
+      "explanation": "async returns Deferred<T>, which you await(). launch returns a Job for side effects.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "coroutines-supervisor",
@@ -66,7 +82,10 @@
         "The app always crashes"
       ],
       "answer": 1,
-      "explanation": "A supervisor isolates failures: one child failing does not cancel its siblings. In coroutineScope it would."
+      "explanation": "A supervisor isolates failures: one child failing does not cancel its siblings. In coroutineScope it would.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "coroutines-flowon",
@@ -79,7 +98,10 @@
         "stateIn"
       ],
       "answer": 1,
-      "explanation": "flowOn changes the upstream context. Emitting from another context inside flow {} breaks context preservation and throws."
+      "explanation": "flowOn changes the upstream context. Emitting from another context inside flow {} breaks context preservation and throws.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "coroutines-latest",
@@ -92,7 +114,10 @@
         "zip"
       ],
       "answer": 2,
-      "explanation": "flatMapLatest cancels the previous inner flow when a new value arrives."
+      "explanation": "flatMapLatest cancels the previous inner flow when a new value arrives.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "android-ondestroy",
@@ -105,7 +130,11 @@
         "Only for Fragments"
       ],
       "answer": 1,
-      "explanation": "onDestroy is not guaranteed. Persist important data in onStop or as soon as it changes."
+      "explanation": "onDestroy is not guaranteed. Persist important data in onStop or as soon as it changes.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "android-bundle",
@@ -118,7 +147,11 @@
         "StackOverflowError"
       ],
       "answer": 1,
-      "explanation": "The Bundle crosses Binder, whose buffer of about 1 MB is shared per process. Save IDs, not objects."
+      "explanation": "The Bundle crosses Binder, whose buffer of about 1 MB is shared per process. Save IDs, not objects.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "compose-trigger",
@@ -131,7 +164,10 @@
         "Calling the composable from a ViewModel"
       ],
       "answer": 1,
-      "explanation": "Compose tracks State reads through the snapshot system and recomposes the scopes that read a changed value."
+      "explanation": "Compose tracks State reads through the snapshot system and recomposes the scopes that read a changed value.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "compose-effect",
@@ -144,7 +180,11 @@
         "Recreates the Activity"
       ],
       "answer": 2,
-      "explanation": "A changed key restarts the effect: the old coroutine is cancelled before the new one starts."
+      "explanation": "A changed key restarts the effect: the old coroutine is cancelled before the new one starts.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "compose-saveable",
@@ -157,7 +197,10 @@
         "SideEffect"
       ],
       "answer": 1,
-      "explanation": "rememberSaveable survives recomposition, configuration changes and process death. remember only survives recomposition."
+      "explanation": "rememberSaveable survives recomposition, configuration changes and process death. remember only survives recomposition.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "arch-truth",
@@ -170,7 +213,11 @@
         "A global singleton"
       ],
       "answer": 1,
-      "explanation": "The database is the single source of truth. The network only writes into it."
+      "explanation": "The database is the single source of truth. The network only writes into it.",
+      "tracks": [
+        "senior",
+        "system-design"
+      ]
     },
     {
       "id": "arch-usecase",
@@ -183,7 +230,11 @@
         "In the Retrofit service"
       ],
       "answer": 1,
-      "explanation": "A use case holds reusable business rules. A ViewModel manages screen state and UI events."
+      "explanation": "A use case holds reusable business rules. A ViewModel manages screen state and UI events.",
+      "tracks": [
+        "senior",
+        "system-design"
+      ]
     },
     {
       "id": "di-binds",
@@ -196,7 +247,11 @@
         "Injecting into a field"
       ],
       "answer": 1,
-      "explanation": "@Binds is an abstract declaration that maps an interface to an implementation. @Provides is factory code you write."
+      "explanation": "@Binds is an abstract declaration that maps an interface to an implementation. @Provides is factory code you write.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "di-constructor",
@@ -209,7 +264,11 @@
         "It avoids generating any code"
       ],
       "answer": 1,
-      "explanation": "Constructor injection makes dependencies visible, allows val fields and lets tests construct the class without the framework."
+      "explanation": "Constructor injection makes dependencies visible, allows val fields and lets tests construct the class without the framework.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "data-distinct",
@@ -222,7 +281,11 @@
         "shareIn with replay 0"
       ],
       "answer": 1,
-      "explanation": "Room re-emits on any change to the table. distinctUntilChanged() drops equal results; narrowing the query also helps."
+      "explanation": "Room re-emits on any change to the table. distinctUntilChanged() drops equal results; narrowing the query also helps.",
+      "tracks": [
+        "senior",
+        "system-design"
+      ]
     },
     {
       "id": "data-migration",
@@ -235,7 +298,10 @@
         "A manual Migration"
       ],
       "answer": 2,
-      "explanation": "A destructive fallback deletes data. Keep it for tables that are pure cache."
+      "explanation": "A destructive fallback deletes data. Keep it for tables that are pure cache.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "work-periodic",
@@ -248,7 +314,10 @@
         "1 hour"
       ],
       "answer": 2,
-      "explanation": "Periodic work has a 15-minute minimum, and execution can drift."
+      "explanation": "Periodic work has a 15-minute minimum, and execution can drift.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "work-force-stop",
@@ -261,7 +330,11 @@
         "It moves to a foreground service"
       ],
       "answer": 2,
-      "explanation": "Force-stop clears scheduled jobs and alarms until the user opens the app again."
+      "explanation": "Force-stop clears scheduled jobs and alarms until the user opens the app again.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "perf-baseline",
@@ -274,7 +347,10 @@
         "Limits memory use"
       ],
       "answer": 1,
-      "explanation": "It lets ART compile critical paths ahead of time, so early runs do not wait for JIT profiling."
+      "explanation": "It lets ART compile critical paths ahead of time, so early runs do not wait for JIT profiling.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "perf-anr",
@@ -287,7 +363,11 @@
         "A recomposition"
       ],
       "answer": 0,
-      "explanation": "An input event with no response within about 5 s raises an ANR."
+      "explanation": "An input event with no response within about 5 s raises an ANR.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "testing-turbine",
@@ -300,7 +380,11 @@
         "LeakCanary"
       ],
       "answer": 1,
-      "explanation": "Turbine's test { awaitItem() } checks emissions one at a time inside runTest."
+      "explanation": "Turbine's test { awaitItem() } checks emissions one at a time inside runTest.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "testing-robolectric",
@@ -313,7 +397,10 @@
         "Replaces runTest"
       ],
       "answer": 0,
-      "explanation": "Robolectric tests run on the JVM, so they are faster than instrumented tests on a device."
+      "explanation": "Robolectric tests run on the JVM, so they are faster than instrumented tests on a device.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "security-key",
@@ -326,7 +413,10 @@
         "Store it in SharedPreferences"
       ],
       "answer": 2,
-      "explanation": "Anything shipped in the app can be extracted. Moving the call behind your backend keeps the secret off the device."
+      "explanation": "Anything shipped in the app can be extracted. Moving the call behind your backend keeps the secret off the device.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "security-pinning",
@@ -339,7 +429,10 @@
         "Losing offline support"
       ],
       "answer": 1,
-      "explanation": "If a pinned certificate changes unexpectedly, the app cannot connect. Pin public keys and keep a backup pin."
+      "explanation": "If a pinned certificate changes unexpectedly, the app cannot connect. Pin public keys and keep a backup pin.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "build-api",
@@ -352,7 +445,10 @@
         "Skips compiling it"
       ],
       "answer": 1,
-      "explanation": "implementation keeps a dependency internal, so consumers need not recompile when it changes."
+      "explanation": "implementation keeps a dependency internal, so consumers need not recompile when it changes.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "build-rollout",
@@ -365,7 +461,10 @@
         "Wait a week for more data"
       ],
       "answer": 1,
-      "explanation": "Halt the rollout to limit impact, then triage, mitigate with a flag if possible and ship a tested fix."
+      "explanation": "Halt the rollout to limit impact, then triage, mitigate with a flag if possible and ship a tested fix.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "design-idempotency",
@@ -378,7 +477,11 @@
         "To order the UI animations"
       ],
       "answer": 1,
-      "explanation": "On flaky networks a request may be retried. The key lets the server recognise it and not store the message twice."
+      "explanation": "On flaky networks a request may be retried. The key lets the server recognise it and not store the message twice.",
+      "tracks": [
+        "senior",
+        "system-design"
+      ]
     },
     {
       "id": "kotlin-hof-reference",
@@ -391,7 +494,10 @@
         "(Int) -> String"
       ],
       "answer": 1,
-      "explanation": "An unbound member reference takes the receiver as its first parameter, so `String::length` is a `(String) -> Int`."
+      "explanation": "An unbound member reference takes the receiver as its first parameter, so `String::length` is a `(String) -> Int`.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "kotlin-closure-counter",
@@ -405,7 +511,12 @@
         "2 1"
       ],
       "answer": 0,
-      "explanation": "Each call to makeCounter creates its own captured `count`. `a` has been called three times, so it returns 3; `b` is called once and returns 1."
+      "explanation": "Each call to makeCounter creates its own captured `count`. `a` has been called three times, so it returns 3; `b` is called once and returns 1.",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "kind": "output"
     },
     {
       "id": "kotlin-receiver-lambda",
@@ -418,7 +529,10 @@
         "Nothing; `this` is not allowed"
       ],
       "answer": 2,
-      "explanation": "In a function type with a receiver, the receiver becomes the implicit `this`, which is how `buildString` and `apply` let you call its members directly."
+      "explanation": "In a function type with a receiver, the receiver becomes the implicit `this`, which is how `buildString` and `apply` let you call its members directly.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "kotlin-jvmoverloads",
@@ -431,7 +545,10 @@
         "Neither"
       ],
       "answer": 1,
-      "explanation": "Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` would generate `draw(String)` as well."
+      "explanation": "Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` would generate `draw(String)` as well.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "kotlin-guard-when",
@@ -444,7 +561,10 @@
         "Sealed interfaces"
       ],
       "answer": 1,
-      "explanation": "Guard conditions, stable since Kotlin 2.2, let a branch of a `when` with a subject add an `if` condition."
+      "explanation": "Guard conditions, stable since Kotlin 2.2, let a branch of a `when` with a subject add an `if` condition.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "coroutines-catch-downstream",
@@ -458,7 +578,10 @@
         "It is silently ignored"
       ],
       "answer": 1,
-      "explanation": "`catch` only handles exceptions from upstream operators. `collect` is downstream, so the exception propagates. Move the work into `onEach` before `catch` to handle it."
+      "explanation": "`catch` only handles exceptions from upstream operators. `collect` is downstream, so the exception propagates. Move the work into `onEach` before `catch` to handle it.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "coroutines-flatmap-search",
@@ -471,7 +594,10 @@
         "zip"
       ],
       "answer": 2,
-      "explanation": "`flatMapLatest` cancels the previous inner flow whenever a new upstream value arrives."
+      "explanation": "`flatMapLatest` cancels the previous inner flow whenever a new upstream value arrives.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "coroutines-rx-subject",
@@ -484,7 +610,10 @@
         "Deferred"
       ],
       "answer": 2,
-      "explanation": "Like a BehaviorSubject, `MutableStateFlow` always holds a current value and gives it to new collectors."
+      "explanation": "Like a BehaviorSubject, `MutableStateFlow` always holds a current value and gives it to new collectors.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "android-process-lifecycle",
@@ -497,7 +626,11 @@
         "onTrimMemory only"
       ],
       "answer": 1,
-      "explanation": "`ProcessLifecycleOwner` dispatches ON_STOP when the last activity stops and ON_START when the app returns. `Application.onTerminate` is never called on real devices."
+      "explanation": "`ProcessLifecycleOwner` dispatches ON_STOP when the last activity stops and ON_START when the app returns. `Application.onTerminate` is never called on real devices.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "android-notification-permission",
@@ -510,7 +643,10 @@
         "Android 15 (API 35)"
       ],
       "answer": 2,
-      "explanation": "`POST_NOTIFICATIONS` is a runtime permission for apps targeting Android 13 (API 33) and higher. Android 8.0 introduced notification channels."
+      "explanation": "`POST_NOTIFICATIONS` is a runtime permission for apps targeting Android 13 (API 33) and higher. Android 8.0 introduced notification channels.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "android-fragment-result",
@@ -523,7 +659,11 @@
         "Passing a callback interface in the arguments Bundle"
       ],
       "answer": 1,
-      "explanation": "The Fragment Result API is designed for one-time results that fit in a Bundle. A shared ViewModel suits ongoing state."
+      "explanation": "The Fragment Result API is designed for one-time results that fit in a Bundle. A shared ViewModel suits ongoing state.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "android-app-links-fingerprint",
@@ -536,7 +676,10 @@
         "Any key; the fingerprint isn't checked"
       ],
       "answer": 2,
-      "explanation": "Verification compares against the certificate that signs the installed app, which is Play's app signing key, not your upload key."
+      "explanation": "Verification compares against the certificate that signs the installed app, which is Play's app signing key, not your upload key.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "android-listadapter",
@@ -549,7 +692,10 @@
         "The adapter positions"
       ],
       "answer": 1,
-      "explanation": "`areItemsTheSame` asks whether two objects represent the same item, usually by ID. `areContentsTheSame` then checks whether its data changed."
+      "explanation": "`areItemsTheSame` asks whether two objects represent the same item, usually by ID. `areContentsTheSame` then checks whether its data changed.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "arch-udf-network",
@@ -562,7 +708,11 @@
         "Into SavedStateHandle"
       ],
       "answer": 1,
-      "explanation": "The database is the single source of truth. Writing to it makes every observer update, keeps data consistent across screens and works offline."
+      "explanation": "The database is the single source of truth. Writing to it makes every observer update, keeps data consistent across screens and works offline.",
+      "tracks": [
+        "senior",
+        "system-design"
+      ]
     },
     {
       "id": "data-storage-mediastore",
@@ -575,7 +725,10 @@
         "READ_MEDIA_IMAGES"
       ],
       "answer": 2,
-      "explanation": "Apps can add their own media through MediaStore without a permission. WRITE_EXTERNAL_STORAGE has no effect for apps targeting Android 11+."
+      "explanation": "Apps can add their own media through MediaStore without a permission. WRITE_EXTERNAL_STORAGE has no effect for apps targeting Android 11+.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "data-network-capabilities",
@@ -588,7 +741,10 @@
         "onLinkPropertiesChanged"
       ],
       "answer": 2,
-      "explanation": "Capabilities such as NET_CAPABILITY_NOT_METERED can change while the network stays connected, and `onCapabilitiesChanged` reports it."
+      "explanation": "Capabilities such as NET_CAPABILITY_NOT_METERED can change while the network stays connected, and `onCapabilitiesChanged` reports it.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "build-semver",
@@ -601,7 +757,10 @@
         "None"
       ],
       "answer": 2,
-      "explanation": "Removing public API is a breaking change, so it needs a MAJOR version bump."
+      "explanation": "Removing public API is a breaking change, so it needs a MAJOR version bump.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "build-aab",
@@ -614,7 +773,10 @@
         "It skips R8"
       ],
       "answer": 1,
-      "explanation": "Play generates per-device APKs from the bundle, containing only that device's screen density, CPU architecture and languages."
+      "explanation": "Play generates per-device APKs from the bundle, containing only that device's screen density, CPU architecture and languages.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "modern-plurals",
@@ -627,7 +789,10 @@
         "Two separate string resources"
       ],
       "answer": 2,
-      "explanation": "Many languages have more plural forms than English, such as few or many. Plural resources let each translation define its own forms."
+      "explanation": "Many languages have more plural forms than English, such as few or many. Plural resources let each translation define its own forms.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "modern-app-language",
@@ -640,7 +805,10 @@
         "LocaleManager.setApplicationLocales() only"
       ],
       "answer": 1,
-      "explanation": "AppCompat 1.6+ `setApplicationLocales` supports per-app languages on Android 13+ and, with AppCompatActivity, on older versions. LocaleManager exists only on Android 13+."
+      "explanation": "AppCompat 1.6+ `setApplicationLocales` supports per-app languages on Android 13+ and, with AppCompatActivity, on older versions. LocaleManager exists only on Android 13+.",
+      "tracks": [
+        "junior"
+      ]
     },
     {
       "id": "jvm-volatile-counter",
@@ -653,7 +821,11 @@
         "The code doesn't compile"
       ],
       "answer": 2,
-      "explanation": "`@Volatile` gives visibility, not atomicity. `count++` is read-modify-write, so updates can be lost. Use AtomicInteger or a lock."
+      "explanation": "`@Volatile` gives visibility, not atomicity. `count++` is read-modify-write, so updates can be lost. Use AtomicInteger or a lock.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "jvm-weak-reference",
@@ -666,7 +838,10 @@
         "Only when the app is closed"
       ],
       "answer": 2,
-      "explanation": "Weakly reachable objects can be collected at the next GC. Soft references are kept until memory is low."
+      "explanation": "Weakly reachable objects can be collected at the next GC. Soft references are kept until memory is low.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "jvm-pattern-okhttp",
@@ -679,7 +854,11 @@
         "Memento"
       ],
       "answer": 1,
-      "explanation": "Each interceptor handles the request and passes it along the chain with `chain.proceed()`, which is chain of responsibility."
+      "explanation": "Each interceptor handles the request and passes it along the chain with `chain.proceed()`, which is chain of responsibility.",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     },
     {
       "id": "jvm-double-checked",
@@ -692,7 +871,10 @@
         "To allow null values"
       ],
       "answer": 1,
-      "explanation": "Without volatile, the reference can be published before the constructor finishes. The volatile write creates the happens-before edge that prevents this."
+      "explanation": "Without volatile, the reference can be published before the constructor finishes. The volatile write creates the happens-before edge that prevents this.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "kotlin-companion-java",
@@ -705,7 +887,10 @@
         "Java can't call it"
       ],
       "answer": 1,
-      "explanation": "The companion is compiled to a nested class with a static `Companion` field. Add `@JvmStatic` to allow `Foo.create()`."
+      "explanation": "The companion is compiled to a nested class with a static `Companion` field. Add `@JvmStatic` to allow `Foo.create()`.",
+      "tracks": [
+        "senior"
+      ]
     },
     {
       "id": "kotlin-also-result",
@@ -719,7 +904,12 @@
         "Unit"
       ],
       "answer": 1,
-      "explanation": "`also` returns the object it was called on, not the lambda's result. The lambda added 2, so x is the list [1, 2]. With `let`, x would be `true`, the result of add."
+      "explanation": "`also` returns the object it was called on, not the lambda's result. The lambda added 2, so x is the list [1, 2]. With `let`, x would be `true`, the result of add.",
+      "tracks": [
+        "junior",
+        "senior"
+      ],
+      "kind": "output"
     },
     {
       "id": "kotlin-scope-choice",
@@ -732,7 +922,341 @@
         "also"
       ],
       "answer": 2,
-      "explanation": "`apply` gives the object as `this`, so you call its members directly, and returns the object itself, which suits configuration."
+      "explanation": "`apply` gives the object as `this`, so you call its members directly, and returns the object itself, which suits configuration.",
+      "tracks": [
+        "junior"
+      ]
+    },
+    {
+      "id": "print-lazy",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "val answer by lazy {\n    print(\"init \")\n    42\n}\nprint(\"start \")\nprint(\"$answer \")\nprint(\"$answer\")",
+      "options": [
+        "init start 42 42",
+        "start init 42 42",
+        "start init 42 init 42",
+        "init 42 42 start"
+      ],
+      "answer": 1,
+      "explanation": "A lazy value is computed on first access, not where it is declared, and only once.",
+      "kind": "output",
+      "tracks": [
+        "junior"
+      ]
+    },
+    {
+      "id": "print-shallow-copy",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "data class Cart(val items: MutableList<String>)\n\nval first = Cart(mutableListOf(\"tea\"))\nval second = first.copy()\nsecond.items.add(\"milk\")\nprint(first.items.size)",
+      "options": [
+        "0",
+        "1",
+        "2",
+        "It does not compile"
+      ],
+      "answer": 2,
+      "explanation": "copy() is shallow. Both carts hold the same list, so adding through one changes the other.",
+      "kind": "output",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "print-body-property",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "data class Item(val id: Int) {\n    var quantity = 0\n}\n\nval a = Item(1).apply { quantity = 5 }\nval b = Item(1)\nprint(\"${a == b} ${a.quantity == b.quantity}\")",
+      "options": [
+        "true true",
+        "true false",
+        "false false",
+        "false true"
+      ],
+      "answer": 1,
+      "explanation": "equals() uses only primary-constructor properties, so the items are equal even though their quantities differ.",
+      "kind": "output",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "print-sequence",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "listOf(1, 2, 3)\n    .asSequence()\n    .map { print(\"m$it \"); it * 10 }\n    .filter { print(\"f$it \"); true }\n    .first()",
+      "options": [
+        "m1 m2 m3 f10 f20 f30",
+        "m1 f10",
+        "m1 f10 m2 f20 m3 f30",
+        "Nothing"
+      ],
+      "answer": 1,
+      "explanation": "A sequence processes one element through the whole chain, and first() stops after the first result.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "print-extension-dispatch",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "open class Animal\nclass Dog : Animal()\n\nfun Animal.sound() = \"...\"\nfun Dog.sound() = \"Woof\"\n\nval pet: Animal = Dog()\nprint(pet.sound())",
+      "options": [
+        "Woof",
+        "...",
+        "It does not compile",
+        "Woof..."
+      ],
+      "answer": 1,
+      "explanation": "Extensions are resolved from the declared type at compile time. The variable is declared as Animal.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "print-init-order",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "open class Base {\n    init { print(label()) }\n    open fun label() = \"base\"\n}\n\nclass Child : Base() {\n    private val name = \"child\"\n    override fun label(): String = name\n}\n\nChild()",
+      "options": [
+        "base",
+        "child",
+        "null",
+        "It does not compile"
+      ],
+      "answer": 2,
+      "explanation": "The base constructor runs first and calls the override before Child has set name, even though its type is non-null.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "print-foreach-return",
+      "topic": "kotlin",
+      "question": "What does this print?",
+      "code": "listOf(1, 2, 3).forEach {\n    if (it == 2) return@forEach\n    print(it)\n}\nprint(\"-\")",
+      "options": [
+        "1-",
+        "13-",
+        "123-",
+        "1"
+      ],
+      "answer": 1,
+      "explanation": "return@forEach leaves only the current lambda call, like continue in a loop.",
+      "kind": "output",
+      "tracks": [
+        "junior"
+      ]
+    },
+    {
+      "id": "print-launch-order",
+      "topic": "coroutines-flow",
+      "question": "What does this print?",
+      "code": "runBlocking {\n    launch { print(\"A\") }\n    print(\"B\")\n    yield()\n    print(\"C\")\n}",
+      "options": [
+        "ABC",
+        "BAC",
+        "BCA",
+        "ACB"
+      ],
+      "answer": 1,
+      "explanation": "launch only schedules the child here. The parent prints B, yield() lets the child run, then C follows.",
+      "kind": "output",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "print-async-failure",
+      "topic": "coroutines-flow",
+      "question": "What does this print?",
+      "code": "runBlocking {\n    val result = try {\n        coroutineScope {\n            val a = async<Int> { error(\"boom\") }\n            delay(100)\n            \"done\"\n        }\n    } catch (e: IllegalStateException) {\n        \"caught ${e.message}\"\n    }\n    print(result)\n}",
+      "options": [
+        "done",
+        "caught boom",
+        "Nothing, the program crashes",
+        "boom"
+      ],
+      "answer": 1,
+      "explanation": "A failing async child cancels its coroutineScope even if await() is never called, and the scope rethrows the error.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "print-stateflow-equal",
+      "topic": "coroutines-flow",
+      "question": "What does this print?",
+      "code": "runBlocking {\n    val state = MutableStateFlow(1)\n    val job = launch(start = CoroutineStart.UNDISPATCHED) {\n        state.collect { print(it) }\n    }\n    state.value = 1\n    yield()\n    state.value = 2\n    yield()\n    job.cancel()\n}",
+      "options": [
+        "112",
+        "12",
+        "2",
+        "11"
+      ],
+      "answer": 1,
+      "explanation": "StateFlow does not emit a value equal to the current one, so setting 1 again does nothing.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-swallowed-cancel",
+      "topic": "coroutines-flow",
+      "question": "What is the bug?",
+      "code": "runBlocking {\n    val job = launch {\n        repeat(3) {\n            try {\n                delay(100)\n            } catch (e: Exception) {\n                print(\"retry \")\n            }\n        }\n    }\n    delay(10)\n    job.cancel()\n}",
+      "options": [
+        "delay() cannot be used inside try",
+        "catch (e: Exception) also catches CancellationException, so the loop keeps running after cancel()",
+        "job.cancel() must be job.join()",
+        "repeat() creates new coroutines"
+      ],
+      "answer": 1,
+      "explanation": "Cancellation is delivered as an exception. Catching it lets the loop continue. Rethrow CancellationException or catch narrower types.",
+      "kind": "bug",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-mutated-state",
+      "topic": "coroutines-flow",
+      "question": "The collector never sees the new item. Why?",
+      "code": "runBlocking {\n    val state = MutableStateFlow(mutableListOf<String>())\n    val job = launch(start = CoroutineStart.UNDISPATCHED) {\n        state.collect { print(\"size=${it.size} \") }\n    }\n    state.value.add(\"new\")\n    state.value = state.value\n    yield()\n    job.cancel()\n}",
+      "options": [
+        "collect must run on Dispatchers.Main",
+        "The list was changed in place, so StateFlow sees an equal value and emits nothing",
+        "MutableStateFlow cannot hold lists",
+        "yield() cancels the collector"
+      ],
+      "answer": 1,
+      "explanation": "Publish a new list instead: state.update { it + \"new\" }, with an immutable List type.",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-callbackflow-awaitclose",
+      "topic": "coroutines-flow",
+      "question": "Collecting this flow fails. Why?",
+      "code": "runBlocking {\n    val ticks = callbackFlow {\n        trySend(1)\n    }\n    try {\n        ticks.collect { }\n    } catch (e: IllegalStateException) {\n        print(\"failed\")\n    }\n}",
+      "options": [
+        "trySend is not allowed in callbackFlow",
+        "The block ends without awaitClose, so callbackFlow throws IllegalStateException",
+        "collect needs a CoroutineScope parameter",
+        "callbackFlow needs a buffer size"
+      ],
+      "answer": 1,
+      "explanation": "callbackFlow requires awaitClose, which keeps the flow open and is where you unregister the listener.",
+      "kind": "bug",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-flow-context",
+      "topic": "coroutines-flow",
+      "question": "Collecting this flow throws. Why?",
+      "code": "runBlocking {\n    val numbers = flow {\n        withContext(Dispatchers.Default) { emit(1) }\n    }\n    try {\n        numbers.collect { }\n    } catch (e: IllegalStateException) {\n        print(\"failed\")\n    }\n}",
+      "options": [
+        "emit is not a suspend function",
+        "A flow builder must not emit from another context; use flowOn",
+        "Dispatchers.Default cannot be used in runBlocking",
+        "The collect lambda is empty"
+      ],
+      "answer": 1,
+      "explanation": "Flows preserve context. Change where upstream code runs with flowOn instead of switching around emit.",
+      "kind": "bug",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-hash-key",
+      "topic": "kotlin",
+      "question": "This prints false. What is the bug?",
+      "code": "data class User(var name: String)\n\nval user = User(\"Sam\")\nval online = hashSetOf(user)\nuser.name = \"Alex\"\nprint(user in online)",
+      "options": [
+        "hashSetOf copies its elements",
+        "The var used by hashCode changed after insertion, so the set looks in the wrong bucket",
+        "Data classes cannot be stored in sets",
+        "in compares references only"
+      ],
+      "answer": 1,
+      "explanation": "Never change a property used by equals() or hashCode() while the object is a key or set element. Prefer val and copy().",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-lifecycle-collect",
+      "topic": "android-fundamentals",
+      "question": "What is wrong with this Fragment code?",
+      "code": "override fun onViewCreated(view: View, savedInstanceState: Bundle?) {\n    lifecycleScope.launch {\n        viewModel.state.collect { render(it) }\n    }\n}",
+      "options": [
+        "collect must be called from onCreate",
+        "It uses the Fragment lifecycle and never pauses, so it can update a destroyed view and keeps working in the background",
+        "StateFlow cannot be collected in a Fragment",
+        "render() must run on Dispatchers.IO"
+      ],
+      "answer": 1,
+      "explanation": "Use viewLifecycleOwner.lifecycleScope with repeatOnLifecycle(Lifecycle.State.STARTED).",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-compose-remember",
+      "topic": "jetpack-compose",
+      "question": "The counter stays at 0 on screen. Why?",
+      "code": "@Composable\nfun Counter() {\n    var count by mutableStateOf(0)\n    Button(onClick = { count++ }) {\n        Text(\"$count\")\n    }\n}",
+      "options": [
+        "mutableStateOf cannot hold an Int",
+        "The state is not remembered, so each recomposition creates a new one starting at 0",
+        "onClick cannot change state",
+        "Text needs a key"
+      ],
+      "answer": 1,
+      "explanation": "Wrap it in remember, or rememberSaveable to also keep it across rotation.",
+      "kind": "bug",
+      "tracks": [
+        "junior"
+      ]
+    },
+    {
+      "id": "bug-context-singleton",
+      "topic": "android-fundamentals",
+      "question": "What is the bug?",
+      "code": "object Analytics {\n    private lateinit var context: Context\n\n    fun init(activity: Activity) {\n        context = activity\n    }\n}",
+      "options": [
+        "lateinit cannot be used in an object",
+        "A process-wide object keeps the Activity, so it can never be garbage collected",
+        "An Activity is not a Context",
+        "init is a reserved name"
+      ],
+      "answer": 1,
+      "explanation": "Store activity.applicationContext, or pass a Context only when needed.",
+      "kind": "bug",
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     }
   ]
 }

@@ -1,0 +1,69 @@
+{
+  "Where do you store a user's auth token securely?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Token handling mistakes expose user accounts.",
+    "mistake": "Saying plain SharedPreferences is safe because it's private.",
+    "followUp": "What happens to a Keystore key after a restore to a new phone?"
+  },
+  "How would you protect an API key used by the app?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It tests whether you accept the limits of client-side security.",
+    "mistake": "Believing obfuscation or native code hides a secret.",
+    "followUp": "What does Play Integrity add here?"
+  },
+  "What does certificate pinning protect against, and what is the risk?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They want both the benefit and the operational risk.",
+    "mistake": "Pinning one certificate with no backup, which can cut off every user.",
+    "followUp": "How would you update pins safely?"
+  },
+  "Why use PKCE for OAuth on mobile?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "OAuth done wrong on mobile is exploitable.",
+    "mistake": "Embedding a client secret in the app.",
+    "followUp": "How does the code verifier work?"
+  },
+  "How do you implement biometric login securely?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It checks that authentication is backed by cryptography.",
+    "mistake": "Trusting only the success callback with a boolean.",
+    "followUp": "What happens when the user adds a new fingerprint?"
+  },
+  "How do you handle deep links securely?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Deep links are untrusted input from anyone.",
+    "mistake": "Passing URL parameters straight into a WebView or a payment action.",
+    "followUp": "How do you prove a link was meant for your app?"
+  },
+  "Is data in a Room database secure?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "To see that you know where the sandbox stops protecting data.",
+    "mistake": "Assuming private storage means encrypted storage.",
+    "followUp": "How would you manage the database encryption key?"
+  },
+  "What is Play Integrity used for?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It shows how you protect server actions from tampered clients.",
+    "mistake": "Checking the verdict only inside the app.",
+    "followUp": "What should your server do if the verdict is bad?"
+  }
+}

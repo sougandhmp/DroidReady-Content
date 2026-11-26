@@ -1,0 +1,69 @@
+{
+  "How do you choose between a coroutine, WorkManager, a foreground service and AlarmManager?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Choosing the wrong tool means work that is killed or drains the battery.",
+    "mistake": "Using a foreground service for everything that must not be lost.",
+    "followUp": "What would you use for a download the user started and is watching?"
+  },
+  "Why not use a plain background Service for syncing?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To check that your knowledge reflects modern background limits.",
+    "mistake": "Expecting a background service to keep running indefinitely.",
+    "followUp": "What are the limits on foreground services started from the background?"
+  },
+  "Does WorkManager guarantee exact timing?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Many bugs come from assuming exact scheduling.",
+    "mistake": "Using periodic work for something that must run at a precise time.",
+    "followUp": "What is the minimum periodic interval?"
+  },
+  "How do you stop the same upload from being queued twice?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Duplicate work causes duplicate data on the server.",
+    "mistake": "Checking a local flag instead of using unique work and server idempotency.",
+    "followUp": "What is the difference between `KEEP` and `REPLACE`?"
+  },
+  "What changed for foreground services in Android 14?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It checks that you keep up with platform changes that affect releases.",
+    "mistake": "Declaring a type that doesn't match what the service does.",
+    "followUp": "Which types might a music player and a sync feature need?"
+  },
+  "How does Doze affect your app?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It shows whether you can design for power saving instead of fighting it.",
+    "mistake": "Asking users to disable battery optimisation as the first fix.",
+    "followUp": "How would you test your app in Doze?"
+  },
+  "How would you sync data when the server has new content?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "It tests end-to-end sync design.",
+    "mistake": "Sending all the data in the push message and treating delivery as guaranteed.",
+    "followUp": "What do you do if the push never arrives?"
+  },
+  "How do you show progress of a long upload in the UI?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see that you can connect background work to the UI.",
+    "mistake": "Holding a reference to the Activity inside the worker.",
+    "followUp": "How do you cancel the work from the UI?"
+  }
+}

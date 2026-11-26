@@ -1,0 +1,85 @@
+{
+  "What is dependency injection, and what problem does it solve?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To check that you know why DI exists, not just the annotations.",
+    "mistake": "Describing DI as \"what Hilt does\".",
+    "followUp": "How would you do it without a framework?"
+  },
+  "Why prefer constructor injection over field injection?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It tests whether you understand testability and object validity.",
+    "mistake": "Using field injection in your own classes out of habit.",
+    "followUp": "How do you inject into a class Android creates for you?"
+  },
+  "`@Binds` or `@Provides`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "A quick check that you've written real Hilt modules.",
+    "mistake": "Using `@Provides` where `@Binds` would do, or expecting `@Binds` to run code.",
+    "followUp": "Can you `@Binds` a class you don't own?"
+  },
+  "What does `@Singleton` mean in Hilt?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Wrong scoping causes both duplicate state and objects that live too long.",
+    "mistake": "Marking everything `@Singleton`.",
+    "followUp": "When would you use `@ActivityRetainedScoped`?"
+  },
+  "How does Hilt create a ViewModel with dependencies?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It shows whether you know what the generated code does for you.",
+    "mistake": "Constructing the ViewModel yourself with `ViewModelProvider` and no factory.",
+    "followUp": "How does Hilt supply `SavedStateHandle`?"
+  },
+  "How do you inject a runtime value, like an ID, along with graph dependencies?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Runtime values are where basic DI knowledge usually stops.",
+    "mistake": "Setting the value later through a mutable property.",
+    "followUp": "How is this different from using `SavedStateHandle` for the ID?"
+  },
+  "How do you provide two objects of the same type?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see whether you can resolve a common graph error.",
+    "mistake": "Wrapping the types in new classes only to tell them apart.",
+    "followUp": "Where else would you use a qualifier?"
+  },
+  "How do you replace a dependency with a fake in Hilt tests?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Test setup shows whether you've used DI for its main benefit.",
+    "mistake": "Adding test-only flags to production modules.",
+    "followUp": "How do you replace a whole module for one test class?"
+  },
+  "Hilt or Koin?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They want a balanced comparison, including costs.",
+    "mistake": "Saying they're the same thing with different syntax.",
+    "followUp": "When would you choose manual DI?"
+  },
+  "What is the difference between DI and a service locator?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It tests the concept apart from any library.",
+    "mistake": "Calling any object registry dependency injection.",
+    "followUp": "How would you spot a service locator in code review?"
+  }
+}

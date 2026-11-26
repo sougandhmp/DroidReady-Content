@@ -85,6 +85,37 @@ The level is `Easy`, `Medium` or `Hard`, and is optional. Editing a question's
 text makes it a new question, so its progress and bookmark reset. Changing only
 the answer or level keeps them.
 
+## Question details
+
+Every interview question also needs an entry in `details/<topic-slug>.json`, keyed by
+the question's exact text. CI fails if one is missing, or if an entry matches no
+question (usually after the question was reworded).
+
+```json
+{
+  "Is `onDestroy` always called?": {
+    "tracks": ["junior"],
+    "why": "Why an interviewer asks this.",
+    "mistake": "A common wrong answer.",
+    "followUp": "What the interviewer may ask next.",
+    "code": "fun example() = Unit",
+    "reviewed": "2026-11-27"
+  }
+}
+```
+
+- `tracks` drives the filters in the app: `junior`, `senior` and `system-design`. Any
+  other lower-case value, such as a company set, appears as a new filter without an app
+  update. Quiz questions need `tracks` too.
+- `followUp` and `code` are optional. `code` is Kotlin shown under the answer; compile it
+  before you publish it.
+- `reviewed` is optional. Add it **only after a person has checked the answer** against
+  current Android documentation. The app shows it as "Last reviewed". Update it each
+  time you check again.
+
+The first set of tracks, reasons, common mistakes, follow-ups and code samples was drafted with AI help and has no
+review dates yet.
+
 ## Quiz
 
 `quiz.json` holds the multiple-choice questions used by Daily 5 and topic quizzes:
@@ -97,9 +128,14 @@ the answer or level keeps them.
   "code": "optional code sample",
   "options": ["A", "B"],
   "answer": 0,
-  "explanation": "Shown after the user answers."
+  "explanation": "Shown after the user answers.",
+  "tracks": ["junior"],
+  "kind": "output"
 }
 ```
+
+`kind` is optional: `output` for "What does this print?" and `bug` for "find the bug".
+Both need `code`. Run an `output` snippet before you publish it.
 
 `topic` is a topic slug and `answer` is the zero-based index of the right option.
 

@@ -1,0 +1,79 @@
+{
+  "How would you investigate a slow screen?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They want a method: measure, find the cause, fix, and verify.",
+    "mistake": "Guessing at fixes before profiling, or measuring only a debug build.",
+    "followUp": "What does a Perfetto trace show that logs don't?"
+  },
+  "What are the most common causes of memory leaks on Android?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Leaks are a frequent real-world problem.",
+    "mistake": "Naming only static Activity references and missing listeners and view bindings.",
+    "followUp": "How do you clear view binding in a Fragment?"
+  },
+  "How do you find and fix a memory leak?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It shows whether you've actually debugged one.",
+    "mistake": "Calling `System.gc()` or adding weak references without finding the cause.",
+    "followUp": "What does the reference chain in LeakCanary tell you?"
+  },
+  "What causes ANRs, and how do you diagnose one?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "ANRs are a key quality metric you must be able to diagnose.",
+    "mistake": "Looking only at your own code and ignoring lock contention and Binder calls.",
+    "followUp": "How can lock contention cause an ANR?"
+  },
+  "How do you improve cold start time?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "Startup is visible to every user and easy to measure badly.",
+    "mistake": "Hiding slow work behind a longer splash screen.",
+    "followUp": "What is the difference between cold, warm and hot start?"
+  },
+  "What is a baseline profile?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "To check that you know a standard modern optimisation.",
+    "mistake": "Confusing it with R8 shrinking.",
+    "followUp": "How do you measure the benefit of a baseline profile?"
+  },
+  "What does R8 do, and what can go wrong?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Release-only failures often come from R8.",
+    "mistake": "Disabling R8 or adding a keep-everything rule.",
+    "followUp": "How would you debug a crash that R8 introduced?"
+  },
+  "An SDK adds 300 ms to startup. What do you do?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests judgement and communication as well as profiling.",
+    "mistake": "Removing it without evidence, or accepting it because the vendor requires it.",
+    "followUp": "How would you convince the SDK vendor?"
+  },
+  "What is the difference between a memory leak and high memory use?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see whether you can name the problem before fixing it.",
+    "mistake": "Treating any high memory use as a leak.",
+    "followUp": "Which tool shows allocations over time?"
+  }
+}

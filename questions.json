@@ -1,6 +1,6 @@
 {
  "schemaVersion": 1,
- "version": 1,
+ "version": 3,
  "topics": [
   {
    "id": "how-to-use",
@@ -123,1421 +123,2728 @@
    "topic": "kotlin",
    "text": "Why should you avoid `!!`, and what do you use instead?",
    "answer": "`!!` throws a NullPointerException at runtime, which throws away Kotlin's compile-time safety. Use a safe call with a default, an early return, or `requireNotNull` with a clear message.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "To see whether you treat null safety as a design tool or just silence the compiler.",
+   "mistake": "Saying `!!` is fine because you know the value isn't null, without handling the day that stops being true.",
+   "followUp": "When is `requireNotNull` better than an early return?",
+   "code": "fun greeting(name: String?): String {\n    val safe = name ?: return \"Hello\"       // early return\n    return \"Hello, $safe\"\n}\n\nval length = nickname?.length ?: 0          // safe call with a default\nval id = requireNotNull(userId) { \"userId is required\" }"
   },
   {
    "id": "kotlin-3defccfff407",
    "topic": "kotlin",
    "text": "What does `inline` do, and when shouldn't you use it?",
    "answer": "It copies the function and its lambdas into each call site, so no lambda object is created, non-local `return` works and `reified` is possible. Avoid it for large functions or lambdas you store, because it grows the bytecode.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "To check that you know what the compiler generates, not only the keyword.",
+   "mistake": "Claiming `inline` makes any function faster. Without lambda parameters the gain is usually negligible.",
+   "followUp": "What do `noinline` and `crossinline` change?",
+   "code": "inline fun <reified T> List<Any>.firstOfType(): T? =\n    firstOrNull { it is T } as T?\n\nval text = listOf(1, \"two\", 3).firstOfType<String>()"
   },
   {
    "id": "kotlin-47ac91f1a509",
    "topic": "kotlin",
    "text": "Can a data class be inherited?",
    "answer": "No, a data class can't be `open`. It can implement interfaces or extend a sealed class, which is how sealed UI states are built.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A quick check that you know what a data class generates and where its limits are.",
+   "mistake": "Saying a data class can't extend anything. It can't be `open`, but it can have a superclass or interfaces.",
+   "followUp": "How would you model a closed set of UI states instead?"
   },
   {
    "id": "kotlin-e03838e3ed0b",
    "topic": "kotlin",
    "text": "How does `by lazy` work?",
    "answer": "It stores an initializer and computes the value on first access, using double-checked locking by default, so it's thread-safe. Use `LazyThreadSafetyMode.NONE` when only the main thread reads it.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It shows whether you understand delegation and thread safety behind a one-line keyword.",
+   "mistake": "Using `lazy` for a value tied to a view or Activity in a longer-lived object, so it goes stale or leaks.",
+   "followUp": "When would you choose `lazy` over `lateinit`?"
   },
   {
    "id": "kotlin-a36d60eba2a8",
    "topic": "kotlin",
    "text": "If you pass a Kotlin `List` to Java, can Java change it?",
    "answer": "Yes. Read-only is a compile-time view in Kotlin; Java sees `java.util.List` and can call `add` if the real object is mutable.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "To test whether you know that Kotlin's guarantees can end at the Java boundary.",
+   "mistake": "Believing a read-only `List` is immutable. It's only a read-only view.",
+   "followUp": "How would you stop Java code from changing the list?"
   },
   {
    "id": "kotlin-10c2cf752ec2",
    "topic": "kotlin",
    "text": "What is a higher-order function, and why is it better than a Java callback interface?",
    "answer": "A function that takes or returns a function. Kotlin has real function types, so you don't need an interface per callback, lambdas are short, and `inline` removes the allocation.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To confirm you're comfortable with functions as values, which most Kotlin APIs rely on.",
+   "mistake": "Only saying lambdas are shorter, without mentioning function types or the cost of allocation.",
+   "followUp": "When does passing a lambda allocate an object?"
   },
   {
    "id": "kotlin-1c09c0325440",
    "topic": "kotlin",
    "text": "What is a lambda with a receiver, and where have you used one?",
    "answer": "Its type is `A.() -> R`, so inside the lambda `this` is the receiver. It powers `apply`, `buildString`, Compose scopes like `LazyListScope`, and the Gradle Kotlin DSL.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Receivers power the DSLs you use daily, so this separates using them from understanding them.",
+   "mistake": "Confusing `(A) -> R` with `A.() -> R`.",
+   "followUp": "How would you design a small DSL with a receiver?"
   },
   {
    "id": "kotlin-8588f27851a9",
    "topic": "kotlin",
    "text": "How can a lambda leak an Activity?",
    "answer": "It captures the Activity or `this`. If a longer-lived object keeps the lambda, such as a singleton listener or a delayed Handler callback, the Activity can't be garbage collected.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Interviewers want to see that you connect language features to Android memory leaks.",
+   "mistake": "Blaming lambdas themselves. The leak comes from who keeps the reference, and for how long.",
+   "followUp": "How would you find that leak?"
   },
   {
    "id": "kotlin-1e9dc75d1804",
    "topic": "kotlin",
    "text": "What does `@JvmOverloads` do?",
    "answer": "Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` generates the shorter overloads; custom View constructors need it.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see whether you've worked in a mixed Java and Kotlin codebase.",
+   "mistake": "Thinking Java callers can use Kotlin default arguments directly.",
+   "followUp": "What does `@JvmStatic` do differently?"
   },
   {
    "id": "kotlin-fa2f183257b7",
    "topic": "kotlin",
    "text": "What are guard conditions in `when`?",
    "answer": "Since Kotlin 2.2, a branch of a `when` with a subject can add an `if`, like `is Failed if state.canRetry ->`, instead of nesting another `if`.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To check whether you keep up with recent Kotlin releases.",
+   "mistake": "Putting a guard on a `when` that has no subject, where it isn't allowed.",
+   "followUp": "Which Kotlin version made guard conditions stable?"
   },
   {
    "id": "kotlin-bf31e172c64a",
    "topic": "kotlin",
    "text": "What is a companion object, and how is it different from Java `static`?",
    "answer": "One object per class, created when the class loads, whose members you call through the class name. Unlike statics it is a real object that can implement interfaces; use `const`, `@JvmField` or `@JvmStatic` for true statics.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It catches people who translate Java habits straight into Kotlin.",
+   "mistake": "Saying companion members are true static methods. Without `@JvmStatic`, Java calls them through `Companion`.",
+   "followUp": "When would you use a top-level function instead?"
   },
   {
    "id": "kotlin-75bf3c40cf61",
    "topic": "kotlin",
    "text": "How do you choose between `let`, `run`, `with`, `apply` and `also`?",
    "answer": "Ask two questions: do I want the object back (`apply` to configure, `also` for side effects) or a result (`let` for nullable values, `run` or `with` to compute)? And does `this` or `it` read better?",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Scope functions are everywhere, and choosing well shows you care about readability.",
+   "mistake": "Nesting several of them until nobody can tell what `this` or `it` refers to.",
+   "followUp": "Which one would you use to build and configure an `Intent`?"
   },
   {
    "id": "kotlin-fc46df524b6e",
    "topic": "kotlin",
    "text": "What is the difference between a sealed class and an enum?",
    "answer": "Enum values are fixed single instances with the same properties. Sealed subtypes can each carry different data and have many instances, and `when` is still checked for every case.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see whether you can model state so that invalid cases can't happen.",
+   "mistake": "Using an enum plus nullable fields for data that only some states have.",
+   "followUp": "When would you still pick an enum?",
+   "code": "enum class Direction { North, South }          // fixed instances\n\nsealed interface Result {                      // each case has its own data\n    data class Success(val items: List<String>) : Result\n    data class Failure(val error: Throwable) : Result\n    data object Loading : Result\n}"
   },
   {
    "id": "kotlin-8adfa00bbc68",
    "topic": "kotlin",
    "text": "Explain `out` and `in` in Kotlin generics.",
    "answer": "`out T` means the type only produces `T`, so `Source<Cat>` can be used as `Source<Animal>`. `in T` means it only consumes `T`, so `Sink<Animal>` can be used as `Sink<Cat>`. Without either, the type is invariant.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Variance shows whether you can design generic APIs, not just consume them.",
+   "mistake": "Memorising \"out is output\" without explaining which assignments become safe.",
+   "followUp": "What is a star projection?",
+   "code": "interface Source<out T> { fun next(): T }      // produces T\ninterface Sink<in T> { fun accept(item: T) }   // consumes T\n\nfun use(cats: Source<Cat>, anySink: Sink<Animal>) {\n    val animals: Source<Animal> = cats          // allowed by out\n    val catSink: Sink<Cat> = anySink            // allowed by in\n}"
   },
   {
    "id": "kotlin-e2bdd1132a04",
    "topic": "kotlin",
    "text": "When would you use a sequence instead of a list?",
    "answer": "For long chains of operations over large data, or when you only need the first few results, because sequences are lazy and avoid intermediate lists. For small lists, plain collections are simpler and often faster.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests whether you pick collection tools for a reason rather than by habit.",
+   "mistake": "Switching to sequences everywhere and expecting a speed-up on small lists.",
+   "followUp": "How can a sequence be slower than a list?"
   },
   {
    "id": "coroutines-flow-44ab5482c065",
    "topic": "coroutines-flow",
    "text": "What actually happens when a suspend function suspends?",
    "answer": "It saves its local variables and position in a continuation object, returns `COROUTINE_SUSPENDED` and frees the thread. When the result is ready, the continuation resumes at the saved point, possibly on another thread.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "To find out whether you understand coroutines or only use the keywords.",
+   "mistake": "Saying the thread blocks or sleeps until the result arrives.",
+   "followUp": "Which thread does a coroutine resume on?"
   },
   {
    "id": "coroutines-flow-f779213a2da8",
    "topic": "coroutines-flow",
    "text": "When do you use `launch` and when `async`?",
    "answer": "`launch` for work without a result; it returns a `Job`. `async` when you need a result; it returns a `Deferred` you `await`. Use `async` mainly for parallel calls inside `coroutineScope`.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It's the quickest check of whether you can start coroutines correctly.",
+   "mistake": "Using `async` without ever awaiting it, or just to start work that has no result.",
+   "followUp": "What happens to an exception inside `async` that nobody awaits?",
+   "code": "suspend fun load(): String = coroutineScope {\n    launch { logOpened() }                      // no result needed\n    val user = async { fetchUser() }            // both run in parallel\n    val posts = async { fetchPosts() }\n    \"${user.await()}: ${posts.await()}\"\n}"
   },
   {
    "id": "coroutines-flow-da6450235bee",
    "topic": "coroutines-flow",
    "text": "Why shouldn't you use `GlobalScope`?",
    "answer": "It isn't tied to any lifecycle, so work can leak, can't be cancelled and is hard to test. Use `viewModelScope`, `lifecycleScope`, or an injected application scope with a `SupervisorJob`.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see that you think about lifecycle, cancellation and testing.",
+   "mistake": "Replacing it with a new `CoroutineScope()` that nothing ever cancels.",
+   "followUp": "How would you create an application-wide scope?"
   },
   {
    "id": "coroutines-flow-718dd648ec77",
    "topic": "coroutines-flow",
    "text": "What is the difference between `Job` and `SupervisorJob`?",
    "answer": "With `Job`, a failing child cancels its parent and siblings. With `SupervisorJob`, children fail independently. `viewModelScope` uses a `SupervisorJob`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Failure propagation is a common source of production bugs.",
+   "mistake": "Passing `SupervisorJob()` to `launch` and expecting its children to be supervised.",
+   "followUp": "When would you use `supervisorScope`?"
   },
   {
    "id": "coroutines-flow-908355e1d383",
    "topic": "coroutines-flow",
    "text": "Why is catching `Exception` around a suspend call dangerous?",
    "answer": "It also catches `CancellationException`, which stops cancellation from working. Rethrow it, or catch only the specific exceptions you expect.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It reveals whether you've debugged cancellation problems in real code.",
+   "mistake": "Logging the exception and carrying on, which keeps a cancelled coroutine running.",
+   "followUp": "How would you handle errors without catching cancellation?",
+   "code": "suspend fun refresh() {\n    try {\n        sync()\n    } catch (e: CancellationException) {\n        throw e                                 // let cancellation work\n    } catch (e: Exception) {\n        report(e)\n    }\n}"
   },
   {
    "id": "coroutines-flow-e26832703731",
    "topic": "coroutines-flow",
    "text": "StateFlow, SharedFlow or Channel: which do you use for what?",
    "answer": "StateFlow for UI state, because it always holds the latest value. SharedFlow to broadcast events to several collectors. Channel when each item must be handled exactly once by one receiver.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Choosing the wrong one causes lost or repeated events, so they want your reasoning.",
+   "mistake": "Using `StateFlow` for events and then wondering why identical events are dropped.",
+   "followUp": "How do you stop a `SharedFlow` from losing events?"
   },
   {
    "id": "coroutines-flow-21343f2196d7",
    "topic": "coroutines-flow",
    "text": "What does `WhileSubscribed(5_000)` do in `stateIn`?",
    "answer": "It keeps the upstream flow running for 5 seconds after the last collector leaves, so a rotation doesn't restart the work, while going to the background stops it.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "To check that you understand why this exact value appears in so much Android code.",
+   "mistake": "Using `SharingStarted.Eagerly` or `Lazily` for screen state, so upstream work never stops.",
+   "followUp": "Why 5 seconds and not zero?"
   },
   {
    "id": "coroutines-flow-752e9503e3bd",
    "topic": "coroutines-flow",
    "text": "How do you collect a flow safely in an Activity or Fragment?",
    "answer": "Inside `repeatOnLifecycle(STARTED)` on the (view) lifecycle owner, or `collectAsStateWithLifecycle()` in Compose, so collection stops when the screen isn't visible.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Leaked collection wastes battery and can crash, so this is a basic safety check.",
+   "mistake": "Collecting in `lifecycleScope.launch` alone, which keeps running in the background.",
+   "followUp": "What does `flowWithLifecycle` do?"
   },
   {
    "id": "coroutines-flow-ddf837469180",
    "topic": "coroutines-flow",
    "text": "How do you handle one-off events like navigation or a snackbar?",
    "answer": "Put them into the UI state and have the UI report when it has handled them. This survives rotation and process death, unlike a SharedFlow event that can be lost.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests how you model state and whether you consider process death.",
+   "mistake": "Sending events through a `SharedFlow` with no replay and losing them while nothing collects.",
+   "followUp": "What can go wrong if the UI never reports the event as handled?"
   },
   {
    "id": "coroutines-flow-4664b6feef77",
    "topic": "coroutines-flow",
    "text": "Why didn't my `catch` operator catch an exception thrown in `collect`?",
    "answer": "`catch` only handles upstream exceptions. Move the work into `onEach` before `catch` and use `launchIn`, or wrap `collect` in `try/catch`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "To see whether you know the direction in which flow exceptions travel.",
+   "mistake": "Expecting `catch` to handle everything, wherever it sits in the chain.",
+   "followUp": "How does `retryWhen` fit into error handling?",
+   "code": "fun observe(items: Flow<String>, scope: CoroutineScope) {\n    items\n        .onEach { render(it) }                  // now upstream of catch\n        .catch { showError(it) }\n        .launchIn(scope)\n}"
   },
   {
    "id": "coroutines-flow-5043becff9e4",
    "topic": "coroutines-flow",
    "text": "`flatMapLatest`, `flatMapConcat` or `flatMapMerge`?",
    "answer": "`flatMapLatest` cancels the previous inner flow (search). `flatMapConcat` runs them one at a time in order. `flatMapMerge` runs several in parallel.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Picking the right operator shows you understand ordering and cancellation.",
+   "mistake": "Using `flatMapMerge` for search, so an old response can overwrite a newer one.",
+   "followUp": "What does `debounce` add to a search flow?"
   },
   {
    "id": "coroutines-flow-50383baa64d6",
    "topic": "coroutines-flow",
    "text": "How do you turn a callback API into a Flow?",
    "answer": "Use `callbackFlow`: register the listener, send values with `trySend`, and unregister in `awaitClose`. For a single callback, use `suspendCancellableCoroutine`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Wrapping callback APIs is everyday work with Android SDKs and older libraries.",
+   "mistake": "Leaving out `awaitClose`, so the listener is never removed and the builder throws.",
+   "followUp": "What happens if `trySend` fails?",
+   "code": "fun ticks(clock: Clock): Flow<Long> = callbackFlow {\n    val listener = ClockListener { time -> trySend(time) }\n    clock.register(listener)\n    awaitClose { clock.unregister(listener) }\n}"
   },
   {
    "id": "coroutines-flow-debda322be21",
    "topic": "coroutines-flow",
    "text": "How would you migrate an RxJava codebase to coroutines?",
    "answer": "Convert the data layer to suspend functions and Flow first, use the rx3 adapters (`await`, `asFlow`, `rxSingle`) at boundaries, migrate ViewModels screen by screen, then remove RxJava.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They want a safe, incremental plan rather than enthusiasm for a rewrite.",
+   "mistake": "Proposing to convert everything at once.",
+   "followUp": "How would you keep both libraries working during the migration?"
   },
   {
    "id": "coroutines-flow-2dc230b3b34d",
    "topic": "coroutines-flow",
    "text": "How do you test code that uses `delay` and `Dispatchers.Main`?",
    "answer": "Use `runTest`, which skips delays with virtual time, replace Main with `Dispatchers.setMain(StandardTestDispatcher())`, inject other dispatchers, and test flows with Turbine.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Code that can't be tested deterministically suggests the design wasn't thought through.",
+   "mistake": "Using `Thread.sleep` or real delays and hard-coding dispatchers.",
+   "followUp": "How does `advanceUntilIdle` work?"
   },
   {
    "id": "android-fundamentals-f97897140137",
    "topic": "android-fundamentals",
    "text": "Is `onDestroy` always called?",
    "answer": "No. If the process is killed it isn't, so save important data as soon as it changes, not in `onDestroy`.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It checks that your data safety doesn't depend on a callback that may never run.",
+   "mistake": "Saving user data in `onDestroy`.",
+   "followUp": "Which lifecycle callback is the safer place to save?"
   },
   {
    "id": "android-fundamentals-359c92320fcf",
    "topic": "android-fundamentals",
    "text": "What survives a rotation, and what survives process death?",
    "answer": "Rotation keeps the ViewModel but recreates the Activity. Process death keeps only the saved Bundle (`SavedStateHandle`, `rememberSaveable`) and persistent storage; ViewModels and singletons are gone.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Process death causes bugs that never show up on a developer's own phone.",
+   "mistake": "Assuming a ViewModel keeps data after the system kills the process.",
+   "followUp": "How would you test process death?"
   },
   {
    "id": "android-fundamentals-921ccac7a133",
    "topic": "android-fundamentals",
    "text": "Why is the `onSaveInstanceState` Bundle size limited?",
    "answer": "It crosses Binder to the system, whose transaction buffer is about 1 MB per process; too much data throws `TransactionTooLargeException`. Save IDs, not objects.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "To see whether you know the system limit behind a common crash.",
+   "mistake": "Putting whole lists or bitmaps into the Bundle.",
+   "followUp": "What would you save instead of a large list?"
   },
   {
    "id": "android-fundamentals-1360dc4ad113",
    "topic": "android-fundamentals",
    "text": "Why must fragments use `viewLifecycleOwner` for UI work?",
    "answer": "A fragment on the back stack keeps its instance but destroys its view. Collecting with the fragment's own lifecycle keeps updating a destroyed view and leaks it.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It's a classic source of leaks and crashes in apps that use fragments.",
+   "mistake": "Collecting with the fragment's lifecycle in `onViewCreated`.",
+   "followUp": "What happens if you use view binding after `onDestroyView`?"
   },
   {
    "id": "android-fundamentals-8d060a11b9a9",
    "topic": "android-fundamentals",
    "text": "How do two fragments share data?",
    "answer": "Through a ViewModel scoped to a common owner (activity, parent fragment or navigation graph) for ongoing state, or the Fragment Result API for a one-time result. Never by referencing each other.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To check that you keep components decoupled.",
+   "mistake": "Casting the host Activity or another fragment and calling its methods.",
+   "followUp": "How do you scope a ViewModel to a navigation graph?"
   },
   {
    "id": "android-fundamentals-ccd4ea2caf74",
    "topic": "android-fundamentals",
    "text": "How does a ViewModel survive rotation?",
    "answer": "The Activity passes its `ViewModelStore` to the new instance during a configuration change, and clears it only when the Activity finishes for good.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It separates knowing what a ViewModel does from knowing how.",
+   "mistake": "Saying the ViewModel is saved in the Bundle.",
+   "followUp": "When is `onCleared` called?"
   },
   {
    "id": "android-fundamentals-8dabf6a2f966",
    "topic": "android-fundamentals",
    "text": "How do you detect that the whole app went to the background?",
    "answer": "Observe `ProcessLifecycleOwner`: `ON_STOP` fires when the last activity stops and `ON_START` when the app returns.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests whether you know the app lifecycle beyond single screens.",
+   "mistake": "Counting activities by hand in lifecycle callbacks.",
+   "followUp": "Why can `ProcessLifecycleOwner` deliver `ON_STOP` with a delay?"
   },
   {
    "id": "android-fundamentals-0650c401a3fe",
    "topic": "android-fundamentals",
    "text": "What is a PendingIntent, and why must you set mutability?",
    "answer": "A token that lets another app run an intent as your app, such as a notification action. Since Android 12 you must choose `FLAG_IMMUTABLE` or `FLAG_MUTABLE`; prefer immutable for security.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Mutable PendingIntents are a real security risk.",
+   "mistake": "Choosing `FLAG_MUTABLE` just to silence the error.",
+   "followUp": "What is a mutable PendingIntent needed for?"
   },
   {
    "id": "android-fundamentals-29149135cc5c",
    "topic": "android-fundamentals",
    "text": "Your App Link opens a chooser instead of your app. Why?",
    "answer": "Verification failed, usually because `assetlinks.json` lists the wrong certificate fingerprint (debug or upload key instead of Play's signing key), or the file is redirected or not on HTTPS.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They want to see that you can debug a release-only integration problem.",
+   "mistake": "Registering only the debug or upload certificate when Play App Signing re-signs the app.",
+   "followUp": "How do you check App Link verification on a device?"
   },
   {
    "id": "android-fundamentals-94b03e394def",
    "topic": "android-fundamentals",
    "text": "What causes an ANR?",
    "answer": "Blocking the main thread: about 5 seconds without responding to input, or a broadcast receiver or service that takes too long. Typical causes are disk or network on the main thread, lock contention and slow Binder calls.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "ANRs hurt users and store ranking, so you need to know their causes.",
+   "mistake": "Thinking any coroutine is safe even when it runs blocking work on the main dispatcher.",
+   "followUp": "How would you find the cause of an ANR from a trace?"
   },
   {
    "id": "android-fundamentals-b2f8da492877",
    "topic": "android-fundamentals",
    "text": "Application context or Activity context?",
    "answer": "Application context for anything long-lived (singletons, Room). Activity context for UI work like dialogs and inflation, and never stored beyond the screen's life.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Using the wrong one causes leaks or theming crashes.",
+   "mistake": "Storing an Activity context in a singleton.",
+   "followUp": "Why can a dialog crash with the application context?"
   },
   {
    "id": "android-fundamentals-e823fbe900e4",
    "topic": "android-fundamentals",
    "text": "Parcelable or Serializable?",
    "answer": "Parcelable, generated with `@Parcelize`: it's explicit and fast. Serializable uses reflection and is slower.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A basic check of how data moves between components.",
+   "mistake": "Using `Serializable` by default because it needs less code.",
+   "followUp": "What can't you put in a `Parcelable` Bundle safely?"
   },
   {
    "id": "android-fundamentals-44436fe48542",
    "topic": "android-fundamentals",
    "text": "Started service, bound service or foreground service?",
    "answer": "Started runs until stopped (rare now; use WorkManager). Bound offers an interface to connected clients. Foreground shows a notification for ongoing, user-visible work like music.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see that you know which tool Android expects for each kind of work.",
+   "mistake": "Assuming a service runs on a background thread.",
+   "followUp": "What are foreground service types?"
   },
   {
    "id": "android-fundamentals-364cad452489",
    "topic": "android-fundamentals",
    "text": "Why did my notification not show on Android 13?",
    "answer": "The app lacks the `POST_NOTIFICATIONS` permission, or its channel is missing or turned off by the user.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It checks that you've handled the runtime permission in a real app.",
+   "mistake": "Requesting nothing and expecting notifications to appear as on older versions.",
+   "followUp": "What should you do if the user denies it twice?"
   },
   {
    "id": "android-fundamentals-66425fd5360f",
    "topic": "android-fundamentals",
    "text": "`ListAdapter` with `DiffUtil` or `notifyDataSetChanged()`?",
    "answer": "`ListAdapter` diffs the lists in the background and updates only changed items, with animations. `notifyDataSetChanged()` rebinds everything and loses animations.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "List performance is part of almost every app.",
+   "mistake": "Comparing item identity and content with the same check.",
+   "followUp": "What is `areContentsTheSame` for?"
   },
   {
    "id": "android-fundamentals-9beb5113ac22",
    "topic": "android-fundamentals",
    "text": "What's the difference between `invalidate()` and `requestLayout()` in a custom view?",
    "answer": "`invalidate()` only redraws (`onDraw`). `requestLayout()` re-measures and re-lays out, for when the size or position changes.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It shows whether you understand the View drawing pass.",
+   "mistake": "Calling `requestLayout()` for a colour change, which does needless work.",
+   "followUp": "When do you need to override `onMeasure`?"
   },
   {
    "id": "jetpack-compose-c24e658790aa",
    "topic": "jetpack-compose",
    "text": "What triggers recomposition?",
    "answer": "A change to a `State` object that a composable read during composition. Compose tracks those reads and re-runs only the composables that read the changed state.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It's the foundation of Compose; later answers depend on it.",
+   "mistake": "Saying the whole screen redraws whenever anything changes.",
+   "followUp": "What is a recomposition scope?"
   },
   {
    "id": "jetpack-compose-c093c6f44343",
    "topic": "jetpack-compose",
    "text": "`remember` vs `rememberSaveable`?",
    "answer": "`remember` keeps a value across recompositions only. `rememberSaveable` also saves it in the Bundle, so it survives rotation and process death.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To check that you know which state is lost, and when.",
+   "mistake": "Putting large objects in `rememberSaveable`.",
+   "followUp": "What can't `rememberSaveable` save by default?"
   },
   {
    "id": "jetpack-compose-254e2228c307",
    "topic": "jetpack-compose",
    "text": "When do you use `derivedStateOf`?",
    "answer": "When a value is computed from state that changes more often than the result, such as 'show the scroll-to-top button' from the scroll position, so the UI recomposes only when the result changes.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests whether you can reduce recomposition without overusing the tool.",
+   "mistake": "Wrapping every computed value in it, even when it changes as often as its input.",
+   "followUp": "How is it different from `remember(key)`?"
   },
   {
    "id": "jetpack-compose-57e987e954b1",
    "topic": "jetpack-compose",
    "text": "What is state hoisting, and why do it?",
    "answer": "Moving state up to the caller so a composable takes values as parameters and reports events through lambdas. Stateless composables are reusable, previewable and easy to test.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "They're checking that you write reusable, testable UI.",
+   "mistake": "Hoisting all state to the ViewModel, including purely visual state nobody else needs.",
+   "followUp": "Which state should stay inside the composable?"
   },
   {
    "id": "jetpack-compose-1725014d2758",
    "topic": "jetpack-compose",
    "text": "`LaunchedEffect`, `rememberCoroutineScope` or `DisposableEffect`?",
    "answer": "`LaunchedEffect` runs suspend work tied to a key; `rememberCoroutineScope` launches from callbacks like `onClick`; `DisposableEffect` registers listeners and cleans up in `onDispose`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Wrong effect choices cause repeated requests and leaked listeners.",
+   "mistake": "Using `LaunchedEffect(Unit)` when the work depends on a value that can change.",
+   "followUp": "When do you need `rememberUpdatedState`?"
   },
   {
    "id": "jetpack-compose-26596ccad4cb",
    "topic": "jetpack-compose",
    "text": "Why does my composable recompose even though the data didn't change?",
    "answer": "An unstable parameter type, a new list instance with the same contents, or reading fast-changing state too high up. Use immutable UI models, stable keys and lambda modifiers.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It shows whether you can diagnose performance problems, not just build screens.",
+   "mistake": "Adding `remember` everywhere without measuring what actually recomposes.",
+   "followUp": "How would you find what is recomposing?"
   },
   {
    "id": "jetpack-compose-83a0cd5478a2",
    "topic": "jetpack-compose",
    "text": "What does strong skipping mode change?",
    "answer": "It's on by default since Kotlin 2.0.20. Composables with unstable parameters can still skip when the same instances are passed, and lambdas are remembered automatically, so stability problems matter less.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "To see whether your stability advice is up to date.",
+   "mistake": "Repeating pre-2.0.20 advice that any unstable parameter always prevents skipping.",
+   "followUp": "How can you tell whether a composable is skippable?"
   },
   {
    "id": "jetpack-compose-848678017a8c",
    "topic": "jetpack-compose",
    "text": "How do you make a `LazyColumn` perform well?",
    "answer": "Stable `key`s and `contentType`s, cheap item composables with precomputed UI models, no heavy work in composition, and testing in release builds with a baseline profile.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Lists are where Compose performance problems usually show.",
+   "mistake": "Judging performance in a debug build, or using the index as the key.",
+   "followUp": "Why are stable keys important when items move?"
   },
   {
    "id": "jetpack-compose-57250b6f78e2",
    "topic": "jetpack-compose",
    "text": "Why does Modifier order matter?",
    "answer": "Each modifier wraps the next, so `padding().background()` pads outside the background, while `background().padding()` pads inside it.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It catches a very common source of layout bugs.",
+   "mistake": "Thinking modifiers are an unordered set of properties.",
+   "followUp": "How does `Modifier` order affect click areas?"
   },
   {
    "id": "jetpack-compose-1033d1c4dadf",
    "topic": "jetpack-compose",
    "text": "How would you migrate a large View-based app to Compose?",
    "answer": "Screen by screen: new screens in Compose, then leaf components and existing screens, using `ComposeView` and `AndroidView` for interop and a shared theme, measuring performance as you go.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "They're assessing planning and risk management as much as Compose knowledge.",
+   "mistake": "Planning a full rewrite with a feature freeze.",
+   "followUp": "How do you share a theme between Views and Compose?"
   },
   {
    "id": "jetpack-compose-4bff9cfae071",
    "topic": "jetpack-compose",
    "text": "How do you test a composable?",
    "answer": "With `createComposeRule()`: set content with fake state, find nodes by text, content description or test tag, perform actions and assert. Stateless composables make this easy.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To check that you design composables that can be tested.",
+   "mistake": "Passing a real ViewModel with real data sources into every UI test.",
+   "followUp": "When would you use a test tag instead of text?"
   },
   {
    "id": "jetpack-compose-09f0a3265ffc",
    "topic": "jetpack-compose",
    "text": "What is different about Navigation 3?",
    "answer": "You own the back stack as a state list of keys, and `NavDisplay` renders it, which simplifies adaptive layouts and keeps navigation state in one place.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It shows whether you follow the newer navigation library.",
+   "mistake": "Describing the old `NavController` model as if nothing had changed.",
+   "followUp": "How would you handle deep links with your own back stack?"
   },
   {
    "id": "architecture-6d67420fa7ba",
    "topic": "architecture",
    "text": "Describe the architecture you would use for a new Android app.",
    "answer": "UI layer (Compose + ViewModels with one `UiState`), an optional domain layer of use cases, and a data layer of repositories over Room and Retrofit, with the database as the single source of truth, one-way data flow and Hilt for DI.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "They want to hear a coherent design and the reasons behind each choice.",
+   "mistake": "Listing libraries without explaining how data and events flow.",
+   "followUp": "What would you change for a very small app?"
   },
   {
    "id": "architecture-eb48514bf1ca",
    "topic": "architecture",
    "text": "Walk me through what happens, layer by layer, when a user taps \"like\".",
    "answer": "The UI sends the event to the ViewModel, which calls a use case; the use case checks the rules and calls the repository; the repository writes to the database and schedules a sync; the database emits and the new state flows back to the UI.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It shows whether your layers are real or only folder names.",
+   "mistake": "Skipping where the write is saved and how the UI learns about it.",
+   "followUp": "What happens if the network call fails?"
   },
   {
    "id": "architecture-398650856925",
    "topic": "architecture",
    "text": "Why should the database, not the network, be the single source of truth?",
    "answer": "Every screen sees the same data, the app works offline and after process death, cached data shows instantly, and one write updates every observer.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It tests whether you understand offline-first design.",
+   "mistake": "Saying only \"for offline support\" and missing consistency between screens.",
+   "followUp": "How do you tell the user their change has not synced yet?"
   },
   {
    "id": "architecture-519b75c2f75e",
    "topic": "architecture",
    "text": "Why shouldn't the ViewModel pass the network response straight to the UI?",
    "answer": "It creates a second source of truth: other screens won't see the change, it's lost offline and after process death, and the copies can disagree.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "They're probing for the bugs that multiple sources of truth create.",
+   "mistake": "Adding the database as a side cache while the UI still renders the response.",
+   "followUp": "When is it acceptable to skip the database?"
   },
   {
    "id": "architecture-74f890ee1133",
    "topic": "architecture",
    "text": "MVVM or MVI?",
    "answer": "Both work. MVVM with a single `UiState` is simple and enough for most screens; MVI adds a single action entry point and a pure reducer, which pays off on complex, event-heavy screens.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "To see whether you choose patterns by trade-off rather than fashion.",
+   "mistake": "Declaring one pattern always better.",
+   "followUp": "Where would you put a one-off event in MVI?"
   },
   {
    "id": "architecture-fd10b3007053",
    "topic": "architecture",
    "text": "What belongs in a ViewModel and what in a use case?",
    "answer": "The ViewModel handles screen state, UI mapping and user events. A use case holds business rules that several screens reuse. Skip use cases that just forward a call.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It checks that you put logic where it can be tested and reused.",
+   "mistake": "Creating a use case for every repository method.",
+   "followUp": "How do you test a use case?"
   },
   {
    "id": "architecture-826d9874991e",
    "topic": "architecture",
    "text": "How do you share state between two screens?",
    "answer": "Through a shared repository (preferred), or a ViewModel scoped to a navigation graph or activity. Avoid global mutable singletons.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Sharing state badly leads to stale screens and hidden coupling.",
+   "mistake": "Passing large objects through navigation arguments or global variables.",
+   "followUp": "When is a navigation-graph ViewModel the wrong choice?"
   },
   {
    "id": "architecture-d917b88a0c17",
    "topic": "architecture",
    "text": "Why keep separate models per layer?",
    "answer": "So a backend change in a DTO doesn't break the UI, the database schema can evolve on its own, and UI models can hold formatted, display-ready values.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "To check you understand why layers need their own boundaries.",
+   "mistake": "Using the network DTO as the UI model to save typing.",
+   "followUp": "When is mapping between layers not worth it?"
   },
   {
    "id": "architecture-9eae6a960985",
    "topic": "architecture",
    "text": "How do feature modules navigate to each other without depending on each other?",
    "answer": "Each feature exposes routes or navigation callbacks, and the app module wires them together; shared route types can live in a small API module.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "Large teams depend on it, so it tests your modularisation experience.",
+   "mistake": "Letting one feature module depend directly on another.",
+   "followUp": "How would you stop feature modules from depending on each other?"
   },
   {
    "id": "architecture-78b7634e57c1",
    "topic": "architecture",
    "text": "How do you introduce a new architecture into a large legacy app?",
    "answer": "Document the decision, pilot it on one feature, add rules that enforce module boundaries, migrate incrementally, and track build times and crash rates.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "Senior roles require changing systems safely, not just designing new ones.",
+   "mistake": "Proposing a rewrite without a pilot, measurements or buy-in.",
+   "followUp": "How would you measure whether the migration is working?"
   },
   {
    "id": "dependency-injection-bf5c1014981f",
    "topic": "dependency-injection",
    "text": "What is dependency injection, and what problem does it solve?",
    "answer": "A class receives its dependencies instead of creating them. It makes code testable (swap in fakes), reusable, and gives clear control over object lifetimes.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To check that you know why DI exists, not just the annotations.",
+   "mistake": "Describing DI as \"what Hilt does\".",
+   "followUp": "How would you do it without a framework?"
   },
   {
    "id": "dependency-injection-c354a2e2f329",
    "topic": "dependency-injection",
    "text": "Why prefer constructor injection over field injection?",
    "answer": "Dependencies are visible and required, fields can be immutable, and tests can construct the class without a framework. Use field injection only for system-created classes like Activities.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It tests whether you understand testability and object validity.",
+   "mistake": "Using field injection in your own classes out of habit.",
+   "followUp": "How do you inject into a class Android creates for you?"
   },
   {
    "id": "dependency-injection-e3dde2a96367",
    "topic": "dependency-injection",
    "text": "`@Binds` or `@Provides`?",
    "answer": "`@Binds` maps an interface to an implementation with an `@Inject` constructor and generates less code. `@Provides` is for objects you must build yourself, like Retrofit or third-party classes.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "A quick check that you've written real Hilt modules.",
+   "mistake": "Using `@Provides` where `@Binds` would do, or expecting `@Binds` to run code.",
+   "followUp": "Can you `@Binds` a class you don't own?"
   },
   {
    "id": "dependency-injection-9e0243102f88",
    "topic": "dependency-injection",
    "text": "What does `@Singleton` mean in Hilt?",
    "answer": "One instance per `SingletonComponent`, which lives as long as the app process. Unscoped bindings create a new instance every time they're injected.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Wrong scoping causes both duplicate state and objects that live too long.",
+   "mistake": "Marking everything `@Singleton`.",
+   "followUp": "When would you use `@ActivityRetainedScoped`?"
   },
   {
    "id": "dependency-injection-ff8e3b428bb8",
    "topic": "dependency-injection",
    "text": "How does Hilt create a ViewModel with dependencies?",
    "answer": "`@HiltViewModel` makes Hilt generate a factory; `hiltViewModel()` or `by viewModels()` uses Hilt's ViewModel factory to build it from the `ViewModelComponent`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It shows whether you know what the generated code does for you.",
+   "mistake": "Constructing the ViewModel yourself with `ViewModelProvider` and no factory.",
+   "followUp": "How does Hilt supply `SavedStateHandle`?"
   },
   {
    "id": "dependency-injection-15e963e96c2a",
    "topic": "dependency-injection",
    "text": "How do you inject a runtime value, like an ID, along with graph dependencies?",
    "answer": "Assisted injection: `@AssistedInject` on the constructor, `@Assisted` on the runtime parameter, and an `@AssistedFactory` interface the caller uses.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Runtime values are where basic DI knowledge usually stops.",
+   "mistake": "Setting the value later through a mutable property.",
+   "followUp": "How is this different from using `SavedStateHandle` for the ID?"
   },
   {
    "id": "dependency-injection-a2e3c3f6aedb",
    "topic": "dependency-injection",
    "text": "How do you provide two objects of the same type?",
    "answer": "Define qualifier annotations, like `@IoDispatcher` and `@DefaultDispatcher`, and put them on both the provider and the injection point.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see whether you can resolve a common graph error.",
+   "mistake": "Wrapping the types in new classes only to tell them apart.",
+   "followUp": "Where else would you use a qualifier?"
   },
   {
    "id": "dependency-injection-8a2bc046a269",
    "topic": "dependency-injection",
    "text": "How do you replace a dependency with a fake in Hilt tests?",
    "answer": "Use `@TestInstallIn(replaces = [...])` or `@UninstallModules` plus a test module that binds the fake.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Test setup shows whether you've used DI for its main benefit.",
+   "mistake": "Adding test-only flags to production modules.",
+   "followUp": "How do you replace a whole module for one test class?"
   },
   {
    "id": "dependency-injection-d6c5639fbb5e",
    "topic": "dependency-injection",
    "text": "Hilt or Koin?",
    "answer": "Hilt (Dagger) checks the graph at compile time and is fast at runtime but needs code generation. Koin is simpler and multiplatform but resolves at runtime, so errors appear when the app runs.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They want a balanced comparison, including costs.",
+   "mistake": "Saying they're the same thing with different syntax.",
+   "followUp": "When would you choose manual DI?"
   },
   {
    "id": "dependency-injection-ea22cc2ab64a",
    "topic": "dependency-injection",
    "text": "What is the difference between DI and a service locator?",
    "answer": "DI pushes dependencies in, so they're visible in the constructor. A service locator is pulled from inside the class, which hides dependencies and makes testing harder.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It tests the concept apart from any library.",
+   "mistake": "Calling any object registry dependency injection.",
+   "followUp": "How would you spot a service locator in code review?"
   },
   {
    "id": "data-layer-9dce35739d8f",
    "topic": "data-layer",
    "text": "Why use kotlinx.serialization or Moshi instead of Gson?",
    "answer": "Gson uses reflection and ignores Kotlin nullability and default values, so a missing field can put `null` into a non-null property. The others are Kotlin-aware and generate code.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It shows whether you know how serialization can break Kotlin's guarantees.",
+   "mistake": "Assuming a non-null Kotlin property can't end up null after Gson parses it.",
+   "followUp": "How do you handle unknown JSON fields?"
   },
   {
    "id": "data-layer-f2e8474402a4",
    "topic": "data-layer",
    "text": "How do you refresh an expired token when several requests fail with 401 at once?",
    "answer": "Use an OkHttp `Authenticator` with a lock: the first thread refreshes, the others see the token changed and simply retry. Give up after one retry and sign out if the refresh fails.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It combines concurrency, networking and failure handling in a real scenario.",
+   "mistake": "Letting every failed request start its own refresh, or retrying forever.",
+   "followUp": "What is the difference between an Authenticator and an Interceptor here?"
   },
   {
    "id": "data-layer-773d612268d1",
    "topic": "data-layer",
    "text": "How do you make an API call survive the user leaving the screen?",
    "answer": "Don't tie it to `viewModelScope`. Use an injected application scope for short work, or WorkManager for work that must finish.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "To check that you match work to the right lifetime.",
+   "mistake": "Using `GlobalScope` to keep the request alive.",
+   "followUp": "How would the UI learn the result later?"
   },
   {
    "id": "data-layer-b5671007c76a",
    "topic": "data-layer",
    "text": "Why is DataStore preferred over SharedPreferences?",
    "answer": "SharedPreferences can block the main thread and has no error handling. DataStore is asynchronous, transactional and exposes data as a Flow.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A basic check of safe local storage.",
+   "mistake": "Thinking `apply()` makes SharedPreferences completely safe for the main thread.",
+   "followUp": "When would you still use SharedPreferences?"
   },
   {
    "id": "data-layer-e55b8029ba2f",
    "topic": "data-layer",
    "text": "How does an offline-first write work?",
    "answer": "Save the change locally with a pending flag so the UI updates at once, then a WorkManager job syncs it with an idempotency key when the network is available, and resolves conflicts with versions or timestamps.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It's the heart of offline-first design.",
+   "mistake": "Retrying without an idempotency key and creating duplicates.",
+   "followUp": "How would you show a permanently failed sync?"
   },
   {
    "id": "data-layer-eeaa26feef44",
    "topic": "data-layer",
    "text": "How do you avoid two screens sending the same request?",
    "answer": "Share the in-flight request: keep one `Deferred` behind a `Mutex`, or expose one hot flow from the repository with `shareIn`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "They're testing whether you spot wasted work and race conditions.",
+   "mistake": "Using a boolean \"loading\" flag that two coroutines can both pass.",
+   "followUp": "How would you cancel the shared request safely?"
   },
   {
    "id": "data-layer-359ea450ed02",
    "topic": "data-layer",
    "text": "How do you handle a Room migration safely?",
    "answer": "Export schemas, write a migration (or `@AutoMigration` for simple changes), test it with `MigrationTestHelper` in CI, and never use destructive migration for user data.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "A failed migration destroys user data.",
+   "mistake": "Reaching for destructive migration to make the crash go away.",
+   "followUp": "How do you test a migration from an old version?"
   },
   {
    "id": "data-layer-5109dec2c0e1",
    "topic": "data-layer",
    "text": "Why prefer cursor pagination over offset pagination?",
    "answer": "New items arriving at the top shift offsets, causing duplicates or skipped items. A cursor points at a specific item, so pages stay stable.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It tests API design knowledge that matters for feeds.",
+   "mistake": "Mentioning speed but missing duplicated and skipped items.",
+   "followUp": "How does Paging 3 combine a database and a cursor?"
   },
   {
    "id": "data-layer-9d6ee429e9bd",
    "topic": "data-layer",
    "text": "Where would you save an exported PDF, a thumbnail cache and a photo for the gallery?",
    "answer": "The PDF where the user chooses, through the Storage Access Framework; the thumbnail in `cacheDir`; the photo through `MediaStore`. None of these needs a storage permission.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Scoped storage rules trip up many apps.",
+   "mistake": "Asking for broad storage permission for all three.",
+   "followUp": "What does `MANAGE_EXTERNAL_STORAGE` require on Play?"
   },
   {
    "id": "data-layer-9e2139a6b390",
    "topic": "data-layer",
    "text": "How do you know the device is online?",
    "answer": "Register a `NetworkCallback` for internet capability, react to `onAvailable`, `onLost` and `onCapabilitiesChanged`, and still treat every request as able to fail.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see that you handle unreliable networks realistically.",
+   "mistake": "Checking connectivity once and assuming the request will succeed.",
+   "followUp": "Why can a connected network still fail requests?"
   },
   {
    "id": "background-work-59184f9b8f6f",
    "topic": "background-work",
    "text": "How do you choose between a coroutine, WorkManager, a foreground service and AlarmManager?",
    "answer": "Coroutine for work tied to a screen; WorkManager for work that must finish but can wait; foreground service for long, user-visible work; AlarmManager for an exact time.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Choosing the wrong tool means work that is killed or drains the battery.",
+   "mistake": "Using a foreground service for everything that must not be lost.",
+   "followUp": "What would you use for a download the user started and is watching?"
   },
   {
    "id": "background-work-3ca5bb665f8b",
    "topic": "background-work",
    "text": "Why not use a plain background Service for syncing?",
    "answer": "Since Android 8, background services are stopped soon after the app leaves the foreground. WorkManager is the supported, battery-friendly way.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To check that your knowledge reflects modern background limits.",
+   "mistake": "Expecting a background service to keep running indefinitely.",
+   "followUp": "What are the limits on foreground services started from the background?"
   },
   {
    "id": "background-work-b62280abc35a",
    "topic": "background-work",
    "text": "Does WorkManager guarantee exact timing?",
    "answer": "No. It guarantees the work eventually runs when constraints are met; periodic work has a 15-minute minimum and can drift.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Many bugs come from assuming exact scheduling.",
+   "mistake": "Using periodic work for something that must run at a precise time.",
+   "followUp": "What is the minimum periodic interval?"
   },
   {
    "id": "background-work-3403443bca0d",
    "topic": "background-work",
    "text": "How do you stop the same upload from being queued twice?",
    "answer": "Use unique work (`enqueueUniqueWork` with a stable name and `KEEP`), and make the upload idempotent on the server.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Duplicate work causes duplicate data on the server.",
+   "mistake": "Checking a local flag instead of using unique work and server idempotency.",
+   "followUp": "What is the difference between `KEEP` and `REPLACE`?"
   },
   {
    "id": "background-work-e307592d7c3d",
    "topic": "background-work",
    "text": "What changed for foreground services in Android 14?",
    "answer": "Every foreground service must declare a type with a matching permission, and Play reviews the declared types.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It checks that you keep up with platform changes that affect releases.",
+   "mistake": "Declaring a type that doesn't match what the service does.",
+   "followUp": "Which types might a music player and a sync feature need?"
   },
   {
    "id": "background-work-fde652a59f5b",
    "topic": "background-work",
    "text": "How does Doze affect your app?",
    "answer": "Network access, jobs and normal alarms are deferred to maintenance windows while the device is idle. Use WorkManager, and high-priority push only for urgent user-visible events.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It shows whether you can design for power saving instead of fighting it.",
+   "mistake": "Asking users to disable battery optimisation as the first fix.",
+   "followUp": "How would you test your app in Doze?"
   },
   {
    "id": "background-work-cf024a26789d",
    "topic": "background-work",
    "text": "How would you sync data when the server has new content?",
    "answer": "Send a small push that only signals a change; its handler schedules a unique WorkManager job that fetches changes since the last cursor.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It tests end-to-end sync design.",
+   "mistake": "Sending all the data in the push message and treating delivery as guaranteed.",
+   "followUp": "What do you do if the push never arrives?"
   },
   {
    "id": "background-work-1421080c567d",
    "topic": "background-work",
    "text": "How do you show progress of a long upload in the UI?",
    "answer": "Call `setProgress` in the worker and observe `WorkInfo` as a Flow from the UI; for long work, use `setForeground` to show a notification.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see that you can connect background work to the UI.",
+   "mistake": "Holding a reference to the Activity inside the worker.",
+   "followUp": "How do you cancel the work from the UI?"
   },
   {
    "id": "performance-56ccf33ef71e",
    "topic": "performance",
    "text": "How would you investigate a slow screen?",
    "answer": "Reproduce on a low-end device with a release build, record a Perfetto trace or check Compose recomposition counts, find the long frames and what runs in them, fix it, then add a Macrobenchmark frame-timing test so it doesn't regress.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They want a method: measure, find the cause, fix, and verify.",
+   "mistake": "Guessing at fixes before profiling, or measuring only a debug build.",
+   "followUp": "What does a Perfetto trace show that logs don't?"
   },
   {
    "id": "performance-00f50c74623a",
    "topic": "performance",
    "text": "What are the most common causes of memory leaks on Android?",
    "answer": "Static fields or singletons holding an Activity or View, listeners never unregistered, delayed Handler callbacks or lambdas capturing the screen, and Fragment view bindings not cleared in `onDestroyView`.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Leaks are a frequent real-world problem.",
+   "mistake": "Naming only static Activity references and missing listeners and view bindings.",
+   "followUp": "How do you clear view binding in a Fragment?"
   },
   {
    "id": "performance-9256dfb2379e",
    "topic": "performance",
    "text": "How do you find and fix a memory leak?",
    "answer": "Use LeakCanary in debug builds, read the reference chain from the GC root, find the first reference that shouldn't exist, and remove it, often by unregistering or using lifecycle-aware collection.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It shows whether you've actually debugged one.",
+   "mistake": "Calling `System.gc()` or adding weak references without finding the cause.",
+   "followUp": "What does the reference chain in LeakCanary tell you?"
   },
   {
    "id": "performance-52c442c84516",
    "topic": "performance",
    "text": "What causes ANRs, and how do you diagnose one?",
    "answer": "A blocked main thread: I/O on the main thread, lock contention, slow `Application.onCreate` or slow Binder calls. Read the main thread's stack in the Play Console ANR trace and use StrictMode in debug builds.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "ANRs are a key quality metric you must be able to diagnose.",
+   "mistake": "Looking only at your own code and ignoring lock contention and Binder calls.",
+   "followUp": "How can lock contention cause an ANR?"
   },
   {
    "id": "performance-bfc326c1c67c",
    "topic": "performance",
    "text": "How do you improve cold start time?",
    "answer": "Measure with Macrobenchmark, make SDK initialisation lazy or move it off the main thread, avoid eager singletons, show cached data first, and ship a baseline profile.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "Startup is visible to every user and easy to measure badly.",
+   "mistake": "Hiding slow work behind a longer splash screen.",
+   "followUp": "What is the difference between cold, warm and hot start?"
   },
   {
    "id": "performance-76c8db730ca2",
    "topic": "performance",
    "text": "What is a baseline profile?",
    "answer": "A list of classes and methods used in key journeys, shipped with the app so they're compiled ahead of time at install, making startup and scrolling faster from the first launch.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "To check that you know a standard modern optimisation.",
+   "mistake": "Confusing it with R8 shrinking.",
+   "followUp": "How do you measure the benefit of a baseline profile?"
   },
   {
    "id": "performance-f53f1b2ea1ba",
    "topic": "performance",
    "text": "What does R8 do, and what can go wrong?",
    "answer": "It removes unused code, renames and optimises the rest. Code accessed by reflection can be removed or renamed by mistake, so it needs keep rules; upload the mapping file to read crash reports.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Release-only failures often come from R8.",
+   "mistake": "Disabling R8 or adding a keep-everything rule.",
+   "followUp": "How would you debug a crash that R8 introduced?"
   },
   {
    "id": "performance-dfd0ba32dc66",
    "topic": "performance",
    "text": "An SDK adds 300 ms to startup. What do you do?",
    "answer": "Measure it alone, initialise it lazily or after the first frame on a background thread, talk to the vendor, or remove it, and show the before and after numbers.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests judgement and communication as well as profiling.",
+   "mistake": "Removing it without evidence, or accepting it because the vendor requires it.",
+   "followUp": "How would you convince the SDK vendor?"
   },
   {
    "id": "performance-da22f9713499",
    "topic": "performance",
    "text": "What is the difference between a memory leak and high memory use?",
    "answer": "A leak grows over time because unneeded objects stay reachable. High use can be legitimate, like big caches or bitmaps, and is fixed by sizing them, not by breaking references.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see whether you can name the problem before fixing it.",
+   "mistake": "Treating any high memory use as a leak.",
+   "followUp": "Which tool shows allocations over time?"
   },
   {
    "id": "testing-ac0fdab4ab3d",
    "topic": "testing",
    "text": "Describe your testing strategy for an Android app.",
    "answer": "Many fast unit tests for ViewModels and domain logic, integration tests for Room and the network, a few UI tests for critical journeys, and screenshot tests for the design system, all running in CI.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "They want priorities and reasons, not a list of tools.",
+   "mistake": "Relying mostly on slow end-to-end tests.",
+   "followUp": "Which tests run on every pull request?"
   },
   {
    "id": "testing-7a5fa0220fa4",
    "topic": "testing",
    "text": "Fakes or mocks?",
    "answer": "Fakes for repositories and data sources, because tests check behaviour and survive refactoring. Mocks when the call itself is what you verify, like analytics.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Your choice shows whether tests will survive refactoring.",
+   "mistake": "Mocking everything and verifying internal calls.",
+   "followUp": "How would you build a fake repository?"
   },
   {
    "id": "testing-fa5bc96d311d",
    "topic": "testing",
    "text": "How do you test a ViewModel that uses `viewModelScope`?",
    "answer": "Replace `Dispatchers.Main` with a test dispatcher in a JUnit rule, run the test in `runTest`, inject fakes, and assert on the `StateFlow` with Turbine.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It's the most common coroutine testing problem.",
+   "mistake": "Forgetting to replace `Dispatchers.Main`, or adding real delays.",
+   "followUp": "What does `Dispatchers.resetMain` protect against?"
   },
   {
    "id": "testing-52bd02c6bf48",
    "topic": "testing",
    "text": "`StandardTestDispatcher` or `UnconfinedTestDispatcher`?",
    "answer": "Standard queues work until you advance time, so you can check intermediate states like loading. Unconfined runs eagerly, for tests where only the final state matters.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It checks that you understand virtual time and execution order.",
+   "mistake": "Using the unconfined dispatcher and then expecting to observe the loading state.",
+   "followUp": "How do you assert a loading state?"
   },
   {
    "id": "testing-9ab654d6f539",
    "topic": "testing",
    "text": "What does MockWebServer catch that a fake doesn't?",
    "answer": "Real parsing and request problems: wrong JSON field names, missing query parameters, broken converters and HTTP error handling.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "To see that you know what each test level can and can't prove.",
+   "mistake": "Assuming a fake repository tests the network contract.",
+   "followUp": "How would you simulate a slow or broken network?"
   },
   {
    "id": "testing-2bf21b42f2ff",
    "topic": "testing",
    "text": "How do you test process death?",
    "answer": "Build the ViewModel with a pre-filled `SavedStateHandle`, use `StateRestorationTester` for Compose, and manually kill the app with `adb shell am kill` before releases.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Process death bugs are missed unless someone tests for them.",
+   "mistake": "Testing only rotation.",
+   "followUp": "What state would you lose without `SavedStateHandle`?"
   },
   {
    "id": "testing-76d8fb81d8c7",
    "topic": "testing",
    "text": "What makes tests flaky, and how do you fix it?",
    "answer": "Real time and sleeps, animations, shared state, real network and unordered async work. Inject clocks and dispatchers, use virtual time, disable animations and keep tests hermetic.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Flaky tests destroy trust in CI.",
+   "mistake": "Adding retries or sleeps instead of removing the cause.",
+   "followUp": "How do you find which test is flaky?"
   },
   {
    "id": "testing-ba9e14267285",
    "topic": "testing",
    "text": "Do you practise TDD?",
    "answer": "Give an honest answer: test-first for business rules, reducers and bug fixes (the reproducing test comes first), and tests after the design settles for UI.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "They're looking for honesty and judgement.",
+   "mistake": "Claiming you always do it when you don't.",
+   "followUp": "When do you not write the test first?"
   },
   {
    "id": "testing-dab40e10ec99",
    "topic": "testing",
    "text": "What code coverage do you aim for?",
    "answer": "Coverage is a signal, not a target. Aim high on domain and ViewModel logic, cover critical journeys end to end, and use coverage to find untested branches.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It reveals whether you value useful tests over numbers.",
+   "mistake": "Chasing 100% with tests that assert nothing.",
+   "followUp": "How do you find important untested code?"
   },
   {
    "id": "security-privacy-a426f8233682",
    "topic": "security-privacy",
    "text": "Where do you store a user's auth token securely?",
    "answer": "Encrypted with a Keystore-held key (for example Tink with DataStore), in app-private storage, excluded from backups. Never in plain SharedPreferences or logs.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Token handling mistakes expose user accounts.",
+   "mistake": "Saying plain SharedPreferences is safe because it's private.",
+   "followUp": "What happens to a Keystore key after a restore to a new phone?"
   },
   {
    "id": "security-privacy-f851f8cdb216",
    "topic": "security-privacy",
    "text": "How would you protect an API key used by the app?",
    "answer": "You can't fully protect it in the APK. Move the call to your backend, use per-user tokens, restrict the key to your package and certificate, and verify requests with Play Integrity.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It tests whether you accept the limits of client-side security.",
+   "mistake": "Believing obfuscation or native code hides a secret.",
+   "followUp": "What does Play Integrity add here?"
   },
   {
    "id": "security-privacy-6f7b905f2587",
    "topic": "security-privacy",
    "text": "What does certificate pinning protect against, and what is the risk?",
    "answer": "Interception by a wrong-but-trusted CA or a user-installed proxy certificate. The risk is outages when certificates change, so pin a backup key, set an expiry and keep a remote switch.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They want both the benefit and the operational risk.",
+   "mistake": "Pinning one certificate with no backup, which can cut off every user.",
+   "followUp": "How would you update pins safely?"
   },
   {
    "id": "security-privacy-e7fc75e39b2b",
    "topic": "security-privacy",
    "text": "Why use PKCE for OAuth on mobile?",
    "answer": "A mobile app can't keep a client secret, and another app could intercept the authorization code. PKCE makes the code useless without the verifier that only your app has.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "OAuth done wrong on mobile is exploitable.",
+   "mistake": "Embedding a client secret in the app.",
+   "followUp": "How does the code verifier work?"
   },
   {
    "id": "security-privacy-cde00101e549",
    "topic": "security-privacy",
    "text": "How do you implement biometric login securely?",
    "answer": "Use a Keystore key that requires biometric authentication and pass a `Cipher` as a `CryptoObject` to `BiometricPrompt`, decrypting only in the success callback, so it can't be bypassed by hooking.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It checks that authentication is backed by cryptography.",
+   "mistake": "Trusting only the success callback with a boolean.",
+   "followUp": "What happens when the user adds a new fingerprint?"
   },
   {
    "id": "security-privacy-e250bb0c98d2",
    "topic": "security-privacy",
    "text": "How do you handle deep links securely?",
    "answer": "Allow-list hosts and paths, validate every parameter's type and format, never perform sensitive actions without confirmation, and never follow redirect URLs from a link.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Deep links are untrusted input from anyone.",
+   "mistake": "Passing URL parameters straight into a WebView or a payment action.",
+   "followUp": "How do you prove a link was meant for your app?"
   },
   {
    "id": "security-privacy-83d4cfa88ff4",
    "topic": "security-privacy",
    "text": "Is data in a Room database secure?",
    "answer": "It's private to the app sandbox but readable on a rooted device or through backups. Encrypt sensitive data, for example with SQLCipher, and exclude it from backups.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "To see that you know where the sandbox stops protecting data.",
+   "mistake": "Assuming private storage means encrypted storage.",
+   "followUp": "How would you manage the database encryption key?"
   },
   {
    "id": "security-privacy-02f51a39e5f4",
    "topic": "security-privacy",
    "text": "What is Play Integrity used for?",
    "answer": "Your server checks a signed verdict that the request comes from your genuine app, installed from Play, on a genuine device, before trusting sensitive actions.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It shows how you protect server actions from tampered clients.",
+   "mistake": "Checking the verdict only inside the app.",
+   "followUp": "What should your server do if the verdict is bad?"
   },
   {
    "id": "build-release-5a98632ac0cc",
    "topic": "build-release",
    "text": "Your clean build takes 12 minutes. What do you do?",
    "answer": "Profile with a Build Scan, check configuration vs execution time, enable configuration and remote build caches, replace kapt with KSP, split large modules and cache Gradle in CI.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Slow builds cost the whole team, so they test your diagnostic method.",
+   "mistake": "Changing random Gradle flags without profiling.",
+   "followUp": "How do you read a Build Scan?"
   },
   {
    "id": "build-release-30506911c926",
    "topic": "build-release",
    "text": "What does your CI pipeline look like?",
    "answer": "On PRs: lint, static analysis, unit and screenshot tests and a build. On merge: instrumented tests and a signed bundle to an internal track. Releases promoted through staged rollout.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It shows what quality gates you consider necessary.",
+   "mistake": "Describing only a build step, with no tests or release stages.",
+   "followUp": "How do you keep CI fast as the app grows?"
   },
   {
    "id": "build-release-863e2a266737",
    "topic": "build-release",
    "text": "How do you release safely?",
    "answer": "Staged rollout watching crash and ANR rates, features behind remote flags with a kill switch, backwards-compatible APIs, and a rollback or hotfix plan.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "A mobile release can't be pulled back from phones already updated.",
+   "mistake": "Relying on a quick hotfix instead of staged rollout and a kill switch.",
+   "followUp": "Which metrics would stop a rollout?"
   },
   {
    "id": "build-release-695d349bcb17",
    "topic": "build-release",
    "text": "A crash appears in 0.5% of users after a release. What's your process?",
    "answer": "Halt the rollout, triage the de-obfuscated trace and affected devices, disable via flag if possible, ship a tested hotfix, resume, and run a blameless post-mortem.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They're testing how you behave during an incident.",
+   "mistake": "Debugging for hours while the rollout keeps going.",
+   "followUp": "What would you put in the post-mortem?"
   },
   {
    "id": "build-release-89742d55d1ed",
    "topic": "build-release",
    "text": "Why does an app crash only in release builds?",
    "answer": "Usually R8 removed or renamed something used through reflection. Reproduce with a release build, check the mapping and usage files, and add the narrowest keep rule.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Almost every shipping team meets this bug.",
+   "mistake": "Turning off shrinking permanently.",
+   "followUp": "Why shouldn't you add a broad keep rule?"
   },
   {
    "id": "build-release-53a0639399e3",
    "topic": "build-release",
    "text": "APK or App Bundle?",
    "answer": "An APK is the installable file. An App Bundle is the publishing format from which Play generates per-device APKs, so users download less. Bundles are required for new apps on Play.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A basic check of Android publishing.",
+   "mistake": "Thinking users download the whole bundle.",
+   "followUp": "What does Play generate from a bundle?"
   },
   {
    "id": "build-release-2f02597ce834",
    "topic": "build-release",
    "text": "When would you use an on-demand dynamic feature module?",
    "answer": "For a large, rarely used feature where the install-size saving is worth the extra complexity in navigation, testing and release.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests whether you weigh complexity against the size saving.",
+   "mistake": "Using dynamic modules only to organise code.",
+   "followUp": "How does a user get the module the first time?"
   },
   {
    "id": "build-release-b541abcefcbe",
    "topic": "build-release",
    "text": "How do you avoid breaking apps that use your SDK?",
    "answer": "Semantic versioning, explicit API mode, a binary-compatibility check in CI, deprecation before removal, consumer R8 rules, and no third-party types in the public API.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "Library authors can break many apps at once.",
+   "mistake": "Removing or changing public APIs in a minor release.",
+   "followUp": "How do you detect an accidental API break?"
   },
   {
    "id": "build-release-4332528779b6",
    "topic": "build-release",
    "text": "`api` or `implementation` in Gradle?",
    "answer": "`implementation` by default, so dependencies stay internal and changes recompile fewer modules; `api` only when a dependency is part of your module's public API.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It affects build speed and the shape of module APIs.",
+   "mistake": "Using `api` everywhere so that compile errors go away.",
+   "followUp": "How does `api` affect incremental builds?"
   },
   {
    "id": "system-design-498ac1a99fcc",
    "topic": "system-design",
    "text": "How do you approach a mobile system design question?",
    "answer": "Clarify requirements, sketch the high-level design, define the API and data model, go deep on two or three hard parts, and finish with trade-offs, metrics and rollout.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "They assess structure and communication as much as the design.",
+   "mistake": "Jumping into classes and libraries before clarifying requirements.",
+   "followUp": "What would you ask first for a news feed app?"
   },
   {
    "id": "system-design-adb1f463c0f1",
    "topic": "system-design",
    "text": "How do you make sending a chat message reliable on a flaky network?",
    "answer": "Save it locally as pending, send it with WorkManager and backoff, use the client-generated ID as an idempotency key, track status explicitly, and offer retry for failed messages.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "Reliability under failure is the core of mobile design.",
+   "mistake": "Sending directly from the screen with no local record or idempotency key.",
+   "followUp": "How would you order messages from two devices?"
   },
   {
    "id": "system-design-40ae029a46d7",
    "topic": "system-design",
    "text": "Why use cursor pagination for a feed?",
    "answer": "New posts arriving at the top shift offsets and cause duplicates or gaps; a cursor points at a specific item, so pages stay stable.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It tests data consistency in a very common feature.",
+   "mistake": "Giving offset pagination with a larger page size as the fix.",
+   "followUp": "How does the server build the next cursor?"
   },
   {
    "id": "system-design-097a16241345",
    "topic": "system-design",
    "text": "REST, GraphQL or gRPC for a mobile app?",
    "answer": "REST is simple and cacheable; GraphQL fetches exactly what each screen needs in one request; gRPC is compact and fast with streaming but harder to debug. Choose based on the team and backend.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "They want trade-offs tied to a context.",
+   "mistake": "Naming a favourite without asking about the clients and backend.",
+   "followUp": "When would you add a backend-for-frontend?"
   },
   {
    "id": "system-design-de233f88e45b",
    "topic": "system-design",
    "text": "How would you resolve conflicts when two devices edit the same note offline?",
    "answer": "Give each record a version and timestamps, sync through an outbox, and use a clear rule, such as last-write-wins per field, keeping a conflict copy when both changed the same field so no data is lost.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "Conflict handling shows whether you've thought about data loss.",
+   "mistake": "Applying last-write-wins to the whole record and silently losing edits.",
+   "followUp": "When would you use CRDTs?"
   },
   {
    "id": "system-design-1b1bac57500b",
    "topic": "system-design",
    "text": "How would you design an app that 10 teams contribute to?",
    "answer": "Feature modules owned by teams, a shared design system, clear module contracts, convention plugins, code owners, feature flags, a release train and per-module CI.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It probes whether you can design for organisations, not only code.",
+   "mistake": "Talking only about folder structure.",
+   "followUp": "How do you keep app startup fast with so many teams?"
   },
   {
    "id": "system-design-5965fcb9934b",
    "topic": "system-design",
    "text": "How do you keep real-time updates battery-friendly?",
    "answer": "Keep a WebSocket only while the app is in the foreground, use push messages to trigger syncs in the background, and reconnect with exponential backoff and jitter.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "It tests whether you weigh freshness against battery and data use.",
+   "mistake": "Keeping a socket open in the background or polling every few seconds.",
+   "followUp": "How would you handle messages missed while disconnected?"
   },
   {
    "id": "modern-platform-6af3059b4cc8",
    "topic": "modern-platform",
    "text": "What changes when your app targets Android 17 on a tablet?",
    "answer": "The app can no longer opt out of orientation and resizability restrictions on large screens (games excepted), so layouts must adapt to any window size and survive resizing without losing state.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Large-screen requirements affect apps that assumed portrait phones.",
+   "mistake": "Assuming a locked orientation will still be honoured everywhere.",
+   "followUp": "Which layouts break first on a large window?"
   },
   {
    "id": "modern-platform-e9ea87a51291",
    "topic": "modern-platform",
    "text": "How do you make an app edge-to-edge safely?",
    "answer": "Call `enableEdgeToEdge()`, let `Scaffold` or `WindowInsets.safeDrawing` pad content, use `imePadding()` for input, and test with gesture and 3-button navigation, cutouts and the keyboard.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Recent Android versions make this unavoidable.",
+   "mistake": "Adding fixed padding in dp to avoid the system bars.",
+   "followUp": "How do you handle the keyboard inset in a list?"
   },
   {
    "id": "modern-platform-4aa6343a99ba",
    "topic": "modern-platform",
    "text": "Why does predictive back require changing how you handle back?",
    "answer": "The system must know before the gesture ends whether the app will intercept it, so you register callbacks and enable them only when needed, instead of deciding in `onBackPressed()`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It checks that you know why the old back callback no longer fits.",
+   "mistake": "Intercepting back all the time, even when there's nothing to handle.",
+   "followUp": "How do you animate with the back gesture?"
   },
   {
    "id": "modern-platform-9d0af8ce175b",
    "topic": "modern-platform",
    "text": "Why use window size classes instead of checking for a tablet?",
    "answer": "A tablet in split-screen can be compact and a foldable changes size; the window size is what the layout actually has.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To see that you design for window sizes rather than device types.",
+   "mistake": "Reading the physical screen size or checking for \"tablet\".",
+   "followUp": "What are the window width size classes?"
   },
   {
    "id": "modern-platform-a3ecb9f5e567",
    "topic": "modern-platform",
    "text": "What would you share first in a KMP project?",
    "answer": "Networking, models, persistence and business logic in one module. Keep UI native at first, measure the build and binary-size impact, and involve the iOS team early.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior",
+    "system-design"
+   ],
+   "why": "They're looking for a realistic, low-risk adoption plan.",
+   "mistake": "Proposing to share all UI and logic from the first day.",
+   "followUp": "What would you not share?"
   },
   {
    "id": "modern-platform-7cacd763deba",
    "topic": "modern-platform",
    "text": "How do you test accessibility?",
    "answer": "TalkBack walk-throughs of key journeys, Accessibility Scanner, automated checks in UI tests, large font and display sizes, and contrast checks in design review.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Accessibility is a quality requirement and often a legal one.",
+   "mistake": "Relying only on an automated scanner.",
+   "followUp": "Which automated accessibility checks can run in CI?"
   },
   {
    "id": "modern-platform-ee288fe134d5",
    "topic": "modern-platform",
    "text": "Why is `\"$count items\"` a localization bug?",
    "answer": "Many languages have several plural forms and different word order. Use `<plurals>` with `pluralStringResource` or `getQuantityString`, and positional arguments.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It shows whether you've shipped to more than one language.",
+   "mistake": "Handling plurals with an `if` for count equals one.",
+   "followUp": "How do you handle right-to-left languages?"
   },
   {
    "id": "modern-platform-6e9efcb02259",
    "topic": "modern-platform",
    "text": "When would you use on-device AI instead of a server model?",
    "answer": "When privacy, latency or offline use matters and the task fits a small model; check device support and keep a server fallback.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They want you to weigh privacy, latency, cost and device support.",
+   "mistake": "Assuming every device can run the model.",
+   "followUp": "What is your fallback if the model is unavailable?"
   },
   {
    "id": "leadership-59913676edd6",
    "topic": "leadership",
    "text": "Tell me about a technical decision others disagreed with.",
    "answer": "Show how you gathered data, listened, wrote it up or prototyped, and either persuaded the team or committed to their choice with a checkpoint.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They want evidence that you can influence others and handle disagreement.",
+   "mistake": "Telling a story where you were simply right and others eventually saw it.",
+   "followUp": "What would you do differently next time?"
   },
   {
    "id": "leadership-d96c17824640",
    "topic": "leadership",
    "text": "Describe a production incident you caused.",
    "answer": "Own it, explain the fix for users, the blameless post-mortem, and the process change that prevents a repeat.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests ownership and what you learned.",
+   "mistake": "Blaming someone else or picking a trivial incident.",
+   "followUp": "How did you make sure it didn't happen again?"
   },
   {
    "id": "leadership-b93aec693d0b",
    "topic": "leadership",
    "text": "How do you mentor junior developers?",
    "answer": "Give one specific person and outcome: pairing, gradually larger tasks, review feedback that teaches, and their growth as the result.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Senior engineers are expected to raise the team's level.",
+   "mistake": "Describing mentoring in general terms, with no person or outcome.",
+   "followUp": "How did you know the mentoring worked?"
   },
   {
    "id": "leadership-03a335b0b162",
    "topic": "leadership",
    "text": "How do you handle tech debt?",
    "answer": "Measure its cost, link it to business impact, fix it incrementally with reserved capacity, and avoid big-bang rewrites.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "To see whether you connect engineering work to business impact.",
+   "mistake": "Asking for a rewrite because the code is ugly.",
+   "followUp": "How did you get time for the work?"
   },
   {
    "id": "leadership-baab8316f1fb",
    "topic": "leadership",
    "text": "How do you do code reviews?",
    "answer": "Review quickly, automate style, focus on correctness, design and tests, explain the why, and separate must-fix comments from suggestions.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Reviews show how you work with other people.",
+   "mistake": "Focusing on style nits that tools should catch.",
+   "followUp": "How do you handle a disagreement in a review?"
   },
   {
    "id": "leadership-d81b27347bca",
    "topic": "leadership",
    "text": "Tell me about a time you pushed back on product.",
    "answer": "Explain the risk in user and business terms, offer an alternative such as a smaller first version, and agree on a decision together.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They're checking how you handle conflict with non-engineers.",
+   "mistake": "Either refusing outright or agreeing and quietly missing the date.",
+   "followUp": "What did you learn about the product side?"
   },
   {
    "id": "leadership-3640da0ff584",
    "topic": "leadership",
    "text": "What makes a developer senior rather than mid-level?",
    "answer": "Scope beyond their own tasks, sound trade-off decisions, raising the team's level through mentoring and standards, and owning outcomes in production.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It reveals how you see your own responsibility.",
+   "mistake": "Answering with years of experience or a list of technologies.",
+   "followUp": "Give an example from your own work."
   },
   {
    "id": "coding-round-fc500dfd4728",
    "topic": "coding-round",
    "text": "Implement an LRU cache with O(1) operations.",
    "answer": "Combine a hash map from key to node with a doubly linked list; move nodes to the front on access and evict from the tail when over capacity. In production, `LinkedHashMap` with access order or `LruCache`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It tests data structure choice under complexity constraints.",
+   "mistake": "Using only a list, which makes lookups or moves O(n).",
+   "followUp": "How would you make it thread-safe?",
+   "code": "class LruCache<K, V>(private val capacity: Int) {\n    // accessOrder = true moves an entry to the end whenever it is read.\n    private val map = object : LinkedHashMap<K, V>(16, 0.75f, true) {\n        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) =\n            size > capacity\n    }\n\n    fun get(key: K): V? = map[key]\n    fun put(key: K, value: V) { map[key] = value }\n}"
   },
   {
    "id": "coding-round-768f6de91bef",
    "topic": "coding-round",
    "text": "Find two numbers that add up to a target.",
    "answer": "One pass with a map of seen values to indices, checking for the complement: O(n) time and space.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A warm-up that checks you can trade memory for speed.",
+   "mistake": "Stopping at the nested-loop O(n^2) solution.",
+   "followUp": "What changes if the array is already sorted?",
+   "code": "fun twoSum(numbers: IntArray, target: Int): Pair<Int, Int>? {\n    val seen = HashMap<Int, Int>()              // value -> index\n    numbers.forEachIndexed { i, n ->\n        seen[target - n]?.let { return it to i }\n        seen[n] = i\n    }\n    return null\n}"
   },
   {
    "id": "coding-round-3ead0b483a44",
    "topic": "coding-round",
    "text": "Longest substring without repeating characters?",
    "answer": "Sliding window with the last index of each character; move the left edge past repeats. O(n).",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It tests the sliding window technique.",
+   "mistake": "Restarting the window from scratch after every repeat.",
+   "followUp": "What changes if you need the substring itself?",
+   "code": "fun longestUnique(text: String): Int {\n    val last = HashMap<Char, Int>()\n    var start = 0\n    var best = 0\n    text.forEachIndexed { i, c ->\n        last[c]?.let { start = maxOf(start, it + 1) }\n        last[c] = i\n        best = maxOf(best, i - start + 1)\n    }\n    return best\n}"
   },
   {
    "id": "coding-round-6f9af7fa8e42",
    "topic": "coding-round",
    "text": "Count islands in a grid.",
    "answer": "BFS or DFS from each unvisited land cell, marking the island as visited. O(rows times columns).",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It checks grid traversal and visited tracking.",
+   "mistake": "Forgetting to mark cells visited, which loops or counts an island twice.",
+   "followUp": "How would you solve it without changing the grid?",
+   "code": "fun countIslands(grid: Array<CharArray>): Int {\n    val seen = HashSet<Pair<Int, Int>>()\n    var islands = 0\n    for (r in grid.indices) for (c in grid[r].indices) {\n        if (grid[r][c] != '1' || !seen.add(r to c)) continue\n        islands++\n        val queue = ArrayDeque(listOf(r to c))\n        while (queue.isNotEmpty()) {\n            val (y, x) = queue.removeFirst()\n            for ((ny, nx) in listOf(y - 1 to x, y + 1 to x, y to x - 1, y to x + 1)) {\n                if (grid.getOrNull(ny)?.getOrNull(nx) == '1' && seen.add(ny to nx)) {\n                    queue.add(ny to nx)\n                }\n            }\n        }\n    }\n    return islands\n}"
   },
   {
    "id": "coding-round-e4639c561bcb",
    "topic": "coding-round",
    "text": "Top K frequent elements?",
    "answer": "Count with a map, keep a min-heap of size k: O(n log k); bucket sort gives O(n).",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It tests knowing when sorting everything is unnecessary.",
+   "mistake": "Sorting all items without discussing a heap or buckets.",
+   "followUp": "What if the data is a stream?",
+   "code": "fun topK(numbers: IntArray, k: Int): List<Int> {\n    val counts = numbers.asList().groupingBy { it }.eachCount()\n    val heap = PriorityQueue<Map.Entry<Int, Int>>(compareBy { it.value })\n    for (entry in counts.entries) {\n        heap.add(entry)\n        if (heap.size > k) heap.poll()          // drop the least frequent\n    }\n    return heap.map { it.key }\n}"
   },
   {
    "id": "coding-round-d704366ede7f",
    "topic": "coding-round",
    "text": "Write a debounce function with coroutines.",
    "answer": "Keep the last job, cancel it on each call, and launch a new one that delays and then runs the action.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It shows whether you can use cancellation correctly.",
+   "mistake": "Using threads or timers and never cancelling the earlier job.",
+   "followUp": "How would you write a throttle instead?",
+   "code": "fun <T> debounce(\n    waitMs: Long,\n    scope: CoroutineScope,\n    action: suspend (T) -> Unit,\n): (T) -> Unit {\n    var job: Job? = null\n    return { value ->\n        job?.cancel()\n        job = scope.launch {\n            delay(waitMs)\n            action(value)\n        }\n    }\n}"
   },
   {
    "id": "coding-round-061d5cb2bec0",
    "topic": "coding-round",
    "text": "Run 100 downloads, at most 4 at a time.",
    "answer": "`async` for each item inside `coroutineScope`, with a `Semaphore(4)` and `withPermit` around the work, then `awaitAll`.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests bounded concurrency with structured coroutines.",
+   "mistake": "Launching all 100 at once, or processing them one at a time.",
+   "followUp": "How do you handle one failed download without cancelling the rest?",
+   "code": "suspend fun downloadAll(urls: List<String>): List<String> = coroutineScope {\n    val permits = Semaphore(4)\n    urls.map { url ->\n        async { permits.withPermit { download(url) } }\n    }.awaitAll()\n}"
   },
   {
    "id": "coding-round-3e345c413800",
    "topic": "coding-round",
    "text": "What's wrong with `catch (e: Exception)` inside a coroutine?",
    "answer": "It also catches `CancellationException`, so the coroutine ignores cancellation. Rethrow it or catch specific exceptions.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "A small snippet that exposes cancellation bugs.",
+   "mistake": "Saying it's fine because the error is logged.",
+   "followUp": "How would you write this so it never swallows cancellation?",
+   "code": "try {\n    repository.refresh()\n} catch (e: CancellationException) {\n    throw e\n} catch (e: IOException) {                      // or just what you expect\n    showError(e)\n}"
   },
   {
    "id": "coding-round-2524e9a540a6",
    "topic": "coding-round",
    "text": "What do you put in a take-home README?",
    "answer": "How to run it, the architecture and why, trade-offs and shortcuts, and what you'd improve with more time.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Reviewers judge how clearly you explain your decisions.",
+   "mistake": "Listing only run instructions and no trade-offs.",
+   "followUp": "What would you build next, and why?"
   },
   {
    "id": "rapid-fire-42f067bf2fb0",
    "topic": "rapid-fire",
    "text": "`val` vs `const val`?",
    "answer": "`val` is read-only and set at runtime; `const val` is a compile-time constant that gets inlined, and only works for primitives and String",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A fast check of Kotlin basics.",
+   "mistake": "Saying they're interchangeable.",
+   "followUp": "Where can you declare a `const val`?"
   },
   {
    "id": "rapid-fire-44aaf8feda96",
    "topic": "rapid-fire",
    "text": "`lateinit` on an `Int`?",
    "answer": "Not allowed, because primitives can't be null internally; use `Delegates.notNull()` or a nullable type",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It checks that you know where `lateinit` can't be used.",
+   "mistake": "Trying `lateinit var count: Int`.",
+   "followUp": "How do you check whether a `lateinit` property is set?"
   },
   {
    "id": "rapid-fire-29df5d1f065b",
    "topic": "rapid-fire",
    "text": "`==` vs `===`?",
    "answer": "`==` compares content using `equals`; `===` checks it's the same object",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Equality mistakes cause subtle bugs.",
+   "mistake": "Assuming `==` compares references, as it does for Java objects.",
+   "followUp": "When do two data class instances satisfy `==`?"
   },
   {
    "id": "rapid-fire-01b699f58fa9",
    "topic": "rapid-fire",
    "text": "`Any`, `Unit` and `Nothing`?",
    "answer": "`Any` is the root type; `Unit` means \"no useful result\"; `Nothing` means \"never returns\", like `throw`",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "These types appear throughout Kotlin signatures.",
+   "mistake": "Treating `Nothing` and `Unit` as the same.",
+   "followUp": "Where does the compiler use `Nothing`?"
   },
   {
    "id": "rapid-fire-0771807b7967",
    "topic": "rapid-fire",
    "text": "What is a `suspend` function under the hood?",
    "answer": "The compiler adds a `Continuation` parameter and turns the body into a state machine that can pause and resume",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "A short probe of whether you understand suspension.",
+   "mistake": "Saying it always runs on a background thread.",
+   "followUp": "What is a continuation?"
   },
   {
    "id": "rapid-fire-ba85eb9d793a",
    "topic": "rapid-fire",
    "text": "`Job` vs `SupervisorJob`?",
    "answer": "With `Job`, a child's failure cancels the parent and siblings; with `SupervisorJob`, children fail independently",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Failure handling is a frequent follow-up.",
+   "mistake": "Thinking a supervisor catches the exception for you.",
+   "followUp": "Where have you used a `SupervisorJob`?"
   },
   {
    "id": "rapid-fire-fb029281b71b",
    "topic": "rapid-fire",
    "text": "`coroutineScope` vs `supervisorScope`?",
    "answer": "The same difference, as suspending functions: one failure cancels all, or each child fails alone",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It checks that you can apply supervision inside a suspend function.",
+   "mistake": "Expecting `supervisorScope` to ignore a failure in its own body.",
+   "followUp": "What happens to the exception in each?"
   },
   {
    "id": "rapid-fire-270237ff282c",
    "topic": "rapid-fire",
    "text": "`StateFlow` vs `SharedFlow`?",
    "answer": "`StateFlow` always has a current value and skips equal values; `SharedFlow` has no initial value and configurable replay, good for events",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "Using the wrong one loses or repeats events.",
+   "mistake": "Treating `StateFlow` as an event stream.",
+   "followUp": "How do you configure replay?"
   },
   {
    "id": "rapid-fire-d13f451cf008",
    "topic": "rapid-fire",
    "text": "Cold vs hot Flow?",
    "answer": "A cold flow starts fresh for each collector; a hot flow runs whether or not anyone collects",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It underpins how you reason about Flow work.",
+   "mistake": "Assuming a cold flow shares one execution between collectors.",
+   "followUp": "How do you turn a cold flow into a hot one?"
   },
   {
    "id": "rapid-fire-ebde5a623dce",
    "topic": "rapid-fire",
    "text": "When do you use `flatMapLatest`?",
    "answer": "Search as you type: a new query cancels the previous search",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It checks that you can match an operator to a use case.",
+   "mistake": "Using it for work that must not be cancelled, such as saving.",
+   "followUp": "How is it different from `collectLatest`?"
   },
   {
    "id": "rapid-fire-8659a3070e23",
    "topic": "rapid-fire",
    "text": "`collectAsStateWithLifecycle` vs `collectAsState`?",
    "answer": "The lifecycle version stops collecting when the app goes to the background",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It shows lifecycle awareness in Compose.",
+   "mistake": "Using `collectAsState` for flows that do expensive work.",
+   "followUp": "Why does the difference matter for battery?"
   },
   {
    "id": "rapid-fire-c093c6f44343",
    "topic": "rapid-fire",
    "text": "`remember` vs `rememberSaveable`?",
    "answer": "`remember` survives recomposition; `rememberSaveable` also survives rotation and process death",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A basic Compose state check.",
+   "mistake": "Expecting `remember` to survive rotation.",
+   "followUp": "What types can't be saved without a `Saver`?"
   },
   {
    "id": "rapid-fire-907e134c09da",
    "topic": "rapid-fire",
    "text": "What is `derivedStateOf` for?",
    "answer": "State computed from other state that changes less often than its inputs, so it avoids extra recompositions",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests targeted performance knowledge.",
+   "mistake": "Using it simply to combine two values.",
+   "followUp": "When is it the wrong tool?"
   },
   {
    "id": "rapid-fire-9dd034b02ac0",
    "topic": "rapid-fire",
    "text": "What makes a type stable in Compose?",
    "answer": "It's immutable, or it tells Compose when it changes; all public properties are `val` and stable themselves",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "Stability explains many recomposition questions.",
+   "mistake": "Thinking `val` alone makes a type stable.",
+   "followUp": "What does `@Immutable` promise?"
   },
   {
    "id": "rapid-fire-a5d81cbfd5b7",
    "topic": "rapid-fire",
    "text": "Does a ViewModel survive process death?",
    "answer": "No; use `SavedStateHandle` for small UI state and a database for real data",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It checks the most common ViewModel misunderstanding.",
+   "mistake": "Answering yes because it survives rotation.",
+   "followUp": "How do you restore state after it?"
   },
   {
    "id": "rapid-fire-b833f2b1bc43",
    "topic": "rapid-fire",
    "text": "What limits the size of a saved-state Bundle?",
    "answer": "The Binder transaction buffer, about 1 MB shared by the process, so keep saved state small",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "A limit behind real crashes.",
+   "mistake": "Assuming the whole 1 MB is available to one screen.",
+   "followUp": "How would you find a transaction that is too large?"
   },
   {
    "id": "rapid-fire-1af88751d9bd",
    "topic": "rapid-fire",
    "text": "`Serializable` vs `Parcelable`?",
    "answer": "`Serializable` uses reflection and is slow; `Parcelable` is explicit and fast, and `@Parcelize` writes it for you",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A quick IPC basics check.",
+   "mistake": "Saying there's no difference on Android.",
+   "followUp": "What does `@Parcelize` generate?"
   },
   {
    "id": "rapid-fire-72338ccd71a2",
    "topic": "rapid-fire",
    "text": "LiveData `setValue` vs `postValue`?",
    "answer": "`setValue` runs on the main thread immediately; `postValue` works from any thread but can drop intermediate values",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It catches lost updates in older codebases.",
+   "mistake": "Expecting every `postValue` to be delivered.",
+   "followUp": "Which should a background thread use?"
   },
   {
    "id": "rapid-fire-13152cdac318",
    "topic": "rapid-fire",
    "text": "SharedPreferences `commit()` vs `apply()`?",
    "answer": "`commit()` writes synchronously and returns success; `apply()` writes in the background but can still block at lifecycle points, a common ANR cause",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It connects storage APIs to ANRs.",
+   "mistake": "Believing `apply()` can never block the main thread.",
+   "followUp": "When would you use DataStore instead?"
   },
   {
    "id": "rapid-fire-c7f39a01d3b1",
    "topic": "rapid-fire",
    "text": "`Service` vs WorkManager?",
    "answer": "A `Service` runs on the main thread and you manage its work and lifetime; WorkManager is for deferrable work that must be guaranteed; `IntentService` is deprecated",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To check you pick modern background tools.",
+   "mistake": "Still proposing `IntentService`.",
+   "followUp": "When do you need a foreground service?"
   },
   {
    "id": "rapid-fire-d2e171a34c19",
    "topic": "rapid-fire",
    "text": "`Dispatchers.IO` vs `Default`?",
    "answer": "`IO` is for blocking I/O and has many threads; `Default` is for CPU work and has one thread per core",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "Choosing wrongly can starve threads.",
+   "mistake": "Running blocking I/O on `Default`.",
+   "followUp": "How would you inject dispatchers for tests?"
   },
   {
    "id": "rapid-fire-9ba7ee00c6b3",
    "topic": "rapid-fire",
    "text": "What are the ANR thresholds?",
    "answer": "About 5 seconds for input and about 10 seconds for a foreground broadcast receiver",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A quick check of ANR knowledge.",
+   "mistake": "Giving one number for every kind of ANR.",
+   "followUp": "What does the system do when one happens?"
   },
   {
    "id": "rapid-fire-76c8db730ca2",
    "topic": "rapid-fire",
    "text": "What is a baseline profile?",
    "answer": "A list of critical code paths shipped with the app so they're compiled ahead of time, making startup and scrolling faster",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "A short test of modern performance tooling.",
+   "mistake": "Saying it's generated by R8 at runtime.",
+   "followUp": "How is a baseline profile generated?"
   },
   {
    "id": "rapid-fire-d746e0897ca0",
    "topic": "rapid-fire",
    "text": "What does R8 do?",
    "answer": "It shrinks, obfuscates and optimises code; anything used by reflection needs keep rules",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It checks release-build basics.",
+   "mistake": "Saying it only obfuscates.",
+   "followUp": "When do you need a keep rule?"
   },
   {
    "id": "rapid-fire-178c94efab26",
    "topic": "rapid-fire",
    "text": "`@Binds` vs `@Provides`?",
    "answer": "`@Binds` maps an interface to an implementation with no code; `@Provides` is a function you write to build the object",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "A standard Dagger and Hilt check.",
+   "mistake": "Swapping the two.",
+   "followUp": "When must you use `@Provides`?"
   },
   {
    "id": "rapid-fire-4bc416bee7c5",
    "topic": "rapid-fire",
    "text": "Hilt scope for an object shared only within one screen's ViewModel?",
    "answer": "`@ViewModelScoped`",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests precise scoping.",
+   "mistake": "Choosing `@Singleton` for screen-only state.",
+   "followUp": "Which component does that scope live in?"
   },
   {
    "id": "rapid-fire-9628f21e3099",
    "topic": "rapid-fire",
    "text": "Why must `exported` be declared?",
    "answer": "Since Android 12, components with intent filters must say whether other apps can start them, for security",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A platform security change you should know.",
+   "mistake": "Setting every component to exported.",
+   "followUp": "Which components need it?"
   },
   {
    "id": "rapid-fire-6c3ed7529218",
    "topic": "rapid-fire",
    "text": "`PendingIntent` mutability flag?",
    "answer": "Required since Android 12; prefer `FLAG_IMMUTABLE` unless something must fill in the intent",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It's a required security decision.",
+   "mistake": "Defaulting to mutable.",
+   "followUp": "When would `FLAG_MUTABLE` be needed?"
   },
   {
    "id": "rapid-fire-4d079210db6e",
    "topic": "rapid-fire",
    "text": "Why did libraries use a `ContentProvider`?",
    "answer": "To initialise automatically at app start, now replaced by App Startup; providers also share data through URIs",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It shows you understand some history behind app startup.",
+   "mistake": "Adding more providers for initialisation today.",
+   "followUp": "What does App Startup change?"
   },
   {
    "id": "rapid-fire-dd2b6abfd954",
    "topic": "rapid-fire",
    "text": "What does `Looper.prepare()` do?",
    "answer": "It creates a message loop for the current thread, which is how `HandlerThread` works",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It probes how Android's main thread machinery works.",
+   "mistake": "Thinking every thread already has a looper.",
+   "followUp": "Which threads already have a Looper?"
   },
   {
    "id": "rapid-fire-6cd34ebf29b5",
    "topic": "rapid-fire",
    "text": "What is Doze?",
    "answer": "An idle mode that delays network, jobs and alarms to short maintenance windows to save battery",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "It checks power management basics.",
+   "mistake": "Assuming alarms and jobs always fire on time.",
+   "followUp": "How do you test behaviour in Doze?"
   },
   {
    "id": "rapid-fire-220ef8866c15",
    "topic": "rapid-fire",
    "text": "Why does the 16 KB page size matter?",
    "answer": "Newer devices use 16 KB memory pages, so native libraries must be rebuilt and aligned for it",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It checks awareness of a recent compatibility requirement.",
+   "mistake": "Thinking pure Kotlin or Java apps need native rebuilds.",
+   "followUp": "How do you check a native library's alignment?"
   },
   {
    "id": "rapid-fire-d5ae236cc572",
    "topic": "rapid-fire",
    "text": "Companion object vs top-level function?",
    "answer": "A companion is a real object inside the class, good for factories and private access; top-level functions are simpler for plain utilities",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A Kotlin design basics check.",
+   "mistake": "Putting every utility in a companion object.",
+   "followUp": "When does a companion object implement an interface?"
   },
   {
    "id": "rapid-fire-feca78402bba",
    "topic": "rapid-fire",
    "text": "`let` vs `apply`?",
    "answer": "`let` passes the object as `it` and returns the lambda result; `apply` uses `this` and returns the object, good for configuring",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "A quick scope function check.",
+   "mistake": "Mixing up what each returns.",
+   "followUp": "When would you use `also` instead?"
   },
   {
    "id": "jvm-concurrency-patterns-ec1f7c789647",
    "topic": "jvm-concurrency-patterns",
    "text": "What is a GC root, and how does it relate to memory leaks?",
    "answer": "A starting point the collector treats as always alive: static fields, live threads' local variables, JNI references. A leak is an unneeded object still reachable from a root, such as an Activity in a static field.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It tests whether you can explain leaks from first principles.",
+   "mistake": "Saying anything with a reference to it is leaked.",
+   "followUp": "Is an object referenced only by a dead object a leak?"
   },
   {
    "id": "jvm-concurrency-patterns-3371aba1a548",
    "topic": "jvm-concurrency-patterns",
    "text": "When would you use `WeakReference`?",
    "answer": "When a longer-lived object must point at an Activity or View without keeping it alive. Prefer proper unregistration or lifecycle-aware flows; a weak reference is a fallback.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "They want to know if you see it as a fallback, not a fix.",
+   "mistake": "Wrapping references in `WeakReference` instead of unregistering them.",
+   "followUp": "How is `SoftReference` different?"
   },
   {
    "id": "jvm-concurrency-patterns-c74ada0b4443",
    "topic": "jvm-concurrency-patterns",
    "text": "Is `@Volatile var count` enough for a thread-safe counter?",
    "answer": "No. It gives visibility, but `count++` is read-modify-write and can lose updates. Use `AtomicInteger`, a lock, a `Mutex`, or keep it on one thread.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "It exposes confusion between visibility and atomicity.",
+   "mistake": "Saying volatile makes `count++` thread-safe.",
+   "followUp": "When is `synchronized` still the right tool?"
   },
   {
    "id": "jvm-concurrency-patterns-948b2c50a83b",
    "topic": "jvm-concurrency-patterns",
    "text": "Why does double-checked locking need `@Volatile`?",
    "answer": "Without it, another thread can see the reference before the constructor finishes and use a half-built object. `@Volatile` adds the happens-before guarantee.",
-   "level": "Hard"
+   "level": "Hard",
+   "tracks": [
+    "senior"
+   ],
+   "why": "A classic test of the memory model.",
+   "mistake": "Saying the lock alone is enough.",
+   "followUp": "Why is a Kotlin `object` or `lazy` simpler?"
   },
   {
    "id": "jvm-concurrency-patterns-15abbe83789a",
    "topic": "jvm-concurrency-patterns",
    "text": "How do you avoid deadlocks?",
    "answer": "Take locks in a fixed order, keep critical sections short, don't call external code while holding a lock, and prefer immutable data, thread confinement or a coroutine `Mutex`.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "senior"
+   ],
+   "why": "It shows practical concurrency experience.",
+   "mistake": "Adding more locks without a fixed order.",
+   "followUp": "How would you detect a deadlock?"
   },
   {
    "id": "jvm-concurrency-patterns-5148fb3cfb34",
    "topic": "jvm-concurrency-patterns",
    "text": "Why are coroutines cheaper than threads?",
    "answer": "A suspended coroutine gives its thread back, so thousands share a small pool, while each thread needs its own stack of about a megabyte.",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior"
+   ],
+   "why": "To check the mental model behind coroutines.",
+   "mistake": "Calling coroutines lightweight threads without explaining suspension.",
+   "followUp": "When can a coroutine still block a thread?"
   },
   {
    "id": "jvm-concurrency-patterns-1304794063f8",
    "topic": "jvm-concurrency-patterns",
    "text": "Which design patterns do you see in Android?",
    "answer": "Builder (Retrofit, notifications), Observer (Flow, LiveData), Adapter (RecyclerView), Facade (repositories), Chain of responsibility (OkHttp interceptors), Factory (ViewModel factories), Singleton (Room via DI).",
-   "level": "Easy"
+   "level": "Easy",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "why": "They want patterns tied to real APIs.",
+   "mistake": "Reciting definitions with no Android example.",
+   "followUp": "Which pattern would you avoid overusing?"
   },
   {
    "id": "jvm-concurrency-patterns-dde7a19bfa8a",
    "topic": "jvm-concurrency-patterns",
    "text": "Explain dependency inversion with an example.",
    "answer": "The ViewModel depends on an `ArticleRepository` interface; the data layer implements it with Retrofit and Room; tests use a fake, and the network library can change without touching the ViewModel.",
-   "level": "Medium"
+   "level": "Medium",
+   "tracks": [
+    "junior",
+    "senior",
+    "system-design"
+   ],
+   "why": "It tests whether you can apply a principle rather than name it.",
+   "mistake": "Confusing the principle with using a DI library.",
+   "followUp": "Which other SOLID principle does this support?"
   }
  ],
  "quiz": [
@@ -1553,7 +2860,12 @@
     "false, true"
    ],
    "answer": 1,
-   "explanation": "== calls the generated equals(), so equal data matches. === checks whether both are the same object, and these are two instances."
+   "explanation": "== calls the generated equals(), so equal data matches. === checks whether both are the same object, and these are two instances.",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "kind": "output"
   },
   {
    "id": "kotlin-apply",
@@ -1566,7 +2878,10 @@
     "also"
    ],
    "answer": 2,
-   "explanation": "apply exposes the object as this and returns it, which suits configuration. also returns the object too, but exposes it as it."
+   "explanation": "apply exposes the object as this and returns it, which suits configuration. also returns the object too, but exposes it as it.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "kotlin-copy",
@@ -1580,7 +2895,12 @@
     "It does not compile"
    ],
    "answer": 2,
-   "explanation": "val makes the reference read-only, not the object. The same mutable list is still changing, so its size is 3."
+   "explanation": "val makes the reference read-only, not the object. The same mutable list is still changing, so its size is 3.",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "kind": "output"
   },
   {
    "id": "coroutines-async",
@@ -1593,7 +2913,10 @@
     "withContext"
    ],
    "answer": 1,
-   "explanation": "async returns Deferred<T>, which you await(). launch returns a Job for side effects."
+   "explanation": "async returns Deferred<T>, which you await(). launch returns a Job for side effects.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "coroutines-supervisor",
@@ -1606,7 +2929,10 @@
     "The app always crashes"
    ],
    "answer": 1,
-   "explanation": "A supervisor isolates failures: one child failing does not cancel its siblings. In coroutineScope it would."
+   "explanation": "A supervisor isolates failures: one child failing does not cancel its siblings. In coroutineScope it would.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "coroutines-flowon",
@@ -1619,7 +2945,10 @@
     "stateIn"
    ],
    "answer": 1,
-   "explanation": "flowOn changes the upstream context. Emitting from another context inside flow {} breaks context preservation and throws."
+   "explanation": "flowOn changes the upstream context. Emitting from another context inside flow {} breaks context preservation and throws.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "coroutines-latest",
@@ -1632,7 +2961,10 @@
     "zip"
    ],
    "answer": 2,
-   "explanation": "flatMapLatest cancels the previous inner flow when a new value arrives."
+   "explanation": "flatMapLatest cancels the previous inner flow when a new value arrives.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "android-ondestroy",
@@ -1645,7 +2977,11 @@
     "Only for Fragments"
    ],
    "answer": 1,
-   "explanation": "onDestroy is not guaranteed. Persist important data in onStop or as soon as it changes."
+   "explanation": "onDestroy is not guaranteed. Persist important data in onStop or as soon as it changes.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "android-bundle",
@@ -1658,7 +2994,11 @@
     "StackOverflowError"
    ],
    "answer": 1,
-   "explanation": "The Bundle crosses Binder, whose buffer of about 1 MB is shared per process. Save IDs, not objects."
+   "explanation": "The Bundle crosses Binder, whose buffer of about 1 MB is shared per process. Save IDs, not objects.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "compose-trigger",
@@ -1671,7 +3011,10 @@
     "Calling the composable from a ViewModel"
    ],
    "answer": 1,
-   "explanation": "Compose tracks State reads through the snapshot system and recomposes the scopes that read a changed value."
+   "explanation": "Compose tracks State reads through the snapshot system and recomposes the scopes that read a changed value.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "compose-effect",
@@ -1684,7 +3027,11 @@
     "Recreates the Activity"
    ],
    "answer": 2,
-   "explanation": "A changed key restarts the effect: the old coroutine is cancelled before the new one starts."
+   "explanation": "A changed key restarts the effect: the old coroutine is cancelled before the new one starts.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "compose-saveable",
@@ -1697,7 +3044,10 @@
     "SideEffect"
    ],
    "answer": 1,
-   "explanation": "rememberSaveable survives recomposition, configuration changes and process death. remember only survives recomposition."
+   "explanation": "rememberSaveable survives recomposition, configuration changes and process death. remember only survives recomposition.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "arch-truth",
@@ -1710,7 +3060,11 @@
     "A global singleton"
    ],
    "answer": 1,
-   "explanation": "The database is the single source of truth. The network only writes into it."
+   "explanation": "The database is the single source of truth. The network only writes into it.",
+   "tracks": [
+    "senior",
+    "system-design"
+   ]
   },
   {
    "id": "arch-usecase",
@@ -1723,7 +3077,11 @@
     "In the Retrofit service"
    ],
    "answer": 1,
-   "explanation": "A use case holds reusable business rules. A ViewModel manages screen state and UI events."
+   "explanation": "A use case holds reusable business rules. A ViewModel manages screen state and UI events.",
+   "tracks": [
+    "senior",
+    "system-design"
+   ]
   },
   {
    "id": "di-binds",
@@ -1736,7 +3094,11 @@
     "Injecting into a field"
    ],
    "answer": 1,
-   "explanation": "@Binds is an abstract declaration that maps an interface to an implementation. @Provides is factory code you write."
+   "explanation": "@Binds is an abstract declaration that maps an interface to an implementation. @Provides is factory code you write.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "di-constructor",
@@ -1749,7 +3111,11 @@
     "It avoids generating any code"
    ],
    "answer": 1,
-   "explanation": "Constructor injection makes dependencies visible, allows val fields and lets tests construct the class without the framework."
+   "explanation": "Constructor injection makes dependencies visible, allows val fields and lets tests construct the class without the framework.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "data-distinct",
@@ -1762,7 +3128,11 @@
     "shareIn with replay 0"
    ],
    "answer": 1,
-   "explanation": "Room re-emits on any change to the table. distinctUntilChanged() drops equal results; narrowing the query also helps."
+   "explanation": "Room re-emits on any change to the table. distinctUntilChanged() drops equal results; narrowing the query also helps.",
+   "tracks": [
+    "senior",
+    "system-design"
+   ]
   },
   {
    "id": "data-migration",
@@ -1775,7 +3145,10 @@
     "A manual Migration"
    ],
    "answer": 2,
-   "explanation": "A destructive fallback deletes data. Keep it for tables that are pure cache."
+   "explanation": "A destructive fallback deletes data. Keep it for tables that are pure cache.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "work-periodic",
@@ -1788,7 +3161,10 @@
     "1 hour"
    ],
    "answer": 2,
-   "explanation": "Periodic work has a 15-minute minimum, and execution can drift."
+   "explanation": "Periodic work has a 15-minute minimum, and execution can drift.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "work-force-stop",
@@ -1801,7 +3177,11 @@
     "It moves to a foreground service"
    ],
    "answer": 2,
-   "explanation": "Force-stop clears scheduled jobs and alarms until the user opens the app again."
+   "explanation": "Force-stop clears scheduled jobs and alarms until the user opens the app again.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "perf-baseline",
@@ -1814,7 +3194,10 @@
     "Limits memory use"
    ],
    "answer": 1,
-   "explanation": "It lets ART compile critical paths ahead of time, so early runs do not wait for JIT profiling."
+   "explanation": "It lets ART compile critical paths ahead of time, so early runs do not wait for JIT profiling.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "perf-anr",
@@ -1827,7 +3210,11 @@
     "A recomposition"
    ],
    "answer": 0,
-   "explanation": "An input event with no response within about 5 s raises an ANR."
+   "explanation": "An input event with no response within about 5 s raises an ANR.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "testing-turbine",
@@ -1840,7 +3227,11 @@
     "LeakCanary"
    ],
    "answer": 1,
-   "explanation": "Turbine's test { awaitItem() } checks emissions one at a time inside runTest."
+   "explanation": "Turbine's test { awaitItem() } checks emissions one at a time inside runTest.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "testing-robolectric",
@@ -1853,7 +3244,10 @@
     "Replaces runTest"
    ],
    "answer": 0,
-   "explanation": "Robolectric tests run on the JVM, so they are faster than instrumented tests on a device."
+   "explanation": "Robolectric tests run on the JVM, so they are faster than instrumented tests on a device.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "security-key",
@@ -1866,7 +3260,10 @@
     "Store it in SharedPreferences"
    ],
    "answer": 2,
-   "explanation": "Anything shipped in the app can be extracted. Moving the call behind your backend keeps the secret off the device."
+   "explanation": "Anything shipped in the app can be extracted. Moving the call behind your backend keeps the secret off the device.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "security-pinning",
@@ -1879,7 +3276,10 @@
     "Losing offline support"
    ],
    "answer": 1,
-   "explanation": "If a pinned certificate changes unexpectedly, the app cannot connect. Pin public keys and keep a backup pin."
+   "explanation": "If a pinned certificate changes unexpectedly, the app cannot connect. Pin public keys and keep a backup pin.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "build-api",
@@ -1892,7 +3292,10 @@
     "Skips compiling it"
    ],
    "answer": 1,
-   "explanation": "implementation keeps a dependency internal, so consumers need not recompile when it changes."
+   "explanation": "implementation keeps a dependency internal, so consumers need not recompile when it changes.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "build-rollout",
@@ -1905,7 +3308,10 @@
     "Wait a week for more data"
    ],
    "answer": 1,
-   "explanation": "Halt the rollout to limit impact, then triage, mitigate with a flag if possible and ship a tested fix."
+   "explanation": "Halt the rollout to limit impact, then triage, mitigate with a flag if possible and ship a tested fix.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "design-idempotency",
@@ -1918,7 +3324,11 @@
     "To order the UI animations"
    ],
    "answer": 1,
-   "explanation": "On flaky networks a request may be retried. The key lets the server recognise it and not store the message twice."
+   "explanation": "On flaky networks a request may be retried. The key lets the server recognise it and not store the message twice.",
+   "tracks": [
+    "senior",
+    "system-design"
+   ]
   },
   {
    "id": "kotlin-hof-reference",
@@ -1931,7 +3341,10 @@
     "(Int) -> String"
    ],
    "answer": 1,
-   "explanation": "An unbound member reference takes the receiver as its first parameter, so `String::length` is a `(String) -> Int`."
+   "explanation": "An unbound member reference takes the receiver as its first parameter, so `String::length` is a `(String) -> Int`.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "kotlin-closure-counter",
@@ -1945,7 +3358,12 @@
     "2 1"
    ],
    "answer": 0,
-   "explanation": "Each call to makeCounter creates its own captured `count`. `a` has been called three times, so it returns 3; `b` is called once and returns 1."
+   "explanation": "Each call to makeCounter creates its own captured `count`. `a` has been called three times, so it returns 3; `b` is called once and returns 1.",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "kind": "output"
   },
   {
    "id": "kotlin-receiver-lambda",
@@ -1958,7 +3376,10 @@
     "Nothing; `this` is not allowed"
    ],
    "answer": 2,
-   "explanation": "In a function type with a receiver, the receiver becomes the implicit `this`, which is how `buildString` and `apply` let you call its members directly."
+   "explanation": "In a function type with a receiver, the receiver becomes the implicit `this`, which is how `buildString` and `apply` let you call its members directly.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "kotlin-jvmoverloads",
@@ -1971,7 +3392,10 @@
     "Neither"
    ],
    "answer": 1,
-   "explanation": "Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` would generate `draw(String)` as well."
+   "explanation": "Java can't use Kotlin default arguments, so it only sees the full signature. `@JvmOverloads` would generate `draw(String)` as well.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "kotlin-guard-when",
@@ -1984,7 +3408,10 @@
     "Sealed interfaces"
    ],
    "answer": 1,
-   "explanation": "Guard conditions, stable since Kotlin 2.2, let a branch of a `when` with a subject add an `if` condition."
+   "explanation": "Guard conditions, stable since Kotlin 2.2, let a branch of a `when` with a subject add an `if` condition.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "coroutines-catch-downstream",
@@ -1998,7 +3425,10 @@
     "It is silently ignored"
    ],
    "answer": 1,
-   "explanation": "`catch` only handles exceptions from upstream operators. `collect` is downstream, so the exception propagates. Move the work into `onEach` before `catch` to handle it."
+   "explanation": "`catch` only handles exceptions from upstream operators. `collect` is downstream, so the exception propagates. Move the work into `onEach` before `catch` to handle it.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "coroutines-flatmap-search",
@@ -2011,7 +3441,10 @@
     "zip"
    ],
    "answer": 2,
-   "explanation": "`flatMapLatest` cancels the previous inner flow whenever a new upstream value arrives."
+   "explanation": "`flatMapLatest` cancels the previous inner flow whenever a new upstream value arrives.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "coroutines-rx-subject",
@@ -2024,7 +3457,10 @@
     "Deferred"
    ],
    "answer": 2,
-   "explanation": "Like a BehaviorSubject, `MutableStateFlow` always holds a current value and gives it to new collectors."
+   "explanation": "Like a BehaviorSubject, `MutableStateFlow` always holds a current value and gives it to new collectors.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "android-process-lifecycle",
@@ -2037,7 +3473,11 @@
     "onTrimMemory only"
    ],
    "answer": 1,
-   "explanation": "`ProcessLifecycleOwner` dispatches ON_STOP when the last activity stops and ON_START when the app returns. `Application.onTerminate` is never called on real devices."
+   "explanation": "`ProcessLifecycleOwner` dispatches ON_STOP when the last activity stops and ON_START when the app returns. `Application.onTerminate` is never called on real devices.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "android-notification-permission",
@@ -2050,7 +3490,10 @@
     "Android 15 (API 35)"
    ],
    "answer": 2,
-   "explanation": "`POST_NOTIFICATIONS` is a runtime permission for apps targeting Android 13 (API 33) and higher. Android 8.0 introduced notification channels."
+   "explanation": "`POST_NOTIFICATIONS` is a runtime permission for apps targeting Android 13 (API 33) and higher. Android 8.0 introduced notification channels.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "android-fragment-result",
@@ -2063,7 +3506,11 @@
     "Passing a callback interface in the arguments Bundle"
    ],
    "answer": 1,
-   "explanation": "The Fragment Result API is designed for one-time results that fit in a Bundle. A shared ViewModel suits ongoing state."
+   "explanation": "The Fragment Result API is designed for one-time results that fit in a Bundle. A shared ViewModel suits ongoing state.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "android-app-links-fingerprint",
@@ -2076,7 +3523,10 @@
     "Any key; the fingerprint isn't checked"
    ],
    "answer": 2,
-   "explanation": "Verification compares against the certificate that signs the installed app, which is Play's app signing key, not your upload key."
+   "explanation": "Verification compares against the certificate that signs the installed app, which is Play's app signing key, not your upload key.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "android-listadapter",
@@ -2089,7 +3539,10 @@
     "The adapter positions"
    ],
    "answer": 1,
-   "explanation": "`areItemsTheSame` asks whether two objects represent the same item, usually by ID. `areContentsTheSame` then checks whether its data changed."
+   "explanation": "`areItemsTheSame` asks whether two objects represent the same item, usually by ID. `areContentsTheSame` then checks whether its data changed.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "arch-udf-network",
@@ -2102,7 +3555,11 @@
     "Into SavedStateHandle"
    ],
    "answer": 1,
-   "explanation": "The database is the single source of truth. Writing to it makes every observer update, keeps data consistent across screens and works offline."
+   "explanation": "The database is the single source of truth. Writing to it makes every observer update, keeps data consistent across screens and works offline.",
+   "tracks": [
+    "senior",
+    "system-design"
+   ]
   },
   {
    "id": "data-storage-mediastore",
@@ -2115,7 +3572,10 @@
     "READ_MEDIA_IMAGES"
    ],
    "answer": 2,
-   "explanation": "Apps can add their own media through MediaStore without a permission. WRITE_EXTERNAL_STORAGE has no effect for apps targeting Android 11+."
+   "explanation": "Apps can add their own media through MediaStore without a permission. WRITE_EXTERNAL_STORAGE has no effect for apps targeting Android 11+.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "data-network-capabilities",
@@ -2128,7 +3588,10 @@
     "onLinkPropertiesChanged"
    ],
    "answer": 2,
-   "explanation": "Capabilities such as NET_CAPABILITY_NOT_METERED can change while the network stays connected, and `onCapabilitiesChanged` reports it."
+   "explanation": "Capabilities such as NET_CAPABILITY_NOT_METERED can change while the network stays connected, and `onCapabilitiesChanged` reports it.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "build-semver",
@@ -2141,7 +3604,10 @@
     "None"
    ],
    "answer": 2,
-   "explanation": "Removing public API is a breaking change, so it needs a MAJOR version bump."
+   "explanation": "Removing public API is a breaking change, so it needs a MAJOR version bump.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "build-aab",
@@ -2154,7 +3620,10 @@
     "It skips R8"
    ],
    "answer": 1,
-   "explanation": "Play generates per-device APKs from the bundle, containing only that device's screen density, CPU architecture and languages."
+   "explanation": "Play generates per-device APKs from the bundle, containing only that device's screen density, CPU architecture and languages.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "modern-plurals",
@@ -2167,7 +3636,10 @@
     "Two separate string resources"
    ],
    "answer": 2,
-   "explanation": "Many languages have more plural forms than English, such as few or many. Plural resources let each translation define its own forms."
+   "explanation": "Many languages have more plural forms than English, such as few or many. Plural resources let each translation define its own forms.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "modern-app-language",
@@ -2180,7 +3652,10 @@
     "LocaleManager.setApplicationLocales() only"
    ],
    "answer": 1,
-   "explanation": "AppCompat 1.6+ `setApplicationLocales` supports per-app languages on Android 13+ and, with AppCompatActivity, on older versions. LocaleManager exists only on Android 13+."
+   "explanation": "AppCompat 1.6+ `setApplicationLocales` supports per-app languages on Android 13+ and, with AppCompatActivity, on older versions. LocaleManager exists only on Android 13+.",
+   "tracks": [
+    "junior"
+   ]
   },
   {
    "id": "jvm-volatile-counter",
@@ -2193,7 +3668,11 @@
     "The code doesn't compile"
    ],
    "answer": 2,
-   "explanation": "`@Volatile` gives visibility, not atomicity. `count++` is read-modify-write, so updates can be lost. Use AtomicInteger or a lock."
+   "explanation": "`@Volatile` gives visibility, not atomicity. `count++` is read-modify-write, so updates can be lost. Use AtomicInteger or a lock.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "jvm-weak-reference",
@@ -2206,7 +3685,10 @@
     "Only when the app is closed"
    ],
    "answer": 2,
-   "explanation": "Weakly reachable objects can be collected at the next GC. Soft references are kept until memory is low."
+   "explanation": "Weakly reachable objects can be collected at the next GC. Soft references are kept until memory is low.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "jvm-pattern-okhttp",
@@ -2219,7 +3701,11 @@
     "Memento"
    ],
    "answer": 1,
-   "explanation": "Each interceptor handles the request and passes it along the chain with `chain.proceed()`, which is chain of responsibility."
+   "explanation": "Each interceptor handles the request and passes it along the chain with `chain.proceed()`, which is chain of responsibility.",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   },
   {
    "id": "jvm-double-checked",
@@ -2232,7 +3718,10 @@
     "To allow null values"
    ],
    "answer": 1,
-   "explanation": "Without volatile, the reference can be published before the constructor finishes. The volatile write creates the happens-before edge that prevents this."
+   "explanation": "Without volatile, the reference can be published before the constructor finishes. The volatile write creates the happens-before edge that prevents this.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "kotlin-companion-java",
@@ -2245,7 +3734,10 @@
     "Java can't call it"
    ],
    "answer": 1,
-   "explanation": "The companion is compiled to a nested class with a static `Companion` field. Add `@JvmStatic` to allow `Foo.create()`."
+   "explanation": "The companion is compiled to a nested class with a static `Companion` field. Add `@JvmStatic` to allow `Foo.create()`.",
+   "tracks": [
+    "senior"
+   ]
   },
   {
    "id": "kotlin-also-result",
@@ -2259,7 +3751,12 @@
     "Unit"
    ],
    "answer": 1,
-   "explanation": "`also` returns the object it was called on, not the lambda's result. The lambda added 2, so x is the list [1, 2]. With `let`, x would be `true`, the result of add."
+   "explanation": "`also` returns the object it was called on, not the lambda's result. The lambda added 2, so x is the list [1, 2]. With `let`, x would be `true`, the result of add.",
+   "tracks": [
+    "junior",
+    "senior"
+   ],
+   "kind": "output"
   },
   {
    "id": "kotlin-scope-choice",
@@ -2272,7 +3769,341 @@
     "also"
    ],
    "answer": 2,
-   "explanation": "`apply` gives the object as `this`, so you call its members directly, and returns the object itself, which suits configuration."
+   "explanation": "`apply` gives the object as `this`, so you call its members directly, and returns the object itself, which suits configuration.",
+   "tracks": [
+    "junior"
+   ]
+  },
+  {
+   "id": "print-lazy",
+   "topic": "kotlin",
+   "question": "What does this print?",
+   "code": "val answer by lazy {\n    print(\"init \")\n    42\n}\nprint(\"start \")\nprint(\"$answer \")\nprint(\"$answer\")",
+   "options": [
+    "init start 42 42",
+    "start init 42 42",
+    "start init 42 init 42",
+    "init 42 42 start"
+   ],
+   "answer": 1,
+   "explanation": "A lazy value is computed on first access, not where it is declared, and only once.",
+   "kind": "output",
+   "tracks": [
+    "junior"
+   ]
+  },
+  {
+   "id": "print-shallow-copy",
+   "topic": "kotlin",
+   "question": "What does this print?",
+   "code": "data class Cart(val items: MutableList<String>)\n\nval first = Cart(mutableListOf(\"tea\"))\nval second = first.copy()\nsecond.items.add(\"milk\")\nprint(first.items.size)",
+   "options": [
+    "0",
+    "1",
+    "2",
+    "It does not compile"
+   ],
+   "answer": 2,
+   "explanation": "copy() is shallow. Both carts hold the same list, so adding through one changes the other.",
+   "kind": "output",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
+  },
+  {
+   "id": "print-body-property",
+   "topic": "kotlin",
+   "question": "What does this print?",
+   "code": "data class Item(val id: Int) {\n    var quantity = 0\n}\n\nval a = Item(1).apply { quantity = 5 }\nval b = Item(1)\nprint(\"${a == b} ${a.quantity == b.quantity}\")",
+   "options": [
+    "true true",
+    "true false",
+    "false false",
+    "false true"
+   ],
+   "answer": 1,
+   "explanation": "equals() uses only primary-constructor properties, so the items are equal even though their quantities differ.",
+   "kind": "output",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
+  },
+  {
+   "id": "print-sequence",
+   "topic": "kotlin",
+   "question": "What does this print?",
+   "code": "listOf(1, 2, 3)\n    .asSequence()\n    .map { print(\"m$it \"); it * 10 }\n    .filter { print(\"f$it \"); true }\n    .first()",
+   "options": [
+    "m1 m2 m3 f10 f20 f30",
+    "m1 f10",
+    "m1 f10 m2 f20 m3 f30",
+    "Nothing"
+   ],
+   "answer": 1,
+   "explanation": "A sequence processes one element through the whole chain, and first() stops after the first result.",
+   "kind": "output",
+   "tracks": [
+    "senior"
+   ]
+  },
+  {
+   "id": "print-extension-dispatch",
+   "topic": "kotlin",
+   "question": "What does this print?",
+   "code": "open class Animal\nclass Dog : Animal()\n\nfun Animal.sound() = \"...\"\nfun Dog.sound() = \"Woof\"\n\nval pet: Animal = Dog()\nprint(pet.sound())",
+   "options": [
+    "Woof",
+    "...",
+    "It does not compile",
+    "Woof..."
+   ],
+   "answer": 1,
+   "explanation": "Extensions are resolved from the declared type at compile time. The variable is declared as Animal.",
+   "kind": "output",
+   "tracks": [
+    "senior"
+   ]
+  },
+  {
+   "id": "print-init-order",
+   "topic": "kotlin",
+   "question": "What does this print?",
+   "code": "open class Base {\n    init { print(label()) }\n    open fun label() = \"base\"\n}\n\nclass Child : Base() {\n    private val name = \"child\"\n    override fun label(): String = name\n}\n\nChild()",
+   "options": [
+    "base",
+    "child",
+    "null",
+    "It does not compile"
+   ],
+   "answer": 2,
+   "explanation": "The base constructor runs first and calls the override before Child has set name, even though its type is non-null.",
+   "kind": "output",
+   "tracks": [
+    "senior"
+   ]
+  },
+  {
+   "id": "print-foreach-return",
+   "topic": "kotlin",
+   "question": "What does this print?",
+   "code": "listOf(1, 2, 3).forEach {\n    if (it == 2) return@forEach\n    print(it)\n}\nprint(\"-\")",
+   "options": [
+    "1-",
+    "13-",
+    "123-",
+    "1"
+   ],
+   "answer": 1,
+   "explanation": "return@forEach leaves only the current lambda call, like continue in a loop.",
+   "kind": "output",
+   "tracks": [
+    "junior"
+   ]
+  },
+  {
+   "id": "print-launch-order",
+   "topic": "coroutines-flow",
+   "question": "What does this print?",
+   "code": "runBlocking {\n    launch { print(\"A\") }\n    print(\"B\")\n    yield()\n    print(\"C\")\n}",
+   "options": [
+    "ABC",
+    "BAC",
+    "BCA",
+    "ACB"
+   ],
+   "answer": 1,
+   "explanation": "launch only schedules the child here. The parent prints B, yield() lets the child run, then C follows.",
+   "kind": "output",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
+  },
+  {
+   "id": "print-async-failure",
+   "topic": "coroutines-flow",
+   "question": "What does this print?",
+   "code": "runBlocking {\n    val result = try {\n        coroutineScope {\n            val a = async<Int> { error(\"boom\") }\n            delay(100)\n            \"done\"\n        }\n    } catch (e: IllegalStateException) {\n        \"caught ${e.message}\"\n    }\n    print(result)\n}",
+   "options": [
+    "done",
+    "caught boom",
+    "Nothing, the program crashes",
+    "boom"
+   ],
+   "answer": 1,
+   "explanation": "A failing async child cancels its coroutineScope even if await() is never called, and the scope rethrows the error.",
+   "kind": "output",
+   "tracks": [
+    "senior"
+   ]
+  },
+  {
+   "id": "print-stateflow-equal",
+   "topic": "coroutines-flow",
+   "question": "What does this print?",
+   "code": "runBlocking {\n    val state = MutableStateFlow(1)\n    val job = launch(start = CoroutineStart.UNDISPATCHED) {\n        state.collect { print(it) }\n    }\n    state.value = 1\n    yield()\n    state.value = 2\n    yield()\n    job.cancel()\n}",
+   "options": [
+    "112",
+    "12",
+    "2",
+    "11"
+   ],
+   "answer": 1,
+   "explanation": "StateFlow does not emit a value equal to the current one, so setting 1 again does nothing.",
+   "kind": "output",
+   "tracks": [
+    "senior"
+   ]
+  },
+  {
+   "id": "bug-swallowed-cancel",
+   "topic": "coroutines-flow",
+   "question": "What is the bug?",
+   "code": "runBlocking {\n    val job = launch {\n        repeat(3) {\n            try {\n                delay(100)\n            } catch (e: Exception) {\n                print(\"retry \")\n            }\n        }\n    }\n    delay(10)\n    job.cancel()\n}",
+   "options": [
+    "delay() cannot be used inside try",
+    "catch (e: Exception) also catches CancellationException, so the loop keeps running after cancel()",
+    "job.cancel() must be job.join()",
+    "repeat() creates new coroutines"
+   ],
+   "answer": 1,
+   "explanation": "Cancellation is delivered as an exception. Catching it lets the loop continue. Rethrow CancellationException or catch narrower types.",
+   "kind": "bug",
+   "tracks": [
+    "senior"
+   ]
+  },
+  {
+   "id": "bug-mutated-state",
+   "topic": "coroutines-flow",
+   "question": "The collector never sees the new item. Why?",
+   "code": "runBlocking {\n    val state = MutableStateFlow(mutableListOf<String>())\n    val job = launch(start = CoroutineStart.UNDISPATCHED) {\n        state.collect { print(\"size=${it.size} \") }\n    }\n    state.value.add(\"new\")\n    state.value = state.value\n    yield()\n    job.cancel()\n}",
+   "options": [
+    "collect must run on Dispatchers.Main",
+    "The list was changed in place, so StateFlow sees an equal value and emits nothing",
+    "MutableStateFlow cannot hold lists",
+    "yield() cancels the collector"
+   ],
+   "answer": 1,
+   "explanation": "Publish a new list instead: state.update { it + \"new\" }, with an immutable List type.",
+   "kind": "bug",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
+  },
+  {
+   "id": "bug-callbackflow-awaitclose",
+   "topic": "coroutines-flow",
+   "question": "Collecting this flow fails. Why?",
+   "code": "runBlocking {\n    val ticks = callbackFlow {\n        trySend(1)\n    }\n    try {\n        ticks.collect { }\n    } catch (e: IllegalStateException) {\n        print(\"failed\")\n    }\n}",
+   "options": [
+    "trySend is not allowed in callbackFlow",
+    "The block ends without awaitClose, so callbackFlow throws IllegalStateException",
+    "collect needs a CoroutineScope parameter",
+    "callbackFlow needs a buffer size"
+   ],
+   "answer": 1,
+   "explanation": "callbackFlow requires awaitClose, which keeps the flow open and is where you unregister the listener.",
+   "kind": "bug",
+   "tracks": [
+    "senior"
+   ]
+  },
+  {
+   "id": "bug-flow-context",
+   "topic": "coroutines-flow",
+   "question": "Collecting this flow throws. Why?",
+   "code": "runBlocking {\n    val numbers = flow {\n        withContext(Dispatchers.Default) { emit(1) }\n    }\n    try {\n        numbers.collect { }\n    } catch (e: IllegalStateException) {\n        print(\"failed\")\n    }\n}",
+   "options": [
+    "emit is not a suspend function",
+    "A flow builder must not emit from another context; use flowOn",
+    "Dispatchers.Default cannot be used in runBlocking",
+    "The collect lambda is empty"
+   ],
+   "answer": 1,
+   "explanation": "Flows preserve context. Change where upstream code runs with flowOn instead of switching around emit.",
+   "kind": "bug",
+   "tracks": [
+    "senior"
+   ]
+  },
+  {
+   "id": "bug-hash-key",
+   "topic": "kotlin",
+   "question": "This prints false. What is the bug?",
+   "code": "data class User(var name: String)\n\nval user = User(\"Sam\")\nval online = hashSetOf(user)\nuser.name = \"Alex\"\nprint(user in online)",
+   "options": [
+    "hashSetOf copies its elements",
+    "The var used by hashCode changed after insertion, so the set looks in the wrong bucket",
+    "Data classes cannot be stored in sets",
+    "in compares references only"
+   ],
+   "answer": 1,
+   "explanation": "Never change a property used by equals() or hashCode() while the object is a key or set element. Prefer val and copy().",
+   "kind": "bug",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
+  },
+  {
+   "id": "bug-lifecycle-collect",
+   "topic": "android-fundamentals",
+   "question": "What is wrong with this Fragment code?",
+   "code": "override fun onViewCreated(view: View, savedInstanceState: Bundle?) {\n    lifecycleScope.launch {\n        viewModel.state.collect { render(it) }\n    }\n}",
+   "options": [
+    "collect must be called from onCreate",
+    "It uses the Fragment lifecycle and never pauses, so it can update a destroyed view and keeps working in the background",
+    "StateFlow cannot be collected in a Fragment",
+    "render() must run on Dispatchers.IO"
+   ],
+   "answer": 1,
+   "explanation": "Use viewLifecycleOwner.lifecycleScope with repeatOnLifecycle(Lifecycle.State.STARTED).",
+   "kind": "bug",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
+  },
+  {
+   "id": "bug-compose-remember",
+   "topic": "jetpack-compose",
+   "question": "The counter stays at 0 on screen. Why?",
+   "code": "@Composable\nfun Counter() {\n    var count by mutableStateOf(0)\n    Button(onClick = { count++ }) {\n        Text(\"$count\")\n    }\n}",
+   "options": [
+    "mutableStateOf cannot hold an Int",
+    "The state is not remembered, so each recomposition creates a new one starting at 0",
+    "onClick cannot change state",
+    "Text needs a key"
+   ],
+   "answer": 1,
+   "explanation": "Wrap it in remember, or rememberSaveable to also keep it across rotation.",
+   "kind": "bug",
+   "tracks": [
+    "junior"
+   ]
+  },
+  {
+   "id": "bug-context-singleton",
+   "topic": "android-fundamentals",
+   "question": "What is the bug?",
+   "code": "object Analytics {\n    private lateinit var context: Context\n\n    fun init(activity: Activity) {\n        context = activity\n    }\n}",
+   "options": [
+    "lateinit cannot be used in an object",
+    "A process-wide object keeps the Activity, so it can never be garbage collected",
+    "An Activity is not a Context",
+    "init is a reserved name"
+   ],
+   "answer": 1,
+   "explanation": "Store activity.applicationContext, or pass a Context only when needed.",
+   "kind": "bug",
+   "tracks": [
+    "junior",
+    "senior"
+   ]
   }
  ]
 }

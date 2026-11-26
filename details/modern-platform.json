@@ -1,0 +1,68 @@
+{
+  "What changes when your app targets Android 17 on a tablet?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Large-screen requirements affect apps that assumed portrait phones.",
+    "mistake": "Assuming a locked orientation will still be honoured everywhere.",
+    "followUp": "Which layouts break first on a large window?"
+  },
+  "How do you make an app edge-to-edge safely?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Recent Android versions make this unavoidable.",
+    "mistake": "Adding fixed padding in dp to avoid the system bars.",
+    "followUp": "How do you handle the keyboard inset in a list?"
+  },
+  "Why does predictive back require changing how you handle back?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It checks that you know why the old back callback no longer fits.",
+    "mistake": "Intercepting back all the time, even when there's nothing to handle.",
+    "followUp": "How do you animate with the back gesture?"
+  },
+  "Why use window size classes instead of checking for a tablet?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see that you design for window sizes rather than device types.",
+    "mistake": "Reading the physical screen size or checking for \"tablet\".",
+    "followUp": "What are the window width size classes?"
+  },
+  "What would you share first in a KMP project?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "They're looking for a realistic, low-risk adoption plan.",
+    "mistake": "Proposing to share all UI and logic from the first day.",
+    "followUp": "What would you not share?"
+  },
+  "How do you test accessibility?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Accessibility is a quality requirement and often a legal one.",
+    "mistake": "Relying only on an automated scanner.",
+    "followUp": "Which automated accessibility checks can run in CI?"
+  },
+  "Why is `\"$count items\"` a localization bug?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It shows whether you've shipped to more than one language.",
+    "mistake": "Handling plurals with an `if` for count equals one.",
+    "followUp": "How do you handle right-to-left languages?"
+  },
+  "When would you use on-device AI instead of a server model?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They want you to weigh privacy, latency, cost and device support.",
+    "mistake": "Assuming every device can run the model.",
+    "followUp": "What is your fallback if the model is unavailable?"
+  }
+}

@@ -12,6 +12,7 @@ Usage: validate_content.py [--base-ref REF] [--root DIR]
 With --base-ref, it also checks that the content version moved correctly since REF.
 """
 import argparse
+import datetime
 import hashlib
 import json
 import pathlib
@@ -23,6 +24,9 @@ SCHEMA_VERSION = 1
 MAX_BYTES = 8 * 1024 * 1024  # RetrofitContentDataSource.MAX_BYTES
 MAX_INT = 2**31 - 1  # Kotlin Int
 LEVELS = ("Easy", "Medium", "Hard")
+KINDS = ("output", "bug")
+# Lower-case words joined by hyphens, so a new track needs no change to the app.
+TRACK = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 
 
 class Optional:
@@ -36,9 +40,12 @@ class Optional:
 VERSION = {"schemaVersion": int, "version": int, "sha256": str}
 BUNDLE = {"schemaVersion": int, "version": int, "topics": list, "questions": list, "quiz": list}
 TOPIC = {"id": str, "number": int, "title": str, "notes": str}
-QUESTION = {"id": str, "topic": str, "text": str, "answer": str, "level": Optional(str)}
+QUESTION = {"id": str, "topic": str, "text": str, "answer": str, "level": Optional(str),
+            "tracks": list, "why": str, "mistake": str, "reviewed": Optional(str),
+            "followUp": Optional(str), "code": Optional(str)}
 QUIZ = {"id": str, "topic": str, "question": str, "code": Optional(str),
-        "options": list, "answer": int, "explanation": str}
+        "options": list, "answer": int, "explanation": str, "tracks": list,
+        "kind": Optional(str)}
 
 
 def load_json(data: bytes, name: str, errors: list):
@@ -99,6 +106,26 @@ def check_items(items, shape: dict, name: str, errors: list) -> list:
     return good
 
 
+def check_tracks(tracks: list, where: str, errors: list) -> None:
+    if not tracks or not all(isinstance(t, str) and TRACK.fullmatch(t) for t in tracks):
+        errors.append(f"{where}: tracks needs at least one value such as 'junior', "
+                      "'senior' or 'system-design'")
+    elif len(set(tracks)) != len(tracks):
+        errors.append(f"{where}: a track is listed twice")
+
+
+def check_reviewed(value, where: str, errors: list) -> None:
+    """A review date is a promise to readers, so it must be a real day that has happened."""
+    try:
+        day = datetime.date.fromisoformat(value)
+    except ValueError:
+        errors.append(f"{where}: reviewed must be a date like 2026-11-27")
+        return
+    # A day of slack for authors ahead of the CI server's time zone.
+    if day.isoformat() != value or day > datetime.date.today() + datetime.timedelta(days=1):
+        errors.append(f"{where}: reviewed must be written YYYY-MM-DD and not be in the future")
+
+
 def validate_bundle(version_bytes: bytes, bundle_bytes: bytes) -> list:
     errors = []
     pointer = load_json(version_bytes, "version.json", errors)
@@ -136,9 +163,18 @@ def validate_bundle(version_bytes: bytes, bundle_bytes: bytes) -> list:
             errors.append(f"question {question['id']}: unknown topic '{question['topic']}'")
         if question.get("level") is not None and question["level"] not in LEVELS:
             errors.append(f"question {question['id']}: level must be one of {', '.join(LEVELS)}")
+        check_tracks(question["tracks"], f"question {question['id']}", errors)
+        if question.get("reviewed") is not None:
+            check_reviewed(question["reviewed"], f"question {question['id']}", errors)
 
     for quiz in check_items(bundle["quiz"], QUIZ, "quiz", errors):
         label = f"quiz {quiz['id']}"
+        check_tracks(quiz["tracks"], label, errors)
+        if quiz.get("kind") is not None:
+            if quiz["kind"] not in KINDS:
+                errors.append(f"{label}: kind must be one of {', '.join(KINDS)}")
+            elif not (quiz.get("code") or "").strip():
+                errors.append(f"{label}: a '{quiz['kind']}' question needs code")
         if quiz["topic"] not in topic_ids:
             errors.append(f"{label}: unknown topic '{quiz['topic']}'")
         options = quiz["options"]

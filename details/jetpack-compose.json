@@ -1,0 +1,100 @@
+{
+  "What triggers recomposition?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It's the foundation of Compose; later answers depend on it.",
+    "mistake": "Saying the whole screen redraws whenever anything changes.",
+    "followUp": "What is a recomposition scope?"
+  },
+  "`remember` vs `rememberSaveable`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To check that you know which state is lost, and when.",
+    "mistake": "Putting large objects in `rememberSaveable`.",
+    "followUp": "What can't `rememberSaveable` save by default?"
+  },
+  "When do you use `derivedStateOf`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests whether you can reduce recomposition without overusing the tool.",
+    "mistake": "Wrapping every computed value in it, even when it changes as often as its input.",
+    "followUp": "How is it different from `remember(key)`?"
+  },
+  "What is state hoisting, and why do it?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "They're checking that you write reusable, testable UI.",
+    "mistake": "Hoisting all state to the ViewModel, including purely visual state nobody else needs.",
+    "followUp": "Which state should stay inside the composable?"
+  },
+  "`LaunchedEffect`, `rememberCoroutineScope` or `DisposableEffect`?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Wrong effect choices cause repeated requests and leaked listeners.",
+    "mistake": "Using `LaunchedEffect(Unit)` when the work depends on a value that can change.",
+    "followUp": "When do you need `rememberUpdatedState`?"
+  },
+  "Why does my composable recompose even though the data didn't change?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It shows whether you can diagnose performance problems, not just build screens.",
+    "mistake": "Adding `remember` everywhere without measuring what actually recomposes.",
+    "followUp": "How would you find what is recomposing?"
+  },
+  "What does strong skipping mode change?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "To see whether your stability advice is up to date.",
+    "mistake": "Repeating pre-2.0.20 advice that any unstable parameter always prevents skipping.",
+    "followUp": "How can you tell whether a composable is skippable?"
+  },
+  "How do you make a `LazyColumn` perform well?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Lists are where Compose performance problems usually show.",
+    "mistake": "Judging performance in a debug build, or using the index as the key.",
+    "followUp": "Why are stable keys important when items move?"
+  },
+  "Why does Modifier order matter?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It catches a very common source of layout bugs.",
+    "mistake": "Thinking modifiers are an unordered set of properties.",
+    "followUp": "How does `Modifier` order affect click areas?"
+  },
+  "How would you migrate a large View-based app to Compose?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "They're assessing planning and risk management as much as Compose knowledge.",
+    "mistake": "Planning a full rewrite with a feature freeze.",
+    "followUp": "How do you share a theme between Views and Compose?"
+  },
+  "How do you test a composable?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To check that you design composables that can be tested.",
+    "mistake": "Passing a real ViewModel with real data sources into every UI test.",
+    "followUp": "When would you use a test tag instead of text?"
+  },
+  "What is different about Navigation 3?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It shows whether you follow the newer navigation library.",
+    "mistake": "Describing the old `NavController` model as if nothing had changed.",
+    "followUp": "How would you handle deep links with your own back stack?"
+  }
+}

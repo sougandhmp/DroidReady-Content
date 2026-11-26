@@ -120,13 +120,23 @@ def to_json(value) -> str:
     return json.dumps(value, indent=1, ensure_ascii=False) + "\n"
 
 
+def details_for(topic_id: str, questions: list) -> list:
+    """Adds tracks, "why they ask" and the common mistake from details/<topic>.json."""
+    path = ROOT / "details" / f"{topic_id}.json"
+    details = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    unused = set(details) - {q["text"] for q in questions}
+    if unused:
+        sys.exit(f"details/{topic_id}.json: no question has the text {sorted(unused)[0]!r}")
+    return [q | details.get(q["text"], {}) for q in questions]
+
+
 def build_bundle(index: dict) -> dict:
     """Returns the contents of questions.json and version.json."""
     topics, questions = [], []
     for entry in index["topics"]:
         markdown = (ROOT / entry["path"]).read_text(encoding="utf-8")
         topics.append({key: entry[key] for key in ("id", "number", "title")} | {"notes": markdown})
-        questions += questions_in(entry["id"], markdown)
+        questions += details_for(entry["id"], questions_in(entry["id"], markdown))
     if not questions:
         sys.exit("no interview questions found")
     quiz = json.loads((ROOT / "quiz.json").read_text(encoding="utf-8"))["questions"]

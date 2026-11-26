@@ -1,0 +1,128 @@
+{
+  "Why should you avoid `!!`, and what do you use instead?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "To see whether you treat null safety as a design tool or just silence the compiler.",
+    "mistake": "Saying `!!` is fine because you know the value isn't null, without handling the day that stops being true.",
+    "followUp": "When is `requireNotNull` better than an early return?",
+    "code": "fun greeting(name: String?): String {\n    val safe = name ?: return \"Hello\"       // early return\n    return \"Hello, $safe\"\n}\n\nval length = nickname?.length ?: 0          // safe call with a default\nval id = requireNotNull(userId) { \"userId is required\" }"
+  },
+  "What does `inline` do, and when shouldn't you use it?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "To check that you know what the compiler generates, not only the keyword.",
+    "mistake": "Claiming `inline` makes any function faster. Without lambda parameters the gain is usually negligible.",
+    "followUp": "What do `noinline` and `crossinline` change?",
+    "code": "inline fun <reified T> List<Any>.firstOfType(): T? =\n    firstOrNull { it is T } as T?\n\nval text = listOf(1, \"two\", 3).firstOfType<String>()"
+  },
+  "Can a data class be inherited?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "A quick check that you know what a data class generates and where its limits are.",
+    "mistake": "Saying a data class can't extend anything. It can't be `open`, but it can have a superclass or interfaces.",
+    "followUp": "How would you model a closed set of UI states instead?"
+  },
+  "How does `by lazy` work?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It shows whether you understand delegation and thread safety behind a one-line keyword.",
+    "mistake": "Using `lazy` for a value tied to a view or Activity in a longer-lived object, so it goes stale or leaks.",
+    "followUp": "When would you choose `lazy` over `lateinit`?"
+  },
+  "If you pass a Kotlin `List` to Java, can Java change it?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "To test whether you know that Kotlin's guarantees can end at the Java boundary.",
+    "mistake": "Believing a read-only `List` is immutable. It's only a read-only view.",
+    "followUp": "How would you stop Java code from changing the list?"
+  },
+  "What is a higher-order function, and why is it better than a Java callback interface?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To confirm you're comfortable with functions as values, which most Kotlin APIs rely on.",
+    "mistake": "Only saying lambdas are shorter, without mentioning function types or the cost of allocation.",
+    "followUp": "When does passing a lambda allocate an object?"
+  },
+  "What is a lambda with a receiver, and where have you used one?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Receivers power the DSLs you use daily, so this separates using them from understanding them.",
+    "mistake": "Confusing `(A) -> R` with `A.() -> R`.",
+    "followUp": "How would you design a small DSL with a receiver?"
+  },
+  "How can a lambda leak an Activity?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Interviewers want to see that you connect language features to Android memory leaks.",
+    "mistake": "Blaming lambdas themselves. The leak comes from who keeps the reference, and for how long.",
+    "followUp": "How would you find that leak?"
+  },
+  "What does `@JvmOverloads` do?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see whether you've worked in a mixed Java and Kotlin codebase.",
+    "mistake": "Thinking Java callers can use Kotlin default arguments directly.",
+    "followUp": "What does `@JvmStatic` do differently?"
+  },
+  "What are guard conditions in `when`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To check whether you keep up with recent Kotlin releases.",
+    "mistake": "Putting a guard on a `when` that has no subject, where it isn't allowed.",
+    "followUp": "Which Kotlin version made guard conditions stable?"
+  },
+  "What is a companion object, and how is it different from Java `static`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It catches people who translate Java habits straight into Kotlin.",
+    "mistake": "Saying companion members are true static methods. Without `@JvmStatic`, Java calls them through `Companion`.",
+    "followUp": "When would you use a top-level function instead?"
+  },
+  "How do you choose between `let`, `run`, `with`, `apply` and `also`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Scope functions are everywhere, and choosing well shows you care about readability.",
+    "mistake": "Nesting several of them until nobody can tell what `this` or `it` refers to.",
+    "followUp": "Which one would you use to build and configure an `Intent`?"
+  },
+  "What is the difference between a sealed class and an enum?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "To see whether you can model state so that invalid cases can't happen.",
+    "mistake": "Using an enum plus nullable fields for data that only some states have.",
+    "followUp": "When would you still pick an enum?",
+    "code": "enum class Direction { North, South }          // fixed instances\n\nsealed interface Result {                      // each case has its own data\n    data class Success(val items: List<String>) : Result\n    data class Failure(val error: Throwable) : Result\n    data object Loading : Result\n}"
+  },
+  "Explain `out` and `in` in Kotlin generics.": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Variance shows whether you can design generic APIs, not just consume them.",
+    "mistake": "Memorising \"out is output\" without explaining which assignments become safe.",
+    "followUp": "What is a star projection?",
+    "code": "interface Source<out T> { fun next(): T }      // produces T\ninterface Sink<in T> { fun accept(item: T) }   // consumes T\n\nfun use(cats: Source<Cat>, anySink: Sink<Animal>) {\n    val animals: Source<Animal> = cats          // allowed by out\n    val catSink: Sink<Cat> = anySink            // allowed by in\n}"
+  },
+  "When would you use a sequence instead of a list?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests whether you pick collection tools for a reason rather than by habit.",
+    "mistake": "Switching to sequences everywhere and expecting a speed-up on small lists.",
+    "followUp": "How can a sequence be slower than a list?"
+  }
+}

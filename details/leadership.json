@@ -1,0 +1,59 @@
+{
+  "Tell me about a technical decision others disagreed with.": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They want evidence that you can influence others and handle disagreement.",
+    "mistake": "Telling a story where you were simply right and others eventually saw it.",
+    "followUp": "What would you do differently next time?"
+  },
+  "Describe a production incident you caused.": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests ownership and what you learned.",
+    "mistake": "Blaming someone else or picking a trivial incident.",
+    "followUp": "How did you make sure it didn't happen again?"
+  },
+  "How do you mentor junior developers?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Senior engineers are expected to raise the team's level.",
+    "mistake": "Describing mentoring in general terms, with no person or outcome.",
+    "followUp": "How did you know the mentoring worked?"
+  },
+  "How do you handle tech debt?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "To see whether you connect engineering work to business impact.",
+    "mistake": "Asking for a rewrite because the code is ugly.",
+    "followUp": "How did you get time for the work?"
+  },
+  "How do you do code reviews?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Reviews show how you work with other people.",
+    "mistake": "Focusing on style nits that tools should catch.",
+    "followUp": "How do you handle a disagreement in a review?"
+  },
+  "Tell me about a time you pushed back on product.": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "They're checking how you handle conflict with non-engineers.",
+    "mistake": "Either refusing outright or agreeing and quietly missing the date.",
+    "followUp": "What did you learn about the product side?"
+  },
+  "What makes a developer senior rather than mid-level?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It reveals how you see your own responsibility.",
+    "mistake": "Answering with years of experience or a list of technologies.",
+    "followUp": "Give an example from your own work."
+  }
+}
