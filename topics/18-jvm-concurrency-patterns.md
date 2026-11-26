@@ -1,23 +1,30 @@
 # JVM, concurrency and design patterns
 
-Interviews at product companies often go below Android into the JVM: how memory works, what thread-safety really means, and which design patterns you use and why. This section covers those foundations with Android examples.
+Interviews at product companies often go below Android into the JVM: how memory works, what thread safety really means, and which design patterns you use and why. This section covers those foundations with Android examples.
 
 ### 18.1 Memory: stack, heap and garbage collection
 
-- **Stack:** one per thread. Holds local variables and call frames; freed automatically when a function returns.
-- **Heap:** shared by all threads. Every object lives here. Android gives each app a heap limit (check `ActivityManager.getMemoryClass()`, often 256-512 MB on modern phones); exceeding it throws `OutOfMemoryError`.
-- **Garbage collection:** ART frees objects that can no longer be reached from a **GC root**. Roots include static fields, local variables of running threads, active JNI references and the main thread's message queue. Most collection is concurrent, but heavy allocation still costs CPU and can cause jank.
+**In one line:** each thread has its own stack for local variables and calls, all objects live on a shared heap, and the garbage collector frees objects that nothing alive can reach.
 
-A memory leak is an object that is no longer needed but is still reachable from a root, so the GC can't free it. That is why a static field holding an Activity leaks the whole screen.
+**Say this in the interview:** "The stack holds a thread's call frames and local variables and is freed when a function returns. Objects live on the heap, which every thread shares, and Android gives each app a heap limit; going over it throws `OutOfMemoryError`. ART's garbage collector frees any object that can't be reached from a GC root: static fields, local variables of running threads, JNI references. A memory leak is simply an object we no longer need that's still reachable from a root, like an Activity held in a static field."
+
+**Example:**
+
+```kotlin
+object Cache {
+    var screen: Activity? = null          // static field = GC root -> the Activity and its views can never be freed
+}
+```
+
+**How it works:** most collection in ART is concurrent, so pauses are short, but heavy allocation in hot paths, such as creating objects in `onDraw` or during scrolling, still costs CPU and can cause jank. `ActivityManager.getMemoryClass()` reports the heap limit, often 256 to 512 MB on modern phones.
 
 ### 18.2 Reference types
 
-| Type | Collected when | Android use |
-| --- | --- | --- |
-| Strong (normal) | Never, while reachable | Almost everything |
-| `WeakReference` | At the next GC, if only weakly reachable | Pointing at an Activity or View from a longer-lived object without leaking it |
-| `SoftReference` | Only when memory is low | Rarely; prefer `LruCache` for caches, because soft references give poor control |
-| `PhantomReference` | After finalisation, to schedule cleanup | Low-level native resource cleanup (`Cleaner`) |
+**In one line:** strong references keep objects alive; weak references let the collector free the object; soft references are freed only under memory pressure.
+
+**Say this in the interview:** "Normal references are strong. A `WeakReference` doesn't stop collection, so a long-lived object can point at an Activity without leaking it. But a weak reference is a safety net, not a design: the real fix is usually to unregister in the right lifecycle callback, or expose a `Flow` collected with the lifecycle. For caches I use `LruCache` rather than `SoftReference`, because soft references give poor control over what's evicted."
+
+**Example:**
 
 ```kotlin
 class LocationCallbackWrapper(activity: MapActivity) : LocationCallback() {
@@ -28,16 +35,20 @@ class LocationCallbackWrapper(activity: MapActivity) : LocationCallback() {
 }
 ```
 
-A weak reference is a safety net, not a design. The better fix is usually to unregister in the right lifecycle callback or to expose a `Flow` collected with the lifecycle.
+| Type | Collected when | Android use |
+| --- | --- | --- |
+| Strong | Never, while reachable | Almost everything |
+| `WeakReference` | At the next GC, if only weakly reachable | Pointing at an Activity or View from a longer-lived object |
+| `SoftReference` | Only when memory is low | Rarely; prefer `LruCache` |
+| `PhantomReference` | After the object is unreachable, to schedule cleanup | Native resource cleanup through `Cleaner` |
 
-### 18.3 The Java memory model, visibility and atomicity
+### 18.3 Visibility and atomicity
 
-Two separate problems appear when threads share data:
+**In one line:** sharing data between threads has two separate problems: other threads may not see a write (visibility), and multi-step updates can interleave and lose data (atomicity).
 
-- **Visibility:** one thread writes a value, but another thread keeps seeing an old copy (from a CPU cache or a compiler optimisation).
-- **Atomicity:** an operation like `count++` is really read, add, write. Two threads can interleave and lose an update.
+**Say this in the interview:** "Visibility means one thread writes a value but another keeps reading an old copy from a CPU cache or a compiler optimisation. Atomicity means `count++` is really read, add, write, so two threads can lose an update. The Java Memory Model's happens-before rules say when a write is guaranteed visible: releasing a lock, writing a `volatile` field, and starting or joining a thread all create that guarantee. So `@Volatile` fixes visibility for a flag, atomics fix a single counter, and a lock or `Mutex` protects several fields that change together. Best of all is avoiding shared mutable state: immutable data or keeping state on one thread."
 
-The Java Memory Model defines **happens-before** rules: if action A happens-before action B, B is guaranteed to see A's effects. Unlocking a lock, writing a `volatile` field and starting or joining a thread all create happens-before edges.
+**Example:**
 
 ```kotlin
 // Visibility only: a flag written by one thread, read by another
@@ -45,7 +56,7 @@ The Java Memory Model defines **happens-before** rules: if action A happens-befo
 fun cancel() { cancelled = true }
 fun loop() { while (!cancelled) doWork() }
 
-// Atomicity: use atomics or a lock, never @Volatile alone for count++
+// Atomicity for one variable: never @Volatile alone for count++
 private val count = AtomicInteger()
 fun increment() = count.incrementAndGet()
 
@@ -56,16 +67,22 @@ private val history = mutableListOf<Long>()
 fun deposit(amount: Long) = synchronized(lock) { balance += amount; history += amount }
 ```
 
-| Tool | Gives visibility | Gives atomicity | Use for |
+| Tool | Visibility | Atomicity | Use for |
 | --- | --- | --- | --- |
-| `@Volatile` | Yes | Only single reads/writes | Flags, double-checked locking |
-| `AtomicInteger`, `AtomicReference` | Yes | Yes, for one variable | Counters, compare-and-set |
-| `synchronized` / `ReentrantLock` | Yes | Yes, for a block | Several related fields |
-| Coroutine `Mutex` | Yes | Yes, for a block | Same, without blocking a thread |
-| Thread confinement | Not needed | Not needed | Keep the state on one thread or one dispatcher |
-| Immutable data | Not needed | Not needed | Share `val` data classes freely |
+| `@Volatile` | Yes | Single reads and writes only | Flags, double-checked locking |
+| `AtomicInteger`, `AtomicReference` | Yes | Yes, one variable | Counters, compare-and-set |
+| `synchronized`, `ReentrantLock` | Yes | Yes, a block | Several related fields |
+| Coroutine `Mutex` | Yes | Yes, a block | The same, without blocking a thread |
+| Thread confinement | Not needed | Not needed | State kept on one thread or dispatcher |
+| Immutable data | Not needed | Not needed | Sharing `val` data classes freely |
 
-**Double-checked locking**, the classic singleton question:
+### 18.4 Double-checked locking and deadlocks
+
+**In one line:** double-checked locking creates a singleton lazily with a lock taken only once, and needs `@Volatile`; deadlocks happen when threads wait for each other's locks.
+
+**Say this in the interview:** "I check the instance without a lock, and only if it's null, lock and check again before creating it. The field must be `@Volatile`, otherwise another thread could see a non-null reference to an object whose constructor hasn't finished. In Kotlin I rarely write this by hand: `by lazy` is synchronized by default and Hilt's `@Singleton` handles it. For deadlocks, the rule is to always take locks in the same order, keep critical sections short, and never call unknown code, like callbacks, while holding a lock."
+
+**Example:**
 
 ```kotlin
 class Database private constructor(context: Context) {
@@ -79,43 +96,37 @@ class Database private constructor(context: Context) {
 }
 ```
 
-`@Volatile` is required: without it, another thread could see a non-null reference to a half-constructed object. In Kotlin, `by lazy` (default `SYNCHRONIZED` mode) or Hilt `@Singleton` do this for you.
+**Follow-ups:**
 
-**Deadlock:** two threads each hold one lock and wait for the other's. Avoid by always taking locks in the same order, keeping critical sections short, and never calling unknown code (callbacks) while holding a lock.
+- *Describe a deadlock.* Thread A holds lock 1 and waits for lock 2, while thread B holds lock 2 and waits for lock 1. Neither can continue.
 
-### 18.4 Threads, executors and coroutines
+### 18.5 Threads, executors and coroutines
 
-| Tool | What it is | When to use |
-| --- | --- | --- |
-| `Thread` | One OS thread (~1 MB stack) | Almost never directly |
-| `ExecutorService` / thread pool | Reuses a fixed set of threads | Java code, libraries without coroutines |
-| `HandlerThread` + `Handler` | A thread with a message loop | Camera callbacks, ordered work from legacy APIs |
-| Coroutines | Lightweight tasks multiplexed onto thread pools | Default for Kotlin Android code |
+**In one line:** threads are expensive operating-system resources, executors reuse a pool of them, and coroutines are lightweight tasks that share a few threads.
+
+**Say this in the interview:** "Each thread costs about a megabyte of stack, so I almost never create them directly. Java code uses executors and thread pools; `HandlerThread` gives a thread with a message loop for legacy callback APIs like the camera. In Kotlin, coroutines are the default: a suspended coroutine releases its thread, so 10,000 concurrent coroutines can run on a handful of threads, while 10,000 threads would exhaust memory. To bridge, I can wrap an executor with `asCoroutineDispatcher()`."
+
+**Example:**
 
 ```kotlin
-// Bridging an executor-based Java API to coroutines
 val ioExecutor = Executors.newFixedThreadPool(4)
 val dispatcher = ioExecutor.asCoroutineDispatcher()     // use with withContext(dispatcher) { ... }
 ```
 
-Because suspended coroutines release their thread, 10,000 concurrent coroutines can run on a handful of threads, while 10,000 threads would exhaust memory.
-
-### 18.5 Design patterns you already use on Android
-
-| Pattern | Idea | Android example |
+| Tool | What it is | When to use |
 | --- | --- | --- |
-| Singleton | One instance for the process | `Room` database, `OkHttpClient` (scoped by Hilt `@Singleton`) |
-| Builder | Build complex objects step by step | `NotificationCompat.Builder`, `Retrofit.Builder`, `AlertDialog.Builder` |
-| Factory | Hide which class gets created | `ViewModelProvider.Factory`, `Fragment.instantiate` |
-| Observer | Subscribers react to changes | `Flow` / `StateFlow`, `LiveData`, lifecycle observers |
-| Adapter | Make one interface fit another | `RecyclerView.Adapter` turns data into views |
-| Facade | One simple API over a complex subsystem | A `Repository` over Room, Retrofit and DataStore |
-| Strategy | Swap algorithms behind an interface | Different `PaymentProcessor`s, caching policies |
-| Decorator | Wrap an object to add behaviour | `BufferedInputStream`, a caching repository wrapping a network one |
-| Chain of responsibility | Pass a request along handlers | OkHttp interceptors |
-| Dependency injection | Receive collaborators instead of creating them | Hilt, Koin |
+| `Thread` | One OS thread, about 1 MB of stack | Almost never directly |
+| `ExecutorService` | A reusable pool of threads | Java code, libraries without coroutines |
+| `HandlerThread` with `Handler` | A thread with a message loop | Camera callbacks, ordered legacy work |
+| Coroutines | Lightweight tasks on shared thread pools | The default for Kotlin Android code |
 
-**Strategy plus dependency injection, a typical interview example:**
+### 18.6 Design patterns you already use on Android
+
+**In one line:** Android and its libraries are full of classic patterns; name the pattern and point to where you use it.
+
+**Say this in the interview:** "I see them every day: Builder in `Retrofit.Builder` and notifications, Observer in Flow and LiveData, Adapter in RecyclerView, Facade in a repository that hides Room, Retrofit and DataStore, Chain of responsibility in OkHttp interceptors, and Strategy when I swap implementations behind an interface. For example, in checkout each payment method is a strategy, and Hilt injects a map of them, so adding a method means adding a class and a binding without touching the use case."
+
+**Example:**
 
 ```kotlin
 interface PaymentProcessor { suspend fun pay(order: Order): PaymentResult }
@@ -129,24 +140,42 @@ class CheckoutUseCase @Inject constructor(
 }
 ```
 
-Adding a new payment method means adding a class and a binding, without changing `CheckoutUseCase`.
+| Pattern | Idea | Android example |
+| --- | --- | --- |
+| Singleton | One instance for the process | Room database, `OkHttpClient` (Hilt `@Singleton`) |
+| Builder | Build complex objects step by step | `NotificationCompat.Builder`, `Retrofit.Builder` |
+| Factory | Hide which class gets created | `ViewModelProvider.Factory` |
+| Observer | Subscribers react to changes | `Flow`, `StateFlow`, `LiveData`, lifecycle observers |
+| Adapter | Make one interface fit another | `RecyclerView.Adapter` turns data into views |
+| Facade | One simple API over a complex subsystem | A repository over Room, Retrofit and DataStore |
+| Strategy | Swap algorithms behind an interface | Payment processors, caching policies |
+| Decorator | Wrap an object to add behaviour | `BufferedInputStream`, a caching repository wrapping a network one |
+| Chain of responsibility | Pass a request along handlers | OkHttp interceptors |
+| Dependency injection | Receive collaborators instead of creating them | Hilt, Koin |
 
-### 18.6 SOLID with Android examples
+### 18.7 SOLID with Android examples
+
+**In one line:** five principles that keep code easy to change: single responsibility, open/closed, Liskov substitution, interface segregation and dependency inversion.
+
+**Say this in the interview:** "The one I lean on most is dependency inversion: my ViewModel depends on an `ArticleRepository` interface, the data layer implements it with Retrofit and Room, and tests swap in a fake. Open/closed is the payment strategy map: new behaviour without editing existing code. And Liskov matters for fakes: a fake repository must honour the same contract as the real one, for example emitting cached data first, or the tests lie."
+
+**Example:**
 
 | Principle | Means | Android example |
 | --- | --- | --- |
-| **S**ingle responsibility | One reason to change | The ViewModel handles screen state; formatting lives in a mapper; networking in a data source |
-| **O**pen/closed | Extend without editing | New payment methods through the strategy map above |
-| **L**iskov substitution | Subtypes behave like their base | A `FakeArticleRepository` must honour the same contract (e.g. emit current data first), or tests lie |
-| **I**nterface segregation | Small, focused interfaces | Split a large `UserRepository` into `ProfileReader` and `ProfileWriter` when screens need only one |
-| **D**ependency inversion | Depend on abstractions | The ViewModel depends on an `ArticleRepository` interface, not on Retrofit |
+| Single responsibility | One reason to change | The ViewModel holds screen state; a mapper formats; a data source does networking |
+| Open/closed | Extend without editing | New payment methods through the strategy map |
+| Liskov substitution | Subtypes behave like their base | A fake repository honours the real contract |
+| Interface segregation | Small, focused interfaces | Split `UserRepository` into `ProfileReader` and `ProfileWriter` |
+| Dependency inversion | Depend on abstractions | The ViewModel depends on an interface, not on Retrofit |
 
 ### Interview questions
 
-1. **What is a GC root, and how does it relate to memory leaks?** A GC root is a starting point the collector treats as always alive: static fields, live threads' local variables, JNI references. A leak is an unneeded object still reachable from a root, for example an Activity referenced from a static field. {Medium}
-2. **When would you use `WeakReference`?** When a longer-lived object must point at a short-lived one (an Activity or View) without keeping it alive, such as a callback from a system service. Prefer proper unregistration or lifecycle-aware flows; a weak reference is a fallback. {Medium}
-3. **Is `@Volatile var count` enough for a thread-safe counter?** No. `@Volatile` gives visibility, but `count++` is read-modify-write and can lose updates. Use `AtomicInteger`, a lock, a coroutine `Mutex`, or confine the counter to one thread. {Easy}
-4. **Why does double-checked locking need `@Volatile`?** Without it, the reference can become visible to another thread before the object's constructor has finished, so that thread may use a half-built object. `@Volatile` adds the happens-before guarantee. {Hard}
-5. **How do you avoid deadlocks?** Take locks in a fixed global order, keep critical sections short, avoid calling external code while holding a lock, and prefer immutable data, thread confinement or coroutine `Mutex` with structured concurrency. {Medium}
-6. **Which design patterns do you see in Android and its libraries?** Builder (Retrofit, notifications), Observer (Flow, LiveData), Adapter (RecyclerView), Facade (repositories), Chain of responsibility (OkHttp interceptors), Factory (ViewModel factories), Singleton (Room, OkHttpClient via DI). {Easy}
-7. **Explain dependency inversion with an example from your app.** The ViewModel depends on an interface such as `ArticleRepository`, defined near the domain. The data layer implements it with Retrofit and Room. Tests swap in a fake, and the network library can change without touching the ViewModel. {Medium}
+1. **What is a GC root, and how does it relate to memory leaks?** A starting point the collector treats as always alive: static fields, live threads' local variables, JNI references. A leak is an unneeded object still reachable from a root, such as an Activity in a static field. {Medium}
+2. **When would you use `WeakReference`?** When a longer-lived object must point at an Activity or View without keeping it alive. Prefer proper unregistration or lifecycle-aware flows; a weak reference is a fallback. {Medium}
+3. **Is `@Volatile var count` enough for a thread-safe counter?** No. It gives visibility, but `count++` is read-modify-write and can lose updates. Use `AtomicInteger`, a lock, a `Mutex`, or keep it on one thread. {Easy}
+4. **Why does double-checked locking need `@Volatile`?** Without it, another thread can see the reference before the constructor finishes and use a half-built object. `@Volatile` adds the happens-before guarantee. {Hard}
+5. **How do you avoid deadlocks?** Take locks in a fixed order, keep critical sections short, don't call external code while holding a lock, and prefer immutable data, thread confinement or a coroutine `Mutex`. {Medium}
+6. **Why are coroutines cheaper than threads?** A suspended coroutine gives its thread back, so thousands share a small pool, while each thread needs its own stack of about a megabyte. {Easy}
+7. **Which design patterns do you see in Android?** Builder (Retrofit, notifications), Observer (Flow, LiveData), Adapter (RecyclerView), Facade (repositories), Chain of responsibility (OkHttp interceptors), Factory (ViewModel factories), Singleton (Room via DI). {Easy}
+8. **Explain dependency inversion with an example.** The ViewModel depends on an `ArticleRepository` interface; the data layer implements it with Retrofit and Room; tests use a fake, and the network library can change without touching the ViewModel. {Medium}

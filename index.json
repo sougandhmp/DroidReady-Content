@@ -126,14 +126,14 @@
       "number": 17,
       "title": "Rapid-fire Q&A and final checklist",
       "path": "topics/17-rapid-fire.md",
-      "sha256": "e8a22879d8dd307eb5307d8c77bd77acad88cb9c3ca5298c0ddd95a45b9a04a4"
+      "sha256": "4c0f3a836bab4125fbf3123a5225791b1129213bc6e5a1def572121a3520b794"
     },
     {
       "id": "jvm-concurrency-patterns",
       "number": 18,
       "title": "JVM, concurrency and design patterns",
       "path": "topics/18-jvm-concurrency-patterns.md",
-      "sha256": "bf2eca855652e2648e0bd09081a65fe5e57de00c3512b49ae14921a762663d93"
+      "sha256": "ad389d712700abe20260c09ab48e35187fcc154cb8b46aa0441cd24cd0afff02"
     }
   ],
   "quiz": {
