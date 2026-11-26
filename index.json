@@ -119,14 +119,14 @@
       "number": 16,
       "title": "Coding round",
       "path": "topics/16-coding-round.md",
-      "sha256": "d14196bab93d26fcc1fed8fa976f80190d73af71251a0b2fdf50937126a6a051"
+      "sha256": "a1cc3fc2becfc3cdc3bc4b64d292257dcee318a7e54f37ecb706e94bf4072c21"
     },
     {
       "id": "rapid-fire",
       "number": 17,
       "title": "Rapid-fire Q&A and final checklist",
       "path": "topics/17-rapid-fire.md",
-      "sha256": "aa3dc802a6a9dbf42a0bec16fa872e9fb99ad98703520dee97287ed44818dd28"
+      "sha256": "1b7a1de756e2922c04a607339c17b371867d6ffd9b42d711413538577fb00e2b"
     },
     {
       "id": "jvm-concurrency-patterns",
@@ -138,6 +138,6 @@
   ],
   "quiz": {
     "path": "quiz.json",
-    "sha256": "87f939efc2272ea72b1c4b47b0f500920a7331feb7151d51450fa40959fc9dd9"
+    "sha256": "84bfb2bf5f03b7706e818fc30c8d8c086dbe310a33f3e8f120e956a8eb3d2c9a"
   }
 }

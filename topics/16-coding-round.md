@@ -314,6 +314,132 @@ LazyColumn { items(data.filter { it.active }) { Row(it) } }
 
 - *What goes in the README?* How to run it, your design choices, the trade-offs and what you would improve with more time.
 
+### 16.11 Merge intervals
+
+**In one line:** sort intervals by start time, then merge the current interval with the previous one whenever they overlap.
+
+**Say this in the interview:** "If I sort by start time first, any overlapping intervals sit next to each other. I walk once, either extending the end of the last merged interval or starting a new one. Sorting takes O(n log n) and the pass takes O(n)."
+
+**Example:**
+
+```kotlin
+fun mergeIntervals(intervals: Array<IntArray>): Array<IntArray> {
+    if (intervals.isEmpty()) return emptyArray()
+    intervals.sortBy { it[0] }
+    val merged = ArrayList<IntArray>()
+    for (curr in intervals) {
+        if (merged.isEmpty() || merged.last()[1] < curr[0]) {
+            merged.add(curr.copyOf())
+        } else {
+            merged.last()[1] = maxOf(merged.last()[1], curr[1])
+        }
+    }
+    return merged.toTypedArray()
+}
+```
+
+**Common mistake:** Overwriting `merged.last()[1] = curr[1]` instead of taking `maxOf`, which shrinks the interval when one range contains another.
+
+**Follow-ups:**
+
+- *How do you check if a person can attend all meetings?* Sort by start time and check whether `intervals[i][0] < intervals[i - 1][1]`.
+
+### 16.12 Rate limiter (sliding window)
+
+**In one line:** keep a queue of recent request timestamps per key, drop entries older than the window, and allow the request only if the queue is under the limit.
+
+**Say this in the interview:** "For a sliding-window rate limiter, I keep an `ArrayDeque<Long>` of timestamps per user or endpoint and pass a clock lambda so unit tests don't sleep. On each call, I evict timestamps older than `now - windowMs` from the front, check `queue.size < maxRequests`, and append `now` if allowed."
+
+**Example:**
+
+```kotlin
+class RateLimiter(private val maxRequests: Int, private val windowMs: Long, private val nowMs: () -> Long) {
+    private val hits = HashMap<String, ArrayDeque<Long>>()
+
+    @Synchronized
+    fun allow(key: String): Boolean {
+        val now = nowMs()
+        val q = hits.getOrPut(key) { ArrayDeque() }
+        while (q.isNotEmpty() && now - q.first() >= windowMs) q.removeFirst()
+        if (q.size >= maxRequests) return false
+        q.addLast(now)
+        return true
+    }
+}
+```
+
+**Common mistake:** Using `System.currentTimeMillis()` directly instead of a monotonic or injected clock, making tests flaky.
+
+**Follow-ups:**
+
+- *Sliding window vs token bucket?* A token bucket uses O(1) memory per key (just tokens and last refill time) instead of storing every timestamp.
+
+### 16.13 Topological sort (dependency order)
+
+**In one line:** track each node's in-degree, start a queue with nodes that have zero dependencies, and peel them off one by one.
+
+**Say this in the interview:** "Resolving module or App Startup initializer order is topological sort. I build an adjacency list and an in-degree count for each node. Any node with in-degree 0 goes into a queue; as I pop each node, I decrement its neighbours' in-degrees and enqueue any that hit 0. If the output has fewer items than the total nodes, there's a dependency cycle."
+
+**Example:**
+
+```kotlin
+fun buildOrder(nodes: List<String>, deps: List<Pair<String, String>>): List<String>? {
+    val adj = nodes.associateWith { mutableListOf<String>() }
+    val inDegree = nodes.associateWith { 0 }.toMutableMap()
+    for ((before, after) in deps) {
+        adj.getValue(before).add(after)
+        inDegree[after] = inDegree.getValue(after) + 1
+    }
+    val q = ArrayDeque(inDegree.filterValues { it == 0 }.keys)
+    val order = ArrayList<String>(nodes.size)
+    while (q.isNotEmpty()) {
+        val cur = q.removeFirst().also(order::add)
+        for (next in adj.getValue(cur)) {
+            val deg = inDegree.getValue(next) - 1
+            inDegree[next] = deg
+            if (deg == 0) q.addLast(next)
+        }
+    }
+    return order.takeIf { it.size == nodes.size }   // null means cycle
+}
+```
+
+**Common mistake:** Forgetting to detect cycles when `order.size < nodes.size`.
+
+**Follow-ups:**
+
+- *Time and space complexity?* O(V + E) for both, where V is nodes and E is dependency edges.
+
+### 16.14 In-memory cache with TTL
+
+**In one line:** store each value alongside its expiry timestamp, reject expired entries on read, and inject the clock so tests stay deterministic.
+
+**Say this in the interview:** "In Android repos I often need a short-lived cache for config or search results. I wrap each value with `expiresAtMs`, check expiry lazily on `get`, and cap size with a `LinkedHashMap` so it doesn't grow unbounded. Injecting `nowMs: () -> Long` lets unit tests advance time without `delay`."
+
+**Example:**
+
+```kotlin
+class TtlCache<K, V>(private val ttlMs: Long, private val maxSize: Int = 100, private val nowMs: () -> Long) {
+    private data class Entry<V>(val value: V, val expiresAt: Long)
+    private val map = object : LinkedHashMap<K, Entry<V>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, Entry<V>>?) = size > maxSize
+    }
+
+    @Synchronized fun put(key: K, value: V) { map[key] = Entry(value, nowMs() + ttlMs) }
+    @Synchronized fun get(key: K): V? {
+        val entry = map[key] ?: return null
+        if (nowMs() >= entry.expiresAt) { map.remove(key); return null }
+        return entry.value
+    }
+}
+```
+
+**Common mistake:** Never bounding the cache size or forgetting to remove expired entries on `get`.
+
+**Follow-ups:**
+
+- *How do you test expiry without sleeping?* Pass a fake clock `var time = 0L; TtlCache(ttlMs = 1_000) { time }` and increment `time` in the test.
+
 ### Interview questions
 
 1. **Implement an LRU cache with O(1) operations.** Combine a hash map from key to node with a doubly linked list; move nodes to the front on access and evict from the tail when over capacity. In production, `LinkedHashMap` with access order or `LruCache`. {Medium}
@@ -325,3 +451,7 @@ LazyColumn { items(data.filter { it.active }) { Row(it) } }
 7. **Run 100 downloads, at most 4 at a time.** `async` for each item inside `coroutineScope`, with a `Semaphore(4)` and `withPermit` around the work, then `awaitAll`. {Hard}
 8. **What's wrong with `catch (e: Exception)` inside a coroutine?** It also catches `CancellationException`, so the coroutine ignores cancellation. Rethrow it or catch specific exceptions. {Medium}
 9. **What do you put in a take-home README?** How to run it, the architecture and why, trade-offs and shortcuts, and what you'd improve with more time. {Easy}
+10. **How do you merge overlapping intervals?** Sort by start time, then walk once: append non-overlapping intervals and extend the last end with `maxOf` when they overlap. O(n log n) time. {Medium}
+11. **How would you implement a sliding-window rate limiter in Kotlin?** Store an `ArrayDeque<Long>` of timestamps per key with an injected clock, evict entries older than `now - windowMs`, and allow the call only if `size < maxRequests`. {Medium}
+12. **How do you order tasks or initializers that have dependencies?** Use topological sort (Kahn's algorithm): track in-degrees, start a queue with in-degree 0 nodes, decrement neighbours as you pop, and flag a cycle if fewer than all nodes are output. {Medium}
+13. **How do you build and test an in-memory cache with a TTL?** Store values with an `expiresAt` timestamp in a bounded `LinkedHashMap`, evict expired entries on `get`, and inject a clock lambda so unit tests can advance time deterministically. {Medium}

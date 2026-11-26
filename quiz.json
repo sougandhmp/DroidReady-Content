@@ -1670,6 +1670,50 @@
       "tracks": [
         "senior"
       ]
+    },
+    {
+      "id": "output-kotlin-nonlocal-continue",
+      "topic": "kotlin",
+      "question": "What does this print in Kotlin 2.2+?",
+      "code": "for (group in listOf(listOf(1, 2), listOf(3, 4))) {\n    group.forEach {\n        if (it == 2) continue\n        print(it)\n    }\n}",
+      "options": [
+        "134",
+        "1234",
+        "1",
+        "It does not compile"
+      ],
+      "answer": 0,
+      "explanation": "Non-local break and continue inside inline lambdas became stable in Kotlin 2.2. When it == 2, continue jumps to the next iteration of the outer for-loop (3, 4).",
+      "why": "It tests whether you know how Kotlin 2.2+ non-local continue behaves across an outer loop.",
+      "mistake": "Confusing continue (which skips the rest of the outer loop iteration) with return@forEach.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-coding-lru-get-order",
+      "topic": "kotlin",
+      "question": "Why does get(1) fail to prevent key 1 from being evicted?",
+      "code": "class SimpleLru<K, V>(private val cap: Int) {\n    private val map = object : LinkedHashMap<K, V>(cap, 0.75f, false) {\n        override fun removeEldestEntry(e: MutableMap.MutableEntry<K, V>?) = size > cap\n    }\n    fun get(k: K) = map[k]\n    fun put(k: K, v: V) { map[k] = v }\n}",
+      "options": [
+        "removeEldestEntry must return size >= cap",
+        "The third constructor argument is false (insertion order), so get() does not move the entry to most-recently-used",
+        "LinkedHashMap does not support generics",
+        "put() overwrites existing keys"
+      ],
+      "answer": 1,
+      "explanation": "Pass accessOrder = true as the third argument to LinkedHashMap so reads via get() also update recency.",
+      "why": "An LRU cache that only orders by insertion behaves like a FIFO queue, not LRU.",
+      "mistake": "Forgetting the accessOrder = true flag on LinkedHashMap.",
+      "kind": "bug",
+      "bugLines": [
+        2
+      ],
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     }
   ]
 }

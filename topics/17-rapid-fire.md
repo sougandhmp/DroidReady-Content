@@ -64,5 +64,7 @@ Some interviews open with quick questions to check the basics. Answer in one sen
 - [App performance guide](https://developer.android.com/topic/performance/overview)
 - [Navigation 3 is stable](https://developer.android.com/blog/posts/jetpack-navigation-3-is-stable) (Nov 2025)
 - [Android 17 release post](https://android-developers.googleblog.com/2026/06/Android-17.html) (June 2026) and [Android 17 Beta 1 post](https://android-developers.googleblog.com/2026/02/the-first-beta-of-android-17.html)
+- [Adaptive development for the expanding Android ecosystem](https://developer.android.com/blog/posts/adaptive-development-for-the-expanding-android-ecosystem) and [Prepare for Android 17 resizability changes](https://developer.android.com/blog/posts/prepare-your-app-for-the-resizability-and-orientation-changes-in-android-17)
+- [What's new in Kotlin 2.2](https://kotlinlang.org/docs/whatsnew22.html) and [What's new in Kotlin 2.3](https://kotlinlang.org/docs/whatsnew23.html)
 
 Version-specific details in sections 4 and 14.1 were checked against these Android Developers pages on the as-of date; library version numbers in examples are illustrative.
