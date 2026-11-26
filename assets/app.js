@@ -344,7 +344,8 @@
           studied();
           save();
           var last = at === pool.length - 1;
-          document.getElementById('feedback').innerHTML = '<p class="feedback' + (right ? '' : ' no') + '"><b>' + (right ? 'Correct.' : 'Not quite. The answer is ' + 'ABCDEF'[q.answer] + '.') + '</b> ' + inline(q.explanation) + '</p><button type="button" class="btn primary" id="next" style="width:100%">' + (last ? 'See score' : 'Next question') + '</button>';
+          document.getElementById('feedback').innerHTML = '<p class="feedback' + (right ? '' : ' no') + '"><b>' + (right ? 'Correct.' : 'Not quite. The answer is ' + 'ABCDEF'[q.answer] + '.') + '</b> ' + inline(q.explanation) + '</p>' +
+            '<div class="stack notes">' + note('Why they ask this', q.why, 'why') + note('Common mistake', q.mistake, 'mistake') + '</div><button type="button" class="btn primary" id="next" style="width:100%">' + (last ? 'See score' : 'Next question') + '</button>';
           document.getElementById('next').onclick = function () {
             if (last) {
               box.innerHTML = '<div class="card reveal"><span class="eyebrow">' + esc(label) + '</span><h1 tabindex="-1">' + score + ' of ' + pool.length + ' correct</h1><a class="btn primary" href="#/practice">Back to practice</a></div>';

@@ -115,6 +115,7 @@ tr:last-child td { border-bottom: 0; }
 .week i { width: 100%; max-width: 28px; border-radius: 6px; background: #A9D8BC; }
 .week div:last-child i { background: var(--primary); }
 .note p { margin: 8px 0 0; }
+.stack.notes { gap: 12px; margin-bottom: 14px; }
 .note.why .eyebrow { color: var(--on-soft); }
 .note.mistake .eyebrow { color: var(--on-warn); }
 #answer[hidden] { display: none; }

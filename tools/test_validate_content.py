@@ -13,7 +13,7 @@ BUNDLE = {
     "questions": [{"id": "q1", "topic": "kotlin", "text": "Why?", "answer": "Because.",
                    "level": "Easy", "tracks": ["junior"], "why": "W.", "mistake": "M."}],
     "quiz": [{"id": "z1", "topic": "kotlin", "question": "Which?", "options": ["a", "b"],
-              "answer": 1, "explanation": "b.", "tracks": ["senior"]}],
+              "answer": 1, "explanation": "b.", "why": "W.", "mistake": "M.", "tracks": ["senior"]}],
 }
 
 
@@ -61,6 +61,8 @@ class BundleTest(unittest.TestCase):
             "no tracks": lambda b: b["questions"][0].update(tracks=[]),
             "badly written track": lambda b: b["questions"][0].update(tracks=["System Design"]),
             "quiz without tracks": lambda b: b["quiz"][0].pop("tracks"),
+            "quiz without why": lambda b: b["quiz"][0].pop("why"),
+            "quiz with a blank mistake": lambda b: b["quiz"][0].update(mistake=" "),
             "unknown kind": lambda b: b["quiz"][0].update(kind="riddle"),
             "code question without code": lambda b: b["quiz"][0].update(kind="output"),
             "badly written review date":

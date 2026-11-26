@@ -132,6 +132,8 @@ The first set of tracks, reasons, common mistakes, follow-ups and code samples w
   "options": ["A", "B"],
   "answer": 0,
   "explanation": "Shown after the user answers.",
+  "why": "Why an interviewer asks this.",
+  "mistake": "The misunderstanding behind a wrong answer.",
   "tracks": ["junior"],
   "kind": "output"
 }
@@ -142,5 +144,9 @@ Both need `code`. Run an `output` snippet before you publish it.
 
 `topic` is a topic slug and `answer` is the zero-based index of the right option.
 
-The difficulty levels and the first set of quiz questions were drafted with AI
-help from the study notes. Review them and edit as you see fit.
+Every quiz question needs `why` and `mistake`, as every interview question does; CI fails
+without them. Both appear after the user answers. Options are shuffled in the app, so
+don't refer to them by letter.
+
+The difficulty levels, the first set of quiz questions and the quiz `why` and `mistake`
+lines were drafted with AI help. Review them and edit as you see fit.
