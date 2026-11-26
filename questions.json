@@ -1,6 +1,6 @@
 {
  "schemaVersion": 1,
- "version": 10,
+ "version": 11,
  "topics": [
   {
    "id": "how-to-use",
@@ -4308,6 +4308,9 @@
    "why": "Broad catch blocks can quietly break cancellation in production code.",
    "mistake": "Assuming `cancel()` forces a coroutine to stop. Cancellation is cooperative and can be swallowed.",
    "kind": "bug",
+   "bugLines": [
+    6
+   ],
    "tracks": [
     "senior"
    ]
@@ -4328,6 +4331,9 @@
    "why": "A screen that doesn't update is a common debugging task with `StateFlow`.",
    "mistake": "Reassigning the same list after changing it and expecting that to force an update.",
    "kind": "bug",
+   "bugLines": [
+    6
+   ],
    "tracks": [
     "junior",
     "senior"
@@ -4369,6 +4375,9 @@
    "why": "It checks that you know the threading rule behind `flow`, not only the operator names.",
    "mistake": "Assuming a `flow` builder allows the same context switches as any suspend function.",
    "kind": "bug",
+   "bugLines": [
+    3
+   ],
    "tracks": [
     "senior"
    ]
@@ -4389,6 +4398,10 @@
    "why": "It tests whether you understand how hash-based collections find objects.",
    "mistake": "Assuming a set rechecks every element. It first looks in the bucket for the current hash.",
    "kind": "bug",
+   "bugLines": [
+    5,
+    1
+   ],
    "tracks": [
     "junior",
     "senior"
@@ -4410,6 +4423,9 @@
    "why": "Lifecycle-unsafe collection can cause crashes and wasted work that are hard to trace.",
    "mistake": "Thinking `lifecycleScope` alone is safe. It cancels only when the Fragment is destroyed and doesn't pause in the background.",
    "kind": "bug",
+   "bugLines": [
+    2
+   ],
    "tracks": [
     "junior",
     "senior"
@@ -4431,6 +4447,9 @@
    "why": "It is a quick check that you understand how composables keep state.",
    "mistake": "Thinking `mutableStateOf` keeps its value by itself. It must also be remembered.",
    "kind": "bug",
+   "bugLines": [
+    3
+   ],
    "tracks": [
     "junior"
    ]
@@ -4451,6 +4470,9 @@
    "why": "Context leaks are a classic Android memory problem, and they check you can spot one in review.",
    "mistake": "Thinking `private` or `lateinit` prevents the leak. What matters is how long the reference lives.",
    "kind": "bug",
+   "bugLines": [
+    5
+   ],
    "tracks": [
     "junior",
     "senior"
