@@ -70,14 +70,14 @@
       "number": 9,
       "title": "Performance",
       "path": "topics/09-performance.md",
-      "sha256": "99a131916f47329e529a570f879a16eaea7e9947255399d79b7bad9b7d028f40"
+      "sha256": "b6f3438b2eefd063294a12d234a460e24c0e32f72ab48ee8d1eb5bf770067566"
     },
     {
       "id": "testing",
       "number": 10,
-      "title": "Testing strategy",
+      "title": "Testing",
       "path": "topics/10-testing.md",
-      "sha256": "b9b83d7d5bd9688a8c0bb818323e2b8dff7e305253c222c8754dfd9d8004df66"
+      "sha256": "aa1001868f021f4924825674979373029d2daef408cb7368f204e296d6342c1c"
     },
     {
       "id": "security-privacy",

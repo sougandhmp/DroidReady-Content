@@ -1,174 +1,133 @@
 # Performance
 
-Senior candidates are expected to have *debugged* real performance problems. Always frame answers as: **measure → find the cause → fix → verify with numbers → guard against regressions**.
+Senior candidates are expected to have fixed real performance problems. Frame every answer the same way: measure, find the cause, fix it, prove it with numbers, and stop it coming back.
 
-### 9.1 Key metrics (Android vitals)
+### 9.1 How to talk about performance
 
-| Metric | Bad-behaviour threshold on Play | Tools |
+**In one line:** performance work is measure, diagnose, fix, verify and guard, with numbers at every step.
+
+**Say this in the interview:** "I start from data, not guesses: Play Console vitals, Crashlytics, or a user complaint. I reproduce on a low-end device with a release build, profile with Perfetto or the Android Studio profilers, find the cause, fix it, and show the before and after numbers. Then I add a guard, like a Macrobenchmark test in CI, so it doesn't regress."
+
+**Example:**
+
+| Metric | Play's bad-behaviour threshold | Tools |
 | --- | --- | --- |
-| User-perceived crash rate | 1.09% overall (8% per device model) | Crashlytics, Play Console |
-| User-perceived ANR rate | 0.47% overall (8% per device model) | Play Console, ANR traces |
-| Cold start time | Aim < 1 s on mid-range; vitals flag ≥ 5 s | Macrobenchmark, `reportFullyDrawn()` |
-| Slow / frozen frames | > 16 ms / > 700 ms | JankStats, Perfetto |
-| Excessive wakeups / wakelocks | Battery | Battery Historian, Power Profiler |
+| User-perceived crash rate | 1.09% overall, 8% per device model | Crashlytics, Play Console |
+| User-perceived ANR rate | 0.47% overall, 8% per device model | Play Console, ANR traces |
+| Cold start | Aim under ~1 s on mid-range devices | Macrobenchmark, `reportFullyDrawn()` |
+| Jank | Frames over 16 ms (60 Hz) or 8 ms (120 Hz) | JankStats, Perfetto |
 
-Play can reduce visibility of apps that exceed the crash/ANR thresholds, so these numbers have business impact.
+Apps above Play's thresholds can get less visibility in the store, so these numbers matter to the business.
 
 ### 9.2 Memory leaks
 
-A leak is an object that is no longer needed but still reachable from a GC root, so it is never collected. Activities are the classic victim (an Activity holds its whole view tree and bitmaps).
+**In one line:** a memory leak is an object the app no longer needs that is still reachable from a GC root, so it can never be freed.
 
-Common causes and fixes:
+**Say this in the interview:** "The classic leak is an Activity: it holds the whole view tree and bitmaps, so leaking one wastes a lot of memory. Common causes are a singleton or static field holding an Activity or View, a listener registered but never unregistered, a delayed Handler callback or a lambda capturing the screen, and a Fragment binding not cleared in `onDestroyView`. I find leaks with LeakCanary in debug builds, which shows the reference chain, then fix the first reference that shouldn't exist."
 
-- Static field or singleton holding an Activity/View/Context → use application context, or don't store it.
-- Non-static inner class / anonymous `Handler`, `Runnable`, `AsyncTask` outliving the activity → cancel in lifecycle, use coroutines bound to a scope.
-- Listener registered and never unregistered (sensor, location, broadcast) → `DisposableEffect` / `DefaultLifecycleObserver`.
-- Fragment view binding not cleared in `onDestroyView`.
-- `GlobalScope` coroutines capturing a view or context.
+**Example, reading a LeakCanary trace:**
 
-```kotlin
-// Leak: the singleton outlives the Activity
-object Analytics { lateinit var context: Context }
-Analytics.context = this            // Activity!
-
-// Fix
-Analytics.context = applicationContext
+```text
+GC Root: Thread object
+├─ com.example.session.SessionManager instance      Leaking: NO (singleton)
+│    ↓ SessionManager.listeners                      <- suspect: the list keeps growing
+├─ java.util.ArrayList instance
+│    ↓ ArrayList[0]
+├─ ProfileActivity$sessionListener$1 instance
+│    ↓ this$0                                        <- the anonymous listener holds the activity
+╰→ ProfileActivity instance                          Leaking: YES (destroyed)
 ```
 
-**Tools:** LeakCanary (debug builds, automatic heap dump and leak trace), Android Studio Memory Profiler (heap dump, allocation tracking), `adb shell dumpsys meminfo <pkg>`.
+Fix: unregister in `onDestroy`, or better, expose session changes as a Flow collected with `repeatOnLifecycle`, so cleanup is automatic.
 
-**Also:** large bitmaps (downsample with Coil/Glide), respond to `onTrimMemory`, avoid allocations in `onDraw` / tight loops (GC churn causes jank).
+**Follow-ups:**
+
+- *Leak vs high memory use?* A leak grows over time because unneeded objects stay reachable. High usage can be legitimate, like big caches, and is fixed by sizing, not by breaking references.
 
 ### 9.3 ANRs
 
-An ANR happens when the main thread is blocked: no response to an input event within 5 s, a `BroadcastReceiver` not finishing within \~10 s (foreground), or a service not starting in time.
+**In one line:** an ANR ("Application Not Responding") happens when the main thread is blocked, typically for about 5 seconds while handling input.
 
-Finding the cause: Play Console ANR clusters or `/data/anr/traces.txt` show the main thread's stack. Common culprits: disk or network I/O on main, `SharedPreferences.commit()`, lock contention with a background thread, slow `Application.onCreate`, binder calls to slow system services, deadlocks.
+**Say this in the interview:** "To fix an ANR, I read the main thread's stack in the ANR trace from Play Console. The usual causes are disk or network I/O on the main thread, waiting on a lock held by a background thread, slow `Application.onCreate`, or slow Binder calls to the system. I turn on StrictMode in debug builds to catch disk and network access on the main thread before it ships."
 
-Enable **StrictMode** in debug builds to catch disk and network access on the main thread:
+**Example, reading an ANR trace:**
 
-```kotlin
-if (BuildConfig.DEBUG) {
-    StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build())
-    StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().detectLeakedClosableObjects().detectActivityLeaks().penaltyLog().build())
-}
+```text
+"main" tid=1 Blocked
+  at com.example.data.LocalCache.get(LocalCache.kt:42)
+  - waiting to lock <0x0a1b2c3d> held by thread 23
+"DefaultDispatcher-worker-3" tid=23 Runnable
+  at java.io.FileInputStream.read(Native method)
+  at com.example.data.LocalCache.loadFromDisk(LocalCache.kt:88)
+  - locked <0x0a1b2c3d>
 ```
+
+The main thread waits for a lock that a background thread holds while reading from disk. Fix: never share that lock with the main thread; make `get` a suspend function that reads off the main thread.
 
 ### 9.4 App startup
 
-- **Cold** (process created), **warm** (process alive, activity recreated), **hot** (activity brought to front).
-- Measure with Macrobenchmark (`StartupTimingMetric`), and `adb shell am start -W`. Call `reportFullyDrawn()` when content is really shown.
-- Fixes: keep `Application.onCreate` minimal; lazy-initialise SDKs (or initialise off the main thread); use the App Startup library to order initializers; avoid heavy DI graphs on startup (`Lazy<T>` / `Provider<T>`); use the SplashScreen API properly; ship a **baseline profile**.
+**In one line:** cold start time is how long it takes from tapping the icon to useful content, and most of it is usually spent in `Application.onCreate` and the first screen.
 
-### 9.5 Baseline profiles and R8
+**Say this in the interview:** "I measure cold start with Macrobenchmark and call `reportFullyDrawn()` when real content is on screen. Then I move SDK initialisation off the main thread or make it lazy, use the App Startup library, inject expensive objects lazily, show cached data from the database first, and ship a baseline profile. I tell it as a story with numbers, for example 2.4 s down to 1.2 s."
 
-- **Baseline profile:** a list of classes and methods used in critical journeys (startup, scrolling). Shipped in the APK/AAB so ART compiles them ahead of time at install, instead of interpreting/JIT-ing on first runs. Typical improvement is roughly 20-30% faster startup and less jank. Generate with the Baseline Profile Gradle plugin + a Macrobenchmark test. **Startup profiles** additionally optimise dex layout.
-- **R8:** shrinks (removes unused code), obfuscates and optimises (inlining, class merging). Enable `isMinifyEnabled = true` and `isShrinkResources = true` for release. Keep rules (`-keep`) are needed for reflection (e.g. Gson, some serializers, JNI). Upload the mapping file to Crashlytics/Play to de-obfuscate stack traces.
-
-```kotlin
-@RunWith(AndroidJUnit4::class)
-class StartupBenchmark {
-    @get:Rule val rule = MacrobenchmarkRule()
-    @Test fun coldStart() = rule.measureRepeated(
-        packageName = "com.example.app",
-        metrics = listOf(StartupTimingMetric()),
-        iterations = 10,
-        startupMode = StartupMode.COLD
-    ) { pressHome(); startActivityAndWait() }
-}
-```
-
-### 9.6 Rendering and jank
-
-- Use **Perfetto / System Trace** to see what runs on the main and RenderThread in each frame.
-- In Views: flatten hierarchies (ConstraintLayout), avoid overdraw (*Debug GPU overdraw*), use `RecyclerView` with `DiffUtil`/`ListAdapter`, stable IDs, `setHasFixedSize`.
-- In Compose: see section 4.6.
-
-### 9.7 App size, network and battery
-
-- App size: Android App Bundle (per-device APK splits), R8 + resource shrinking, WebP/vector images, dynamic feature modules, remove unused languages (`localeFilters` / `resourceConfigurations`).
-- Network: compress (GZIP/Brotli), paginate, cache with ETags, batch requests, prefer one larger request over many on mobile radios.
-- Battery: batch work with WorkManager, avoid wakelocks, use fused location with appropriate priority and interval.
-
-### 9.8 Deeper dive: reading a LeakCanary trace
-
-LeakCanary shows the chain of references from a GC root to the leaked object. Read it top to bottom and find the first reference that should not exist.
-
-```text
-┬───
-│ GC Root: Thread object
-├─ android.os.HandlerThread instance
-│    Leaking: NO (thread is alive)
-│    ↓ Thread.target
-├─ com.example.session.SessionManager instance
-│    Leaking: NO (it is a singleton)
-│    ↓ SessionManager.listeners
-│                     ~~~~~~~~~
-├─ java.util.ArrayList instance
-│    ↓ ArrayList[0]
-├─ com.example.profile.ProfileActivity$sessionListener$1 instance
-│    Leaking: UNKNOWN
-│    ↓ ProfileActivity$sessionListener$1.this$0
-╰→ com.example.profile.ProfileActivity instance
-     Leaking: YES (Activity#mDestroyed is true)
-```
-
-Reading it: the singleton `SessionManager` holds a list of listeners; `ProfileActivity` added an anonymous listener (which holds `this$0`, the activity) and never removed it. The `~~~` underline marks the suspect reference. Fix: remove the listener in `onDestroy`, or better, expose session changes as a `Flow` and collect it with `repeatOnLifecycle`, so cleanup is automatic.
-
-### 9.9 Deeper dive: reading an ANR trace
-
-```text
-"main" prio=5 tid=1 Blocked
-  at com.example.data.LocalCache.get(LocalCache.kt:42)
-  - waiting to lock <0x0a1b2c3d> (a java.lang.Object) held by thread 23
-  at com.example.ui.HomeViewModel.<init>(HomeViewModel.kt:31)
-  ...
-"DefaultDispatcher-worker-3" prio=5 tid=23 Runnable
-  at java.io.FileInputStream.read(Native method)
-  at com.example.data.LocalCache.loadFromDisk(LocalCache.kt:88)
-  - locked <0x0a1b2c3d> (a java.lang.Object)
-```
-
-Reading it: the main thread is **Blocked** waiting for a lock. Thread 23 holds that lock while reading from disk. So the background I/O itself is fine, but sharing a lock with the main thread made the main thread wait for disk. Fix: never take a lock on the main thread that background I/O can hold; make `get` a suspend function that reads off the main thread, and stop constructing data in the ViewModel's `init` synchronously.
-
-Common ANR states to recognise: `Blocked` (lock contention), `Native` in a Binder call (slow system service or another app's provider), `Runnable` deep in your code (heavy computation), `Waiting` on a `CountDownLatch` or `Future.get()` (blocking on async work).
-
-### 9.10 Deeper dive: a startup optimisation case study
-
-An illustrative example (use your own numbers in interviews). Starting point: cold start 2.4 s at P50 on a mid-range phone. Steps taken, each measured with Macrobenchmark:
+**Example, an illustrative case study (use your own numbers):**
 
 | Change | Cold start (P50) |
 | --- | --- |
-| Baseline | 2.4 s |
-| Moved 3 analytics/ads SDK inits off the main thread, lazy on first use | 1.9 s |
-| Replaced a synchronous `SharedPreferences` read of a 400 KB JSON blob with DataStore + async load | 1.6 s |
-| Removed an eager Hilt `@Singleton` that built the full image cache at startup (made it `Lazy<T>`) | 1.5 s |
-| Added a baseline profile for the startup and home-feed journeys | 1.15 s |
-| Showed cached feed from Room first, refreshed network afterwards | Time to useful content: 1.3 s (from 3.1 s) |
+| Starting point | 2.4 s |
+| Three SDKs initialised lazily, off the main thread | 1.9 s |
+| A large synchronous SharedPreferences read moved to DataStore | 1.6 s |
+| An eager singleton image cache made lazy | 1.5 s |
+| Baseline profile for startup and the home feed | 1.15 s |
 
-How to tell it in an interview: name the tool (Perfetto trace showed 600 ms in `Application.onCreate`), the fix, and the number. Then the guard: a CI Macrobenchmark job that fails the build if startup regresses by more than 10%.
+### 9.5 Baseline profiles and R8
 
-### 9.11 Deeper dive: allocation and garbage collection
+**In one line:** a baseline profile tells the system which code to compile ahead of time, and R8 shrinks, obfuscates and optimises the release build.
 
-ART uses a concurrent copying garbage collector; most collection runs in the background, but heavy allocation still costs CPU and can cause short pauses and jank.
+**Say this in the interview:** "Without a baseline profile, the first runs after install interpret and JIT-compile code, which is slow. A baseline profile lists the classes and methods used in key journeys, like startup and scrolling, so they're compiled at install time; that often makes startup around 20 to 30 percent faster. I generate it with the Baseline Profile Gradle plugin and a Macrobenchmark test. R8 removes unused code and resources and optimises the rest; I keep only what reflection needs with keep rules and upload the mapping file so crash reports are readable."
+
+**Example:**
 
 ```kotlin
-// Bad: allocates in every frame
-override fun onDraw(canvas: Canvas) {
-    val paint = Paint().apply { color = Color.RED }          // new object 60-120 times a second
-    canvas.drawText(formatter.format(Date()), x, y, paint)   // new Date and String each frame
-}
-
-// Better: allocate once, reuse
-private val paint = Paint().apply { color = Color.RED }
-override fun onDraw(canvas: Canvas) { canvas.drawText(cachedLabel, x, y, paint) }
+@Test fun coldStart() = rule.measureRepeated(
+    packageName = "com.example.app",
+    metrics = listOf(StartupTimingMetric()),
+    iterations = 10,
+    startupMode = StartupMode.COLD
+) { pressHome(); startActivityAndWait() }
 ```
 
-Other sources of GC churn: string concatenation in loops (use `buildString`), boxing primitives in generic collections (`List<Int>` boxes; `IntArray` does not), `map`/`filter` chains in scroll callbacks, and logging that builds strings even when disabled. Find them with the Memory Profiler's allocation tracking or a Perfetto heap profile.
+### 9.6 Rendering, jank and garbage collection
+
+**In one line:** jank happens when a frame takes longer than the display's frame time, often because of work on the main thread or too much allocation.
+
+**Say this in the interview:** "I record a Perfetto system trace and look at what runs on the main thread and RenderThread in the slow frames. Fixes are usually moving work off the main thread, reducing recomposition in Compose, flattening view hierarchies, using `DiffUtil` for lists, and avoiding allocations in hot paths like `onDraw` or scroll callbacks, because constant allocation makes the garbage collector work harder."
+
+**Example:**
+
+```kotlin
+// Bad: a new Paint 60-120 times a second
+override fun onDraw(canvas: Canvas) { canvas.drawText(label, x, y, Paint().apply { color = Color.RED }) }
+
+// Better: allocate once
+private val paint = Paint().apply { color = Color.RED }
+override fun onDraw(canvas: Canvas) { canvas.drawText(label, x, y, paint) }
+```
+
+### 9.7 App size, network and battery
+
+**In one line:** ship less code and data, send fewer and smaller requests, and batch background work.
+
+**Say this in the interview:** "For size I publish an App Bundle so each device gets only what it needs, turn on R8 and resource shrinking, use vector or WebP images, and move rarely used features into dynamic modules. For network I paginate, compress, cache with ETags and batch requests. For battery I let WorkManager batch background work, avoid wakelocks, and request location at the lowest accuracy and frequency that works."
 
 ### Interview questions
 
-1. **Walk me through how you would investigate a slow screen.** Reproduce on a low-end device with a release build → record a Perfetto trace / Compose recomposition counts → identify the long frames and what runs in them → fix (move work off main, reduce recomposition, paginate) → add a Macrobenchmark `FrameTimingMetric` test in CI to prevent regressions. {Medium}
-2. **What is the difference between a memory leak and high memory usage?** A leak is unreachable-in-logic but reachable-in-GC memory that grows over time. High usage may be legitimate (big caches, bitmaps) and is fixed by sizing, not by breaking references. {Easy}
-3. **How does ART run your code?** DEX bytecode is interpreted and JIT-compiled at first, hot methods recorded into profiles, then compiled AOT in the background when the device is idle and charging. Baseline profiles skip the wait for the first runs. {Hard}
-4. **An SDK slows startup by 300 ms. What do you do?** Measure it in isolation, initialise it lazily on first use or on a background thread after first frame, talk to the vendor, or remove it. Show the before/after numbers. {Medium}
+1. **How would you investigate a slow screen?** Reproduce on a low-end device with a release build, record a Perfetto trace or check Compose recomposition counts, find the long frames and what runs in them, fix it, then add a Macrobenchmark frame-timing test so it doesn't regress. {Medium}
+2. **What are the most common causes of memory leaks on Android?** Static fields or singletons holding an Activity or View, listeners never unregistered, delayed Handler callbacks or lambdas capturing the screen, and Fragment view bindings not cleared in `onDestroyView`. {Easy}
+3. **How do you find and fix a memory leak?** Use LeakCanary in debug builds, read the reference chain from the GC root, find the first reference that shouldn't exist, and remove it, often by unregistering or using lifecycle-aware collection. {Medium}
+4. **What causes ANRs, and how do you diagnose one?** A blocked main thread: I/O on the main thread, lock contention, slow `Application.onCreate` or slow Binder calls. Read the main thread's stack in the Play Console ANR trace and use StrictMode in debug builds. {Medium}
+5. **How do you improve cold start time?** Measure with Macrobenchmark, make SDK initialisation lazy or move it off the main thread, avoid eager singletons, show cached data first, and ship a baseline profile. {Medium}
+6. **What is a baseline profile?** A list of classes and methods used in key journeys, shipped with the app so they're compiled ahead of time at install, making startup and scrolling faster from the first launch. {Medium}
+7. **What does R8 do, and what can go wrong?** It removes unused code, renames and optimises the rest. Code accessed by reflection can be removed or renamed by mistake, so it needs keep rules; upload the mapping file to read crash reports. {Medium}
+8. **An SDK adds 300 ms to startup. What do you do?** Measure it alone, initialise it lazily or after the first frame on a background thread, talk to the vendor, or remove it, and show the before and after numbers. {Hard}
+9. **What is the difference between a memory leak and high memory use?** A leak grows over time because unneeded objects stay reachable. High use can be legitimate, like big caches or bitmaps, and is fixed by sizing them, not by breaking references. {Medium}
