@@ -19,6 +19,12 @@ Senior candidates are expected to have fixed real performance problems. Frame ev
 
 Apps above Play's thresholds can get less visibility in the store, so these numbers matter to the business.
 
+**Common mistake:** Optimizing by guesswork, with no measurement before or after the change.
+
+**Follow-ups:**
+
+- *How do you know a fix worked?* Measure the same journey in the same conditions before and after, then watch production data.
+
 ### 9.2 Memory leaks
 
 **In one line:** a memory leak is an object the app no longer needs that is still reachable from a GC root, so it can never be freed.
@@ -39,6 +45,8 @@ GC Root: Thread object
 ```
 
 Fix: unregister in `onDestroy`, or better, expose session changes as a Flow collected with `repeatOnLifecycle`, so cleanup is automatic.
+
+**Common mistake:** Hiding a leak with a `WeakReference` instead of removing the reference at the right time.
 
 **Follow-ups:**
 
@@ -64,6 +72,12 @@ Fix: unregister in `onDestroy`, or better, expose session changes as a Flow coll
 
 The main thread waits for a lock that a background thread holds while reading from disk. Fix: never share that lock with the main thread; make `get` a suspend function that reads off the main thread.
 
+**Common mistake:** Reading only your own code in an ANR trace and missing the lock or Binder call the main thread is waiting on.
+
+**Follow-ups:**
+
+- *Does moving work off the main thread always fix an ANR?* No. The main thread can still wait for that work, a lock or a Binder reply.
+
 ### 9.4 App startup
 
 **In one line:** cold start time is how long it takes from tapping the icon to useful content, and most of it is usually spent in `Application.onCreate` and the first screen.
@@ -79,6 +93,12 @@ The main thread waits for a lock that a background thread holds while reading fr
 | A large synchronous SharedPreferences read moved to DataStore | 1.6 s |
 | An eager singleton image cache made lazy | 1.5 s |
 | Baseline profile for startup and the home feed | 1.15 s |
+
+**Common mistake:** Initializing every SDK in `Application.onCreate`.
+
+**Follow-ups:**
+
+- *Cold, warm or hot start?* Cold starts a new process. Warm reuses the process but recreates part of the UI work. Hot brings an existing activity back to the front.
 
 ### 9.5 Baseline profiles and R8
 
@@ -97,6 +117,12 @@ The main thread waits for a lock that a background thread holds while reading fr
 ) { pressHome(); startActivityAndWait() }
 ```
 
+**Common mistake:** Testing only the debug build, so R8 problems first appear in release.
+
+**Follow-ups:**
+
+- *Does a baseline profile replace R8?* No. A profile guides ahead-of-time compilation, while R8 shrinks and optimizes the code. Use both.
+
 ### 9.6 Rendering, jank and garbage collection
 
 **In one line:** jank happens when a frame takes longer than the display's frame time, often because of work on the main thread or too much allocation.
@@ -114,11 +140,23 @@ private val paint = Paint().apply { color = Color.RED }
 override fun onDraw(canvas: Canvas) { canvas.drawText(label, x, y, paint) }
 ```
 
+**Common mistake:** Judging smoothness on a fast phone only.
+
+**Follow-ups:**
+
+- *What is the frame budget at 120 Hz?* About 8 ms per frame, compared with about 16 ms at 60 Hz.
+
 ### 9.7 App size, network and battery
 
 **In one line:** ship less code and data, send fewer and smaller requests, and batch background work.
 
 **Say this in the interview:** "For size I publish an App Bundle so each device gets only what it needs, turn on R8 and resource shrinking, use vector or WebP images, and move rarely used features into dynamic modules. For network I paginate, compress, cache with ETags and batch requests. For battery I let WorkManager batch background work, avoid wakelocks, and request location at the lowest accuracy and frequency that works."
+
+**Common mistake:** Polling on a short timer when a push or batched background work would do.
+
+**Follow-ups:**
+
+- *Why batch network and background work?* Fewer wake-ups let the radio and processor stay idle longer, which saves battery.
 
 ### Interview questions
 

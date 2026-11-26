@@ -19,6 +19,12 @@ fun Greeting(name: String) {
 
 **How it works:** the Compose compiler plugin rewrites composables to track which state they read through the snapshot system. Reading state in a later phase (layout or draw) means a change can skip the earlier phases, which is a key performance trick.
 
+**Common mistake:** Doing side effects such as network calls directly in a composable body.
+
+**Follow-ups:**
+
+- *Name the three phases of a Compose frame.* Composition decides what to show, layout measures and places it, and drawing renders it.
+
 ### 4.2 State: remember, rememberSaveable and derivedStateOf
 
 **In one line:** `remember` keeps a value across recompositions, `rememberSaveable` also keeps it across rotation and process death, and `derivedStateOf` creates state that changes less often than its inputs.
@@ -32,6 +38,8 @@ var query by rememberSaveable { mutableStateOf("") }               // survives r
 val listState = rememberLazyListState()
 val showScrollToTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
 ```
+
+**Common mistake:** Creating state with `mutableStateOf` without `remember`, so it resets on recomposition.
 
 **Follow-ups:**
 
@@ -58,6 +66,12 @@ fun SearchScreen(state: SearchUiState, onQueryChange: (String) -> Unit) {
 }
 ```
 
+**Common mistake:** Passing a ViewModel deep into the UI tree, which makes those composables hard to preview, test and reuse.
+
+**Follow-ups:**
+
+- *Where should you hoist state to?* To the lowest common parent of the composables that read or write it.
+
 ### 4.4 Side effects
 
 **In one line:** side-effect APIs run non-UI work from composables in a controlled way, tied to the composable's lifecycle.
@@ -81,6 +95,8 @@ LaunchedEffect(state.userMessage) {
 }
 ```
 
+**Common mistake:** Using `LaunchedEffect(Unit)` when the effect depends on a value that can change.
+
 **Follow-ups:**
 
 - *`LaunchedEffect(Unit)` vs `LaunchedEffect(userId)`?* `Unit` runs once per entry into composition; `userId` cancels and restarts the effect whenever the ID changes.
@@ -102,6 +118,8 @@ data class Post(val id: String, val tags: List<String>, val author: Author)
 data class PostUi(val id: String, val title: String, val tags: ImmutableList<String>, val authorName: String)
 ```
 
+**Common mistake:** Adding `@Stable` or `@Immutable` to a class that breaks that promise, which can leave the UI stale.
+
 **Follow-ups:**
 
 - *Why does my composable recompose when nothing changed?* An unstable parameter, a new list instance with the same content, or reading fast-changing state too high in the tree.
@@ -122,6 +140,12 @@ LazyColumn {
 Box(Modifier.graphicsLayer { alpha = fadeProvider() })   // read in draw phase: no recomposition
 ```
 
+**Common mistake:** Measuring Compose performance in a debug build.
+
+**Follow-ups:**
+
+- *Why give lazy list items a `key`?* It keeps each item's identity when the list changes, so remembered state stays with the right item and less work is repeated.
+
 ### 4.7 Layouts, modifiers and custom layouts
 
 **In one line:** modifiers decorate a composable in order, and a custom `Layout` measures and places children yourself.
@@ -139,6 +163,12 @@ Layout(content = content) { measurables, constraints ->
     }
 }
 ```
+
+**Common mistake:** Ignoring modifier order, then adding wrapper layouts to fix spacing or click areas.
+
+**Follow-ups:**
+
+- *`padding` then `clickable`, or the reverse?* With `padding` first, the padded space isn't clickable. With `clickable` first, it is.
 
 ### 4.8 Navigation
 
@@ -163,6 +193,12 @@ NavDisplay(
 )
 ```
 
+**Common mistake:** Passing whole objects as navigation arguments instead of IDs.
+
+**Follow-ups:**
+
+- *What happens to a screen's ViewModel when it leaves the back stack?* With Navigation Compose, a ViewModel scoped to that destination is cleared when its entry is removed.
+
 ### 4.9 Animations
 
 **In one line:** Compose has high-level animation APIs for values, visibility and content changes, and low-level ones for gestures.
@@ -176,11 +212,23 @@ val elevation by animateDpAsState(if (pressed) 2.dp else 8.dp, label = "elevatio
 AnimatedVisibility(visible = state.error != null) { ErrorBanner(state.error) }
 ```
 
+**Common mistake:** Reading a fast-changing animated value during composition when only layout or drawing needs it.
+
+**Follow-ups:**
+
+- *`animate*AsState` vs `Animatable`?* `animate*AsState` follows a target value for you. `Animatable` gives direct control from a coroutine, such as snapping during a gesture.
+
 ### 4.10 Interop and migration from Views
 
 **In one line:** `ComposeView` puts Compose inside Views, and `AndroidView` puts a View inside Compose, so you can migrate one screen at a time.
 
 **Say this in the interview:** "I'd never rewrite a whole app at once. I start with new screens in Compose, then migrate leaf components and whole screens one by one, sharing the theme between both systems. Views with no Compose equivalent, like a map or an ad view, stay inside `AndroidView`. I measure performance before and after each step."
+
+**Common mistake:** Planning a full rewrite instead of moving screen by screen.
+
+**Follow-ups:**
+
+- *How do you share a theme during migration?* Keep the same colors, type and shapes defined for both systems, and change them together until the Views are gone.
 
 ### Interview questions
 

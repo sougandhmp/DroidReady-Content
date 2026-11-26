@@ -18,6 +18,12 @@ object Cache {
 
 **How it works:** most collection in ART is concurrent, so pauses are short, but heavy allocation in hot paths, such as creating objects in `onDraw` or during scrolling, still costs CPU and can cause jank. `ActivityManager.getMemoryClass()` reports the heap limit, often 256 to 512 MB on modern phones.
 
+**Common mistake:** Thinking garbage collection makes memory leaks impossible.
+
+**Follow-ups:**
+
+- *What is a GC root?* A starting point the collector treats as reachable, such as a local variable of a running thread or a static field of a loaded class.
+
 ### 18.2 Reference types
 
 **In one line:** strong references keep objects alive; weak references let the collector free the object; soft references are freed only under memory pressure.
@@ -41,6 +47,12 @@ class LocationCallbackWrapper(activity: MapActivity) : LocationCallback() {
 | `WeakReference` | At the next GC, if only weakly reachable | Pointing at an Activity or View from a longer-lived object |
 | `SoftReference` | Only when memory is low | Rarely; prefer `LruCache` |
 | `PhantomReference` | After the object is unreachable, to schedule cleanup | Native resource cleanup through `Cleaner` |
+
+**Common mistake:** Reaching for `WeakReference` before fixing who holds the reference and for how long.
+
+**Follow-ups:**
+
+- *Weak vs soft reference?* A weak reference doesn't keep its object from being collected. A soft reference is usually kept until memory is needed.
 
 ### 18.3 Visibility and atomicity
 
@@ -76,6 +88,12 @@ fun deposit(amount: Long) = synchronized(lock) { balance += amount; history += a
 | Thread confinement | Not needed | Not needed | State kept on one thread or dispatcher |
 | Immutable data | Not needed | Not needed | Sharing `val` data classes freely |
 
+**Common mistake:** Believing `@Volatile` makes a read-modify-write atomic.
+
+**Follow-ups:**
+
+- *Does an `AtomicInteger` make two related updates atomic?* No. It protects one value. Use a lock, or put the related values in one atomically updated object.
+
 ### 18.4 Double-checked locking and deadlocks
 
 **In one line:** double-checked locking creates a singleton lazily with a lock taken only once, and needs `@Volatile`; deadlocks happen when threads wait for each other's locks.
@@ -95,6 +113,8 @@ class Database private constructor(context: Context) {
     }
 }
 ```
+
+**Common mistake:** Leaving out `@Volatile` in hand-written double-checked locking.
 
 **Follow-ups:**
 
@@ -119,6 +139,12 @@ val dispatcher = ioExecutor.asCoroutineDispatcher()     // use with withContext(
 | `ExecutorService` | A reusable pool of threads | Java code, libraries without coroutines |
 | `HandlerThread` with `Handler` | A thread with a message loop | Camera callbacks, ordered legacy work |
 | Coroutines | Lightweight tasks on shared thread pools | The default for Kotlin Android code |
+
+**Common mistake:** Calling blocking code inside coroutines and assuming they stay lightweight.
+
+**Follow-ups:**
+
+- *Does suspending a coroutine block its thread?* No. It frees the thread. A blocking call inside a coroutine still blocks it.
 
 ### 18.6 Design patterns you already use on Android
 
@@ -153,6 +179,12 @@ class CheckoutUseCase @Inject constructor(
 | Chain of responsibility | Pass a request along handlers | OkHttp interceptors |
 | Dependency injection | Receive collaborators instead of creating them | Hilt, Koin |
 
+**Common mistake:** Naming patterns without saying what problem each one solves in your code.
+
+**Follow-ups:**
+
+- *Which pattern does a repository follow?* The Repository pattern. It also acts as a Facade when it hides several data sources behind one API.
+
 ### 18.7 SOLID with Android examples
 
 **In one line:** five principles that keep code easy to change: single responsibility, open/closed, Liskov substitution, interface segregation and dependency inversion.
@@ -168,6 +200,12 @@ class CheckoutUseCase @Inject constructor(
 | Liskov substitution | Subtypes behave like their base | A fake repository honours the real contract |
 | Interface segregation | Small, focused interfaces | Split `UserRepository` into `ProfileReader` and `ProfileWriter` |
 | Dependency inversion | Depend on abstractions | The ViewModel depends on an interface, not on Retrofit |
+
+**Common mistake:** Reciting the five definitions with no example from your own work.
+
+**Follow-ups:**
+
+- *What does dependency inversion look like on Android?* The domain defines a repository interface, and the data layer implements it.
 
 ### Interview questions
 

@@ -16,6 +16,8 @@ The architecture round asks one question: can you structure an app so many devel
 | Domain (optional) | Use cases, domain models | Repository interfaces only; pure Kotlin |
 | Data | Repositories, Room DAOs, Retrofit APIs, DataStore | The outside world |
 
+**Common mistake:** Letting the UI call Retrofit or a DAO directly, which bypasses the layer that owns the data.
+
 **Follow-ups:**
 
 - *Why make the database the single source of truth instead of the network?* Every screen reads the same data, it works offline, cached data shows instantly, and network results update every observer at once.
@@ -57,6 +59,8 @@ val uiState = getFollowedArticles()
 
 **How it works:** errors flow down as state too. An `IOException` in Retrofit becomes `DataError.NoNetwork` in the repository, a failure result in the use case, `errorMessage = R.string.offline` in the UI state, and a snackbar on screen; the UI then calls `onErrorShown()`. Each layer is main-safe: the UI and ViewModel run on the main thread, and the data layer switches to `IO` itself.
 
+**Common mistake:** Changing data in the UI and the database separately, so the two drift apart.
+
 **Follow-ups:**
 
 - *What breaks unidirectional data flow?* A ViewModel editing its own copy of a list while the screen also reads Room (two sources of truth); a composable calling the repository directly; a repository exposing `MutableStateFlow`; data-layer callbacks into the UI.
@@ -90,6 +94,12 @@ class ArticlesViewModel @Inject constructor(
 }
 ```
 
+**Common mistake:** Exposing `MutableStateFlow` publicly, so any caller can change the screen's state.
+
+**Follow-ups:**
+
+- *Why expose one `UiState` object?* It keeps related values consistent, so the screen can't observe half of an update.
+
 ### 5.4 MVI
 
 **In one line:** in MVI, every user action is an intent sent to one entry point, and a pure reducer turns the current state plus the intent into the next state.
@@ -119,6 +129,12 @@ fun reduce(s: LoginState, a: LoginAction): LoginState = when (a) {      // pure:
 | Strength | Simple, low ceremony | Predictable, easy to test and debug |
 | Weakness | State can spread across flows | More boilerplate |
 
+**Common mistake:** Putting network calls or other side effects inside the reducer.
+
+**Follow-ups:**
+
+- *What makes a reducer easy to test?* It is pure: the same state and input always give the same new state, with no side effects.
+
 ### 5.5 Clean Architecture, the domain layer and use cases
 
 **In one line:** Clean Architecture keeps business rules in an inner layer that knows nothing about Android or the network; a use case is one business action.
@@ -139,6 +155,12 @@ class GetFollowedArticlesUseCase @Inject constructor(
 }
 ```
 
+**Common mistake:** Adding a use case for every repository call, even when it only passes the call through.
+
+**Follow-ups:**
+
+- *When can you skip the domain layer?* When ViewModels only pass data through and no business logic is shared or complex.
+
 ### 5.6 Models and errors between layers
 
 **In one line:** each layer has its own models, and errors are translated at each boundary, so a change in one layer doesn't ripple into the others.
@@ -156,6 +178,12 @@ fun Throwable.toDataError(): DataError = when (this) {
     else -> DataError.Server(-1)
 }
 ```
+
+**Common mistake:** Using network DTOs all the way to the UI, so a backend change breaks screens.
+
+**Follow-ups:**
+
+- *Isn't mapping between models wasted code?* It costs some code, but it stops network or database changes from spreading. For very simple apps, fewer models can be a fair trade-off.
 
 ### 5.7 Modularization
 
@@ -184,6 +212,8 @@ fun NavGraphBuilder.homeScreen(onArticleClick: (String) -> Unit) {
     composable<HomeRoute> { HomeRoute(onArticleClick = onArticleClick) }
 }
 ```
+
+**Common mistake:** Creating a large `common` module that every module depends on and that keeps growing.
 
 **Follow-ups:**
 

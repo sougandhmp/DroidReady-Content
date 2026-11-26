@@ -18,6 +18,8 @@ class ArticlesViewModel : ViewModel() { private val repo = ArticleRepositoryImpl
 class ArticlesViewModel @Inject constructor(private val repo: ArticleRepository) : ViewModel()
 ```
 
+**Common mistake:** Treating DI as a library feature. Passing dependencies into a constructor is already DI.
+
 **Follow-ups:**
 
 - *DI vs service locator?* With DI, dependencies are pushed in and visible in the constructor. A service locator is called from inside the class (`ServiceLocator.get<Repo>()`), which hides dependencies and makes tests harder.
@@ -54,6 +56,8 @@ abstract class DataModule {
 
 **How it works:** for every `@Inject` constructor, Dagger generates a factory class. Components connect the factories into a graph. A `@Singleton` binding is wrapped in `DoubleCheck`, which creates it once with double-checked locking. `@AndroidEntryPoint class MainActivity` really extends a generated `Hilt_MainActivity` that injects fields in `onCreate`.
 
+**Common mistake:** Creating a class with its constructor yourself and expecting Hilt to fill its `@Inject` fields.
+
 **Follow-ups:**
 
 - *`@Binds` vs `@Provides`?* `@Binds` maps an interface to an implementation that has an `@Inject` constructor; it's abstract and cheaper. `@Provides` is a function where you write the construction code yourself.
@@ -74,6 +78,12 @@ abstract class DataModule {
 | `ActivityComponent` | `@ActivityScoped` | One activity instance |
 | `FragmentComponent` | `@FragmentScoped` | One fragment |
 | `ServiceComponent` | `@ServiceScoped` | One service |
+
+**Common mistake:** Marking everything `@Singleton`, which keeps objects alive longer than they are needed.
+
+**Follow-ups:**
+
+- *`@Singleton` vs `@ActivityRetainedScoped`?* A singleton lives as long as the app process. An activity-retained object lives through configuration changes and goes when the activity finishes.
 
 ### 6.4 Qualifiers, assisted injection and multibindings
 
@@ -98,6 +108,12 @@ class ArticleExporter @AssistedInject constructor(
 @Binds @IntoSet abstract fun analyticsInit(i: AnalyticsInitializer): AppInitializer   // collected into Set<AppInitializer>
 ```
 
+**Common mistake:** Providing two bindings of the same type without a qualifier, then being surprised by a duplicate binding error.
+
+**Follow-ups:**
+
+- *When do you need assisted injection?* When a constructor needs both objects from the graph and a value known only at runtime, such as an ID.
+
 ### 6.5 Testing with Hilt, and alternatives
 
 **In one line:** in tests, replace production modules with test modules that bind fakes; outside Hilt, Koin and kotlin-inject are common choices.
@@ -113,6 +129,12 @@ abstract class FakeDataModule {
     @Binds abstract fun repo(fake: FakeArticleRepository): ArticleRepository
 }
 ```
+
+**Common mistake:** Using Hilt in plain unit tests where calling the constructor with fakes is simpler.
+
+**Follow-ups:**
+
+- *Do unit tests need Hilt?* Usually not. With constructor injection, the test creates the class and passes fakes.
 
 ### Interview questions
 

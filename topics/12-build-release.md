@@ -16,6 +16,8 @@ plugins { id("example.android.feature") }
 android { namespace = "com.example.feature.settings" }
 ```
 
+**Common mistake:** Doing slow work during the configuration phase, which delays every build.
+
 **Follow-ups:**
 
 - *`api` vs `implementation`?* `api` exposes a dependency to consumers, so they recompile when it changes; `implementation` keeps it internal. Default to `implementation`.
@@ -25,6 +27,12 @@ android { namespace = "com.example.feature.settings" }
 **In one line:** profile first, then turn on caching, avoid kapt, and split modules so a change recompiles less.
 
 **Say this in the interview:** "I start with a Build Scan or the Build Analyzer to see whether time goes into configuration or execution. Then I enable the configuration cache and build cache, including a remote cache for CI, replace kapt with KSP, use non-transitive R classes, give Gradle enough memory, and split large modules so a change recompiles fewer of them. I track build time as a team metric."
+
+**Common mistake:** Changing many settings at once without profiling, so you can't tell what helped.
+
+**Follow-ups:**
+
+- *What is the difference between the build cache and the configuration cache?* The build cache reuses task outputs. The configuration cache reuses the result of the configuration phase.
 
 ### 12.3 CI/CD
 
@@ -46,6 +54,12 @@ jobs:
       - run: ./gradlew lintDebug detekt testDebugUnitTest assembleDebug
 ```
 
+**Common mistake:** Keeping signing keys or passwords in the repository.
+
+**Follow-ups:**
+
+- *What should block a pull request?* Fast, reliable checks such as lint, unit tests and a build. Unreliable checks train people to ignore failures.
+
 ### 12.4 Safe releases and feature flags
 
 **In one line:** release gradually, watch the numbers, and use feature flags so you can turn features off without a new release.
@@ -57,6 +71,8 @@ jobs:
 ```kotlin
 if (flags.isEnabled(Flag.NEW_CHECKOUT)) NewCheckoutScreen() else LegacyCheckoutScreen()
 ```
+
+**Common mistake:** Releasing to everyone at once with no way to switch the feature off.
 
 **Follow-ups:**
 
@@ -75,11 +91,23 @@ if (flags.isEnabled(Flag.NEW_CHECKOUT)) NewCheckoutScreen() else LegacyCheckoutS
 -keepattributes SourceFile,LineNumberTable               # readable stack traces
 ```
 
+**Common mistake:** Keeping whole packages to silence a crash, which gives up much of R8's benefit.
+
+**Follow-ups:**
+
+- *Why does code work in debug but crash in release?* R8 may have removed or renamed something that is reached only by reflection. Check the stack trace with the mapping file.
+
 ### 12.6 App Bundles, dynamic features, in-app updates and reviews
 
 **In one line:** you upload an App Bundle and Play generates per-device APKs; dynamic feature modules can be installed on demand; Play also offers in-app update and review prompts.
 
 **Say this in the interview:** "With an App Bundle, each device downloads only its density, CPU architecture and languages, so installs are smaller, and bundles are required for new apps on Play. For a large, rarely used feature I can use an on-demand dynamic feature module, accepting more complex navigation and testing. The in-app updates API gives flexible updates in the background or immediate full-screen updates for critical fixes. The in-app review API shows Play's rating sheet, but Play limits how often it appears, so I ask after a positive moment and never from a 'rate us' button."
+
+**Common mistake:** Assuming a module downloaded on demand is always available. The download can fail.
+
+**Follow-ups:**
+
+- *APK vs App Bundle?* An APK can be installed on a device. An App Bundle is uploaded to Play, which generates APKs from it.
 
 ### 12.7 Building and versioning an SDK
 
@@ -96,6 +124,8 @@ public object Analytics {
 }
 ```
 
+**Common mistake:** Making more of the API public than needed, then being unable to change it safely.
+
 **Follow-ups:**
 
 - *Which changes break binary compatibility even though they compile?* Adding a parameter with a default value, changing a return type, or removing a public member. That's why an API check in CI matters.
@@ -105,6 +135,12 @@ public object Analytics {
 **In one line:** measure the app in production: crashes, ANRs, performance and key user journeys.
 
 **Say this in the interview:** "I use Crashlytics or Sentry for crashes and non-fatal errors with context, Play vitals for ANRs and startup, custom traces around key journeys, and structured analytics events. Each release has a dashboard, and we alert when crash-free users drop below our target, for example 99.8 percent."
+
+**Common mistake:** Collecting logs and crashes with no alerts or owner, or putting personal data in them.
+
+**Follow-ups:**
+
+- *Why upload the R8 mapping file?* It turns obfuscated names in crash stack traces back into readable ones.
 
 ### Interview questions
 

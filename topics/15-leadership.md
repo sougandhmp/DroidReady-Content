@@ -17,6 +17,8 @@ At senior level this round can veto an otherwise strong technical result. Prepar
 | Action | What you did, the options you weighed, how you brought others along | 60% |
 | Result | Numbers, plus what you learned or would do differently | 20% |
 
+**Common mistake:** Spending most of the answer on background, or saying "we" so your own part is unclear.
+
 **Follow-ups:**
 
 - *What if the interviewer interrupts?* That's good: they're steering toward what they want to assess. Answer their question directly, then continue only if it still helps.
@@ -31,6 +33,12 @@ At senior level this round can veto an otherwise strong technical result. Prepar
 - **Task:** "As the senior on the platform team, I owned getting us to 99.8 percent within a quarter."
 - **Action:** "I grouped Crashlytics issues by root cause and found most ANRs came from `SharedPreferences.commit()` and SDK initialisation on the main thread. I moved settings to DataStore, made four SDKs initialise lazily, and added StrictMode and a startup benchmark to CI so it couldn't regress. I also started a weekly 30-minute crash review with each feature team, so fixes were owned by the team that wrote the code."
 - **Result:** "Crash-free users rose to 99.85 percent, ANRs fell from 0.6 to 0.2 percent, and cold start improved by about a third. The weekly review became a standing practice."
+
+**Common mistake:** Memorizing someone else's story. Follow-up questions quickly reach details you don't have.
+
+**Follow-ups:**
+
+- *How long should a story be?* About two minutes is a useful target. Then let the interviewer ask for more detail.
 
 ### 15.3 Common questions and what they're testing
 
@@ -51,6 +59,12 @@ At senior level this round can veto an otherwise strong technical result. Prepar
 | Learning something new quickly | How you learn, and the outcome |
 | Why are you leaving, why us | Positive, specific, linked to the role |
 
+**Common mistake:** Using one story for every question, even when it doesn't show the quality being tested.
+
+**Follow-ups:**
+
+- *How many stories should you prepare?* A handful that cover different qualities, such as leadership, conflict, failure and technical depth.
+
 ### 15.4 Answering the tough ones
 
 **In one line:** for disagreements, failures and tech debt, show maturity: facts over opinions, ownership over blame, and incremental progress over big rewrites.
@@ -60,6 +74,8 @@ At senior level this round can veto an otherwise strong technical result. Prepar
 - **Disagreement:** "I wrote a short RFC comparing both options with data, asked for objections, and built a small prototype. The team chose the other option; I committed fully, and we agreed on a checkpoint to revisit it."
 - **Failure:** "I own it: here's what happened, how we fixed it for users, what the post-mortem found, and what we changed in the process so it can't recur."
 - **Tech debt:** "I measure its cost, in bugs, slower delivery or build time, tie it to a business goal, and fix it incrementally alongside features, with a fixed share of capacity, rather than asking for a rewrite."
+
+**Common mistake:** Blaming others, or offering a disguised strength as your failure.
 
 **Follow-ups:**
 
@@ -77,6 +93,12 @@ At senior level this round can veto an otherwise strong technical result. Prepar
 - **Pragmatism:** delivered value in increments, and knew when not to rewrite.
 - **Care for people:** mentoring, psychological safety, onboarding documents.
 
+**Common mistake:** Claiming impact with no number or concrete result behind it.
+
+**Follow-ups:**
+
+- *What if you have no exact numbers?* Give an honest estimate and say that it is one, or describe a result that can be observed. Don't invent figures.
+
 ### 15.6 Questions to ask the interviewer
 
 **In one line:** good questions show you think like an owner and help you judge the team.
@@ -88,6 +110,12 @@ At senior level this round can veto an otherwise strong technical result. Prepar
 - How is the Android team organised relative to iOS, backend and product?
 - What would success look like in this role after six months?
 - What's the biggest technical challenge the Android team faces right now?
+
+**Common mistake:** Saying you have no questions.
+
+**Follow-ups:**
+
+- *What is a good question about how the team works?* Ask how a recent technical decision was made. The example tells you more than a general description.
 
 ### Interview questions
 

@@ -22,6 +22,8 @@ class AuthInterceptor @Inject constructor(private val tokens: TokenStore) : Inte
 }
 ```
 
+**Common mistake:** Creating a new `OkHttpClient` for each request, which loses connection and thread reuse.
+
 **Follow-ups:**
 
 - *Application vs network interceptor?* An application interceptor (`addInterceptor`) runs once and sees the original request; a network interceptor (`addNetworkInterceptor`) sees redirects and what actually goes over the network.
@@ -49,6 +51,12 @@ override fun authenticate(route: Route?, response: Response): Request? {
 }
 ```
 
+**Common mistake:** Letting every failed request start its own token refresh.
+
+**Follow-ups:**
+
+- *How do you stop endless refresh attempts?* Give up when the request has already been retried or the refresh fails, then ask the user to sign in again.
+
 ### 7.3 Room
 
 **In one line:** Room is a SQLite library that checks your SQL at compile time and returns results as suspend functions or Flows.
@@ -71,6 +79,8 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
 }
 ```
 
+**Common mistake:** Using a destructive migration for tables that hold user data.
+
 **Follow-ups:**
 
 - *Room's Flow emits when unrelated rows change. Fix?* Add `distinctUntilChanged()` after mapping, or narrow the query.
@@ -92,6 +102,12 @@ val darkMode: Flow<Boolean> = context.settings.data.map { it[DARK_MODE] ?: false
 suspend fun setDarkMode(on: Boolean) = context.settings.edit { it[DARK_MODE] = on }
 ```
 
+**Common mistake:** Creating more than one DataStore instance for the same file.
+
+**Follow-ups:**
+
+- *When would you use Room instead of DataStore?* For larger or relational data, queries or partial updates. DataStore suits small sets of settings.
+
 ### 7.5 Offline-first repositories and sync
 
 **In one line:** in an offline-first app the UI always reads from the local database, the network only updates the database, and local changes are queued and synced later.
@@ -106,6 +122,8 @@ override suspend fun setBookmarked(id: String, on: Boolean) {
     syncScheduler.requestSync()                                // WorkManager, network constraint
 }
 ```
+
+**Common mistake:** Updating the UI from the network response and treating the database as a second copy.
 
 **Follow-ups:**
 
@@ -127,6 +145,12 @@ override suspend fun setBookmarked(id: String, on: Boolean) {
 | HTTP cache | OkHttp `Cache` + `Cache-Control`/`ETag` | Images, static data |
 | In memory | `LruCache` or a map in the repository | Hot data in one session |
 
+**Common mistake:** Using one caching rule for all data, however fresh each kind must be.
+
+**Follow-ups:**
+
+- *What does stale-while-revalidate mean?* Show the cached data at once, then refresh it in the background and update the screen.
+
 ### 7.7 Paging 3
 
 **In one line:** Paging 3 loads large lists page by page, with loading and error states, retries and caching built in.
@@ -143,6 +167,12 @@ val articles: Flow<PagingData<Article>> = Pager(
 ).flow.map { it.map(ArticleEntity::toDomain) }.cachedIn(viewModelScope)
 ```
 
+**Common mistake:** Invalidating or recreating the pager on every recomposition, so pages reload and scroll position is lost.
+
+**Follow-ups:**
+
+- *What does `RemoteMediator` do?* It loads more data from the network into the local database when paging needs it. The UI still pages from the database.
+
 ### 7.8 Choosing where to store data
 
 **In one line:** private app data goes in app-specific storage, Room or DataStore; media the user should see goes through `MediaStore`; documents they own go through the system file picker.
@@ -158,6 +188,12 @@ val articles: Flow<PagingData<Article>> = Pager(
 | Records you query | Room | None | Yes |
 | Photos and videos for the gallery | `MediaStore` | None for your own media | No |
 | User documents | Storage Access Framework (`CreateDocument`) | None | No |
+
+**Common mistake:** Saving files to shared storage and requesting broad access when app-specific storage is enough.
+
+**Follow-ups:**
+
+- *What happens to app-specific files on uninstall?* They are removed. Files added to shared collections such as `MediaStore` normally stay.
 
 ### 7.9 Network connectivity
 
@@ -178,6 +214,12 @@ fun Context.isOnline(): Flow<Boolean> = callbackFlow {
     awaitClose { cm.unregisterNetworkCallback(cb) }
 }.distinctUntilChanged()
 ```
+
+**Common mistake:** Treating a connected network as proof that a request will succeed.
+
+**Follow-ups:**
+
+- *How do you check whether a network has working internet?* Look for the validated network capability, and still handle request failures.
 
 ### Interview questions
 

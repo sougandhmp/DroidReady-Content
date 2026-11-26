@@ -18,6 +18,8 @@ Interviewers check that you keep up with the platform. Know what changed in rece
 | Android 14 (34) | Foreground service types required; partial photo access; implicit intent restrictions; Credential Manager |
 | Android 13 (33) | `POST_NOTIFICATIONS` runtime permission; per-app language; Photo Picker; granular media permissions |
 
+**Common mistake:** Raising `targetSdk` without reading and testing the behaviour changes.
+
 **Follow-ups:**
 
 - *How do you plan a target SDK upgrade?* Read the behaviour changes, list the impact per feature, fix and test behind the new target on a branch, run the full regression on the newest and oldest supported versions, then release with a staged rollout.
@@ -47,6 +49,12 @@ fun ChatScreen(messages: List<Message>, onSend: (String) -> Unit) {
 
 **How it works:** insets are sizes the system reports for the bars, the keyboard and cutouts. `consumeWindowInsets` tells children that the padding has already been applied, so they don't add it twice. In Views, use `ViewCompat.setOnApplyWindowInsetsListener`.
 
+**Common mistake:** Applying fixed padding for system bars, which breaks on other devices and navigation modes.
+
+**Follow-ups:**
+
+- *How do you keep a text field above the keyboard?* Apply IME insets, for example with `imePadding()`, and test with the keyboard open.
+
 ### 14.3 Adaptive layouts
 
 **In one line:** design for any window size, phones, foldables, tablets, desktop windows and ChromeOS, using window size classes rather than device types.
@@ -63,6 +71,8 @@ if (sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_B
     SinglePaneLayout()
 }
 ```
+
+**Common mistake:** Deciding the layout by device type instead of the window's current size.
 
 **Follow-ups:**
 
@@ -94,6 +104,12 @@ fun EditorScreen(hasUnsavedChanges: Boolean, onExit: () -> Unit) {
 }
 ```
 
+**Common mistake:** Leaving a back callback enabled all the time, which stops the system from previewing the destination.
+
+**Follow-ups:**
+
+- *When should a back callback be enabled?* Only while the screen needs to intercept back, such as when there are unsaved changes.
+
 ### 14.5 Kotlin Multiplatform (KMP)
 
 **In one line:** KMP shares Kotlin code, usually business logic and data, between Android, iOS and other platforms, while the UI can stay native or use Compose Multiplatform.
@@ -119,11 +135,23 @@ actual fun platformName(): String = UIDevice.currentDevice.systemName()
 
 **How it works:** source sets split the code: `commonMain` is pure Kotlin that compiles for every target, while `androidMain` and `iosMain` hold the `actual` implementations. Common code compiles to JVM bytecode for Android and to a native framework for iOS.
 
+**Common mistake:** Planning to share everything, including UI, before proving value with a small module.
+
+**Follow-ups:**
+
+- *What is `expect`/`actual`?* Common code declares what it expects, and each platform provides the actual implementation.
+
 ### 14.6 On-device AI
 
 **In one line:** run models on the device for privacy, speed and offline use, with a fallback when the device can't.
 
 **Say this in the interview:** "For generative features on supported devices I'd look at Gemini Nano through the ML Kit GenAI APIs, which run on AICore, and ML Kit for vision tasks like text recognition or barcode scanning. Data stays on the device, there's no network delay and it works offline. But not every device supports it, so I check availability and fall back to a server model or hide the feature. Android 17's AppFunctions also let apps expose their features to on-device assistants."
+
+**Common mistake:** Assuming every device can run the model.
+
+**Follow-ups:**
+
+- *On-device or server model?* On-device helps with privacy, offline use and network delay. A server model can offer more capability and broader device support.
 
 ### 14.7 Accessibility
 
@@ -152,6 +180,12 @@ IconToggleButton(checked = liked, onCheckedChange = { like() }) {          // 48
 }
 ```
 
+**Common mistake:** Adding content descriptions and never trying the screen with TalkBack.
+
+**Follow-ups:**
+
+- *How big should a touch target be?* At least 48 by 48 dp, even when the visible icon is smaller.
+
 ### 14.8 Resources and localization
 
 **In one line:** let Android pick resources by configuration, use plurals and positional arguments for text, support right-to-left, and let users choose a language per app.
@@ -175,6 +209,12 @@ AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fr")) 
 
 **How it works:** resource qualifiers (`values-fr`, `layout-sw600dp`, `drawable-xxhdpi`, `values-b+es+419`) are matched against the device configuration at runtime. `generateLocaleConfig = true` in Gradle builds the list of supported languages for the system settings. Changing the app locale recreates the Activity, and Compose's `stringResource` updates automatically.
 
+**Common mistake:** Building sentences by joining translated fragments.
+
+**Follow-ups:**
+
+- *Why use positional arguments such as `%1$s`?* Translators can change the word order without changing the code.
+
 ### 14.9 Other modern APIs worth naming
 
 **In one line:** know what each modern Jetpack or platform API is for, even if you haven't used it deeply.
@@ -190,6 +230,12 @@ AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fr")) 
 | CameraX | Camera with consistent behaviour across devices |
 | Glance | Home-screen widgets written in a Compose style |
 | Wear OS, TV, Auto | Same Kotlin stack with form-factor UI libraries |
+
+**Common mistake:** Listing API names you can't explain when the interviewer asks a follow-up.
+
+**Follow-ups:**
+
+- *How do you answer about an API you haven't used?* Say so, explain the problem it solves and what you would check before using it.
 
 ### Interview questions
 

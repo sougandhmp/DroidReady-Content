@@ -21,6 +21,8 @@ keyGen.init(
 val key = keyGen.generateKey()     // stays inside the Keystore; the app gets only a handle
 ```
 
+**Common mistake:** Hiding an API secret in `BuildConfig`, resources or native code.
+
 **Follow-ups:**
 
 - *How would you protect an API key the app must use?* You can't fully. Move the call to your backend, restrict the key (package name and certificate for Google APIs), and verify requests with Play Integrity.
@@ -45,6 +47,12 @@ val key = keyGen.generateKey()     // stays inside the Keystore; the app gets on
 </network-security-config>
 ```
 
+**Common mistake:** Pinning with no backup pin or recovery plan.
+
+**Follow-ups:**
+
+- *What do you pin, and what is the backup for?* Pin public keys. A backup pin lets you change keys without cutting off installed apps.
+
 ### 11.3 Authentication
 
 **In one line:** use OAuth 2.0 with PKCE in a Custom Tab for login, short-lived access tokens with refresh tokens, and Credential Manager for passkeys.
@@ -58,6 +66,12 @@ val key = keyGen.generateKey()     // stays inside the Keystore; the app gets on
 3. After sign-in, the identity provider redirects back to the app with a `code`.
 4. The app sends the `code` plus the original verifier to the token endpoint.
 5. The server checks that the verifier matches the challenge and returns tokens.
+
+**Common mistake:** Showing the login page in a WebView, where the app can see what the user types.
+
+**Follow-ups:**
+
+- *Why does a public mobile app need PKCE?* It can't keep a client secret. PKCE stops an intercepted authorization code from being exchanged without the verifier.
 
 ### 11.4 Biometrics done properly
 
@@ -75,6 +89,12 @@ KeyGenParameterSpec.Builder("vault_key", KeyProperties.PURPOSE_DECRYPT or KeyPro
     // ...block mode and padding as above
     .build()
 ```
+
+**Common mistake:** Trusting the success callback alone, with no key that requires authentication.
+
+**Follow-ups:**
+
+- *What can happen to a Keystore key when biometrics change?* A key set to be invalidated by new enrollment can stop working. Handle that by signing in again and creating a new key.
 
 ### 11.5 Safe components, deep links and WebViews
 
@@ -94,11 +114,23 @@ fun handleDeepLink(uri: Uri) {
 }
 ```
 
+**Common mistake:** Exporting a component or acting on a deep link without validating the input.
+
+**Follow-ups:**
+
+- *Is a verified App Link safe to trust?* No. Verification shows which app may open the domain, but anyone can create a link, so validate its parameters.
+
 ### 11.6 App integrity and privacy
 
 **In one line:** Play Integrity lets your server check that requests come from your genuine app on a genuine device; privacy means collecting the minimum and being honest about it.
 
 **Say this in the interview:** "For sensitive actions I send a Play Integrity token to my server, which verifies the app and device are genuine before trusting the request. Obfuscation with R8 and root detection only raise the bar. On privacy, I request the fewest permissions at the moment they're needed, prefer the Photo Picker and approximate location, fill in Play's Data safety form accurately including SDKs, support account and data deletion, and respect consent rules like GDPR."
+
+**Common mistake:** Checking the integrity result only on the device, where it can be tampered with.
+
+**Follow-ups:**
+
+- *Where should a Play Integrity verdict be checked?* On your server, which then decides whether to allow the action.
 
 ### Interview questions
 

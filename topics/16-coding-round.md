@@ -17,6 +17,12 @@ Two styles appear: classic algorithm problems, usually medium difficulty, and pr
 5. **Test:** run a small example by hand, then the edge cases.
 6. **Complexity:** time and space, and what you'd change for huge inputs.
 
+**Common mistake:** Coding in silence before confirming the problem and its edge cases.
+
+**Follow-ups:**
+
+- *What if you get stuck?* Say what you are trying, solve a smaller example and ask a focused question.
+
 ### 16.2 Topics to revise
 
 **In one line:** most problems use a small set of patterns, and Kotlin's standard library covers the data structures.
@@ -34,6 +40,12 @@ Two styles appear: classic algorithm problems, usually medium difficulty, and pr
 | Binary search | Rotated array search, first bad version | `binarySearch`, manual lo/hi |
 | Dynamic programming | Climbing stairs, coin change, longest increasing subsequence | `IntArray(n + 1)` |
 | Design | LRU cache, rate limiter | `LinkedHashMap(accessOrder = true)` |
+
+**Common mistake:** Memorizing solutions without being able to explain why each pattern fits.
+
+**Follow-ups:**
+
+- *How should you practise?* Solve problems aloud, within a time limit, and explain the time and space cost.
 
 ### 16.3 Two Sum (hashing)
 
@@ -53,6 +65,12 @@ fun twoSum(nums: IntArray, target: Int): IntArray {
     return intArrayOf()
 }
 ```
+
+**Common mistake:** Adding the current number to the map before checking for its complement, which can use one element twice.
+
+**Follow-ups:**
+
+- *What if the array is already sorted?* Use two pointers from both ends: O(n) time with O(1) extra space.
 
 ### 16.4 Longest substring without repeats (sliding window)
 
@@ -75,6 +93,12 @@ fun lengthOfLongestSubstring(s: String): Int {
 }
 // "abcabcbb" -> 3 ("abc"). O(n) time, O(min(n, alphabet)) space
 ```
+
+**Common mistake:** Moving the left edge backwards when the repeated character was last seen before the current window.
+
+**Follow-ups:**
+
+- *Why is it O(n) if the window moves from both ends?* Both edges only move forward, so the total number of steps grows linearly.
 
 ### 16.5 Number of islands (BFS on a grid)
 
@@ -107,6 +131,12 @@ fun numIslands(grid: Array<CharArray>): Int {
 }
 ```
 
+**Common mistake:** Marking cells visited only when they leave the queue, so the same cell can be queued several times.
+
+**Follow-ups:**
+
+- *BFS or DFS?* Both work. Recursive DFS is short but can overflow the stack on a large grid, while BFS uses an explicit queue.
+
 ### 16.6 Top K frequent elements (heap)
 
 **In one line:** count with a map, then keep a min-heap of size k so the least frequent element is evicted.
@@ -126,6 +156,12 @@ fun topKFrequent(nums: IntArray, k: Int): List<Int> {
     return heap.map { it.key }
 }
 ```
+
+**Common mistake:** Using a max-heap of every element and calling it O(n log k).
+
+**Follow-ups:**
+
+- *Why a min-heap rather than a max-heap?* Its top is the weakest of the k kept so far, so it is cheap to remove when a better item arrives.
 
 ### 16.7 LRU cache
 
@@ -175,6 +211,8 @@ class LRUCache(private val capacity: Int) {
 }
 ```
 
+**Common mistake:** Moving an entry on write but not on read, so the eviction order is wrong.
+
 **Follow-ups:**
 
 - *How do you prove it works?* Walk through capacity 2: put 1, put 2, get 1, then put 3 evicts 2, because 1 was used more recently.
@@ -217,6 +255,12 @@ suspend fun <T> retryWithBackoff(
 }
 ```
 
+**Common mistake:** Retrying every error, including cancellation, with no limit or delay.
+
+**Follow-ups:**
+
+- *Debounce vs throttle?* Debounce waits for a quiet period. Throttle limits how often something runs while events keep arriving.
+
 ### 16.9 Find the bug
 
 **In one line:** many practical rounds show broken Android code; these five bugs come up again and again.
@@ -240,6 +284,12 @@ val user = runBlocking { api.getUser() }
 LazyColumn { items(data.filter { it.active }) { Row(it) } }
 ```
 
+**Common mistake:** Rewriting the code before explaining what causes the bug.
+
+**Follow-ups:**
+
+- *What is your first step?* Work out what should happen and what does happen, and reproduce it before changing the code.
+
 ### 16.10 Take-home assignments
 
 **In one line:** a take-home is graded on code quality, structure and judgement as much as on features.
@@ -255,6 +305,12 @@ LazyColumn { items(data.filter { it.active }) { Row(it) } }
 - Polish: strings in resources, dark mode, accessibility labels.
 - Hygiene: clean commit history, lint and Detekt passing.
 - Restraint: a small app split into 12 modules is a red flag.
+
+**Common mistake:** Adding many layers and libraries while leaving core features or tests unfinished.
+
+**Follow-ups:**
+
+- *What goes in the README?* How to run it, your design choices, the trade-offs and what you would improve with more time.
 
 ### Interview questions
 

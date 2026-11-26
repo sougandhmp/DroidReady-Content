@@ -7,119 +7,119 @@
       "number": 0,
       "title": "How to use this guide",
       "path": "topics/00-how-to-use.md",
-      "sha256": "c5fe990f0ea72519b73cba67e3f4fb8a1939224acf9a57c5cf507c9383bc5173"
+      "sha256": "ee3daab88a659034a077adac3d998e72a7539d012860c67fe9ab3fa4e92bbe85"
     },
     {
       "id": "kotlin",
       "number": 1,
       "title": "Kotlin",
       "path": "topics/01-kotlin.md",
-      "sha256": "100c6e3a298292288165ec8943d4b539716fb1ec6b1eb44322a73f11212b00d6"
+      "sha256": "adf14bb999626eceff16b54fa7a5be1e8b9cd8a51fea6486410ecdba90c39b05"
     },
     {
       "id": "coroutines-flow",
       "number": 2,
       "title": "Coroutines and Flow",
       "path": "topics/02-coroutines-flow.md",
-      "sha256": "1ec8e2601d0c52f46cf295b88374ea4bad0af49bf1fe8944ca80910fa5a7511d"
+      "sha256": "05c8acbf2517dea2e89181aabb261b5d43cf27fd535bfaec23d40886a6d2678c"
     },
     {
       "id": "android-fundamentals",
       "number": 3,
       "title": "Android fundamentals",
       "path": "topics/03-android-fundamentals.md",
-      "sha256": "33e1e92948e8ac1fc6e92f096f10cdece80ec8b5856438dd52be53d0ffc49d73"
+      "sha256": "a4683678563afd27bea64a149e4543e47953a3e6422ae924eca24895208af2b6"
     },
     {
       "id": "jetpack-compose",
       "number": 4,
       "title": "Jetpack Compose",
       "path": "topics/04-jetpack-compose.md",
-      "sha256": "4e0065bc4a1bc1ad91bca92ba8b998cd89c0f0d09256e163dafcf31f7baea08c"
+      "sha256": "5438ee1abe549b67e94cc4e01252b4d9b4f15aae54c7a156c759624c5359fdf4"
     },
     {
       "id": "architecture",
       "number": 5,
       "title": "App architecture and data flow",
       "path": "topics/05-architecture.md",
-      "sha256": "63f5b02fb1d785c11b0b8f5cbd385ea29f63d401ede78563cb780e7b1430b67b"
+      "sha256": "9a909955f1fd2067cf6bd4c383470b9f1bbe147a16b0b48269fa5fdd72845d21"
     },
     {
       "id": "dependency-injection",
       "number": 6,
       "title": "Dependency injection",
       "path": "topics/06-dependency-injection.md",
-      "sha256": "ae069a8ed3948021c3b1031acb422b7780751b2efeee67d483faace87c38e486"
+      "sha256": "f93b7e5d3befeaf7046dbe9bcc2776e07d18400452d309737de6472e4e896bf1"
     },
     {
       "id": "data-layer",
       "number": 7,
       "title": "Data layer: networking, storage and offline-first",
       "path": "topics/07-data-layer.md",
-      "sha256": "be132246ebfb891297f94cc4077e4a88538102caae66dc98bc997183a30bce4c"
+      "sha256": "332f95add18b806b85569199d095ecd27c36ba11e353cdd76d3ab4edbf3fb31f"
     },
     {
       "id": "background-work",
       "number": 8,
       "title": "Background work",
       "path": "topics/08-background-work.md",
-      "sha256": "9af494522814e594b662c816a35bd7ce3ddb9e1c1a24343d8e3055b664b1f4ac"
+      "sha256": "9bde7856480a629f856bb54448fe18ba52edf854a8af1163ba0b56b7ce4b835c"
     },
     {
       "id": "performance",
       "number": 9,
       "title": "Performance",
       "path": "topics/09-performance.md",
-      "sha256": "b6f3438b2eefd063294a12d234a460e24c0e32f72ab48ee8d1eb5bf770067566"
+      "sha256": "fa2dd076694ad2fc052d30747b890d787e78aed92aa83a18a2eefc23c242b131"
     },
     {
       "id": "testing",
       "number": 10,
       "title": "Testing",
       "path": "topics/10-testing.md",
-      "sha256": "aa1001868f021f4924825674979373029d2daef408cb7368f204e296d6342c1c"
+      "sha256": "9c139e229e85a92399aca8e2e9f314ab4358bf1c73e333d4757bd8471aa2b917"
     },
     {
       "id": "security-privacy",
       "number": 11,
       "title": "Security and privacy",
       "path": "topics/11-security-privacy.md",
-      "sha256": "e40172e2f6c5d2f1bcad202e356be65dc5fa89c36f60f9dc2804ae6e86d499b2"
+      "sha256": "5beb21a6e9f098ca009e3f612fc905c0c13c1615be6800b35f6d63383fb272f3"
     },
     {
       "id": "build-release",
       "number": 12,
       "title": "Build, release and SDKs",
       "path": "topics/12-build-release.md",
-      "sha256": "7e73d72db883d9cb85791586653eb125e2887dc4013f97156883168a57353444"
+      "sha256": "864ff26f52fdcc15e6b7f3f4225594bf0bdda1fb5a5472cf731af02ad0236743"
     },
     {
       "id": "system-design",
       "number": 13,
       "title": "Mobile system design",
       "path": "topics/13-system-design.md",
-      "sha256": "bc63ccbc5276453e9076c8425240d43939c747881ef460d99a37a2d5e6a21d68"
+      "sha256": "0b545dcb7d97b03057a67f4089740a9034f510b73892f5240ffdc3f691146ccb"
     },
     {
       "id": "modern-platform",
       "number": 14,
       "title": "Modern platform topics",
       "path": "topics/14-modern-platform.md",
-      "sha256": "5cef19a96c39bdf9c3bdb3dded80e2eef1070aa1e7a13ab7eae7b4b20aceb34f"
+      "sha256": "f7c5d16981bd74c994ea2ca54aa70319fd466e72a08afe31701256b012671600"
     },
     {
       "id": "leadership",
       "number": 15,
       "title": "Leadership and behavioural",
       "path": "topics/15-leadership.md",
-      "sha256": "b791a33e141cd88a5a2fb4c571cc201c72d48b4e7c251ea40ae422e54194a1c7"
+      "sha256": "71d3e88d3674a139e9765b605299a07106293af636155be1ff013b817ed6850a"
     },
     {
       "id": "coding-round",
       "number": 16,
       "title": "Coding round",
       "path": "topics/16-coding-round.md",
-      "sha256": "af2c155a63b68c3ffa7ce899f1d9ec9d0d787aa7f1099997c7b7cea472ea0910"
+      "sha256": "ae7dfc240a6d4e97a0bcff902e1279cb9c7b5cbbc4e0bbe6367a2cb8f296725e"
     },
     {
       "id": "rapid-fire",
@@ -133,7 +133,7 @@
       "number": 18,
       "title": "JVM, concurrency and design patterns",
       "path": "topics/18-jvm-concurrency-patterns.md",
-      "sha256": "ad389d712700abe20260c09ab48e35187fcc154cb8b46aa0441cd24cd0afff02"
+      "sha256": "62cc12d66aba82c04b9410852b7e2be5a03fae9145ec51f8f00a88f5b487fece"
     }
   ],
   "quiz": {
