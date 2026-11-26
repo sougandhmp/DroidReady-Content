@@ -112,14 +112,14 @@
       "number": 15,
       "title": "Leadership and behavioural",
       "path": "topics/15-leadership.md",
-      "sha256": "4dca8ea217cf592fd076f3527a71ff9de3776527b7a3a76c35677f095462fe7e"
+      "sha256": "b791a33e141cd88a5a2fb4c571cc201c72d48b4e7c251ea40ae422e54194a1c7"
     },
     {
       "id": "coding-round",
       "number": 16,
       "title": "Coding round",
       "path": "topics/16-coding-round.md",
-      "sha256": "ea174d0ab3ac3c67cbbb71e2e19466253d4b3990b7f53acbe49708fcccf1bfea"
+      "sha256": "af2c155a63b68c3ffa7ce899f1d9ec9d0d787aa7f1099997c7b7cea472ea0910"
     },
     {
       "id": "rapid-fire",
