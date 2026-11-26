@@ -1,132 +1,104 @@
 # Mobile system design
 
-This round decides senior vs staff level. You have 45-60 minutes to design a feature or app. The interviewer cares about your **process and trade-offs** more than the final diagram.
+This round often decides between senior and staff level. You have 45-60 minutes to design an app or feature. Interviewers care more about your process and trade-offs than about the final diagram.
 
-### 13.1 A repeatable framework (talk through it aloud)
+### 13.1 A framework to follow every time
 
-1. **Clarify requirements (5 min).** Functional: what can the user do? Non-functional: offline support, real-time, scale (DAU, data size), supported devices/OS, accessibility, i18n, security. Out of scope.
-2. **High-level design (10 min).** Screens and navigation, client modules, the layers (UI → ViewModel → repository → local/remote).
-3. **API and data model (10 min).** Endpoints or GraphQL queries, pagination, real-time channel, DB schema, models.
-4. **Deep dives (15-20 min).** Pick 2-3: offline sync, caching, pagination, image loading, real-time updates, conflict resolution, background work, performance, security.
-5. **Trade-offs and wrap-up (5 min).** What you would measure, how you would roll out, what you would do with more time.
+**In one line:** clarify requirements, sketch the high-level design, define the API and data model, go deep on two or three hard parts, then wrap up with trade-offs.
 
-### 13.2 Worked example: design a chat app (like WhatsApp)
+**Say this in the interview:** "Before designing, I'd like to clarify a few things: what users can do, whether it must work offline, whether it's real-time, rough scale, supported devices, and what's out of scope. Then I'll sketch the screens and layers, define the API and local data model, and go deep on the hardest parts, probably offline sync and pagination. I'll finish with trade-offs and how I'd measure and roll it out."
 
-**Requirements.** 1:1 and group chat, text + images, offline reading and sending, delivery and read receipts, push notifications, message history with pagination. Non-functional: messages must never be lost, appear in < 1 s when online, work on poor networks, battery friendly.
+**Example, a time plan:**
 
-**Client architecture.**
+1. **Requirements (5 min):** features, offline, real-time, scale, platforms, accessibility, security.
+2. **High-level design (10 min):** screens and navigation, modules, UI to ViewModel to repository to local and remote data.
+3. **API and data model (10 min):** endpoints or GraphQL queries, pagination, real-time channel, database tables.
+4. **Deep dives (15-20 min):** two or three of offline sync, caching, pagination, images, real-time, conflicts, background work, performance, security.
+5. **Wrap-up (5 min):** trade-offs, metrics, rollout, what you'd do with more time.
 
-- `:feature:conversations`, `:feature:chat`, `:core:data`, `:core:database`, `:core:network`, `:core:sync`.
-- **Room is the single source of truth.** The chat screen observes `messageDao.observe(conversationId)`.
-- A **WebSocket** (OkHttp) carries new messages and receipts while the app is in the foreground; **FCM** wakes the app in the background to sync.
+### 13.2 Worked example: a chat app
 
-**Data model.**
+**In one line:** Room is the source of truth, messages are sent through an outbox with idempotency keys, a WebSocket delivers live updates in the foreground, and push messages trigger sync in the background.
+
+**Say this in the interview:** "The chat screen always reads messages from Room. When the user sends a message, I insert it locally as pending with a client-generated ID, so it shows instantly, and a WorkManager job sends it, using that ID as an idempotency key so retries never duplicate it. While the app is open, a WebSocket delivers new messages and receipts; in the background, a push message triggers a sync of everything since the last cursor, which also fills any gaps. Older messages load with Paging as the user scrolls up."
+
+**Example:**
 
 ```kotlin
 @Entity(indices = [Index("conversationId", "createdAt")])
 data class MessageEntity(
-    @PrimaryKey val localId: String,      // UUID created on device
-    val serverId: String?,                // null until server acks
+    @PrimaryKey val localId: String,    // UUID created on the device, also the idempotency key
+    val serverId: String?,              // null until the server confirms
     val conversationId: String,
-    val senderId: String,
     val body: String?,
-    val mediaUri: String?,
     val createdAt: Long,
-    val status: Status                    // PENDING, SENT, DELIVERED, READ, FAILED
+    val status: Status                  // PENDING, SENT, DELIVERED, READ, FAILED
 )
 ```
 
-**Sending a message (outbox pattern).**
+**Deep-dive points to mention:**
 
-1. Insert the message with `status = PENDING` and a client-generated UUID; the UI shows it instantly.
-2. Enqueue a unique `SendMessageWorker` (network constraint, exponential backoff).
-3. The worker sends it with the UUID as an **idempotency key**, so a retry never duplicates the message.
-4. On server ack, update `serverId` and `status = SENT`. Receipts over the socket update DELIVERED / READ.
-5. Images: compress and upload first (resumable/chunked upload), then send the message with the media URL.
+- **Ordering:** sort by server sequence when available, local time for pending messages.
+- **Socket lifecycle:** connect when the app comes to the foreground (`ProcessLifecycleOwner`), disconnect in the background, heartbeat, reconnect with exponential backoff and jitter.
+- **Notifications:** `MessagingStyle`, direct reply, one group per conversation.
+- **Images:** compress and upload first (resumable), then send the message with the media URL.
+- **Security:** TLS, pinning for high-risk apps; mention end-to-end encryption as a separate deep topic.
 
-**Receiving and syncing.** Keep a per-conversation `lastSyncedCursor`. On reconnect or FCM push, fetch `GET /messages?since=cursor` and upsert. This closes gaps from missed socket events.
+### 13.3 Worked example: a news feed
 
-**Pagination.** Paging 3 with `RemoteMediator`: load the latest page from the DB first, fetch older pages by cursor as the user scrolls up.
+**In one line:** an infinite feed paged by cursor into Room through a `RemoteMediator`, with images sized for the screen, optimistic likes and a capped local cache.
 
-**Deep-dive talking points.**
+**Say this in the interview:** "The API returns pages with an opaque cursor, because offset paging duplicates items when new posts arrive at the top. A `RemoteMediator` writes pages into Room, and the UI reads `PagingData` from Room, so offline reading and process death come for free. Pull to refresh clears and reloads the first page in one transaction. Likes are optimistic: written locally first, sent in the background, rolled back on failure. Images come from a CDN at the right width, cached by Coil and prefetched a few items ahead, and I cap the cache at a few hundred posts."
 
-- Ordering: sort by server timestamp/sequence when available, fall back to local `createdAt` for pending messages.
-- Socket lifecycle: connect in `ProcessLifecycleOwner` ON\_START, disconnect ON\_STOP; heartbeat; reconnect with exponential backoff + jitter; observe `ConnectivityManager` callbacks.
-- Notifications: `MessagingStyle`, direct reply via `RemoteInput`, grouping per conversation, notification channels.
-- Security: TLS + certificate pinning; mention end-to-end encryption (Signal protocol) as a deep topic.
-- Performance: `LazyColumn` with `reverseLayout`, stable keys, image thumbnails, DB indices.
-- Scale on device: prune old media from cache, keep text forever; DB size monitoring.
+**Example, the API:**
 
-### 13.3 Other common prompts and their key deep dives
+```text
+GET  /feed?cursor=<opaque>&limit=20     -> { posts: [...], nextCursor: "..." }
+GET  /feed/new-count?since=<postId>     -> { count: 7 }
+POST /posts/{id}/like                   (idempotent)
+```
+
+**Deep-dive points to mention:** ranking stays on the server so it can change without a release; video uses one shared player that autoplays muted only when mostly visible and the network allows; stable keys and precomputed UI models keep scrolling smooth; JankStats and a Macrobenchmark scroll test track performance.
+
+### 13.4 Quick estimates
+
+**In one line:** do quick arithmetic out loud to show your design fits the device and the network.
+
+**Say this in the interview:** "Let me sanity-check sizes. 500 cached posts at about 2 KB of JSON is 1 MB in Room, which is fine. Images at about 150 KB each would be 75 MB, so I cap the disk cache at 100 to 250 MB and let LRU evict. A 20-post page with images is about 3 MB, so on metered networks I'd request smaller images."
+
+**Example, server-side scale:** 10M daily users x 10 feed opens x 3 pages = 300M requests a day, about 3,500 per second on average. That's a reason for the client to cache and avoid refetching on every visit.
+
+### 13.5 What a strong opening sounds like
+
+**In one line:** clarify scope, name the hardest problem early, propose a concrete approach with its trade-off, and let the interviewer steer.
+
+**Example:**
+
+- **Interviewer:** Design an offline-capable notes app.
+- **You:** Before designing, a few questions. Do notes sync across devices? Can two devices edit the same note at the same time? Are there attachments? Roughly how many notes per user?
+- **Interviewer:** Yes, they sync; concurrent edits are rare but possible; images are allowed; a few thousand notes.
+- **You:** Then the hard parts are offline edits and conflicts. Room is the source of truth, each note has a version and an `updatedAt`, local changes go into an outbox, and WorkManager syncs them. For conflicts I'd use last-write-wins per field, and if both sides changed the same field, keep both and show a conflict copy, so nothing is lost. Shall I start with the overall architecture and then go deep on sync?
+
+### 13.6 Common prompts and what to go deep on
 
 | Prompt | Key deep dives |
 | --- | --- |
-| News feed / Instagram | Pagination, prefetching, image caching, feed ranking from server, video autoplay, offline cache |
-| Image gallery / photo upload | Large uploads, WorkManager, resumable uploads, thumbnails, memory limits |
-| Ride-hailing (Uber) driver/rider | Location updates (fused provider, foreground service), maps, real-time tracking, battery |
-| E-commerce checkout | State machine, payment SDK, idempotency, process death in checkout, deep links |
-| Offline-first notes / to-do | Sync engine, conflict resolution (CRDT / last-write-wins / version vectors), search (FTS) |
-| Video streaming (YouTube) | ExoPlayer/Media3, adaptive bitrate (HLS/DASH), downloads, PiP, background playback |
-| Analytics SDK | Batching, persistence, upload windows, tiny footprint, thread safety, privacy |
-| Image loading library | Memory + disk cache (LRU), request deduplication, cancellation, downsampling, bitmap pooling |
-
-### 13.4 Deeper dive: second worked example, a news feed
-
-**Clarified requirements.** Infinite scrolling feed of posts (text, images, short videos), like and comment counts, pull to refresh, offline reading of the last feed, new-post banner. Assume 10M DAU, posts average 2 KB of JSON plus media.
-
-**API.**
-
-```text
-GET  /feed?cursor=<opaque>&limit=20      -> { posts: [...], nextCursor: "..." }
-GET  /feed/new-count?since=<postId>      -> { count: 7 }        (polled or pushed)
-POST /posts/{id}/like                    (idempotent: PUT-like semantics)
-```
-
-Cursor pagination is essential: with offset pagination, new posts arriving at the top shift every page and the user sees duplicates.
-
-**Client data flow.**
-
-- `FeedRemoteMediator` (Paging 3) loads pages from the API into Room, storing `nextCursor` in a `RemoteKeys` table.
-- The UI reads `PagingData` from Room only, so offline reading and process death are handled for free.
-- Pull to refresh calls `refresh()`, which clears the cache table and reloads the first page in one transaction.
-- Likes use an optimistic update: write to Room immediately, send in the background, roll back on failure.
-
-**Media.**
-
-- Request image sizes that fit the screen (server provides several resolutions or an image CDN with width parameters).
-- Coil with memory + disk caching; prefetch images for the next few items as the user scrolls.
-- Video: Media3 ExoPlayer, one shared player instance re-attached to the visible item, autoplay muted only when more than 50% visible and on Wi-Fi or if the user allows it.
-
-**Performance and scale on device.**
-
-- Cap the cached feed (e.g. the last 500 posts) and evict older rows to bound DB size.
-- Stable keys and `contentType` in `LazyColumn`; precomputed UI models (formatted dates, counts) so composition is cheap.
-- Track scroll jank with JankStats and a Macrobenchmark scroll test.
-
-**Trade-offs to state.** Polling for the new-post count is simple but costs battery; a push or WebSocket only while the app is in the foreground is better at scale. Ranking stays on the server so it can change without an app release.
-
-### 13.5 Deeper dive: quick estimates
-
-Interviewers like you to sanity-check sizes. Show the arithmetic briefly:
-
-- Feed cache: 500 posts x 2 KB = about 1 MB of JSON in Room, which is fine.
-- Images: 500 posts x 1 image x 150 KB = 75 MB, so cap the disk cache (e.g. 100-250 MB) and let LRU evict.
-- Data use: 20 posts per page x (2 KB + 150 KB) is about 3 MB per page, so prefer smaller images on metered networks.
-- Server load: 10M DAU x 10 feed opens x 3 pages = 300M requests per day, about 3,500 per second on average; that is why the client should cache and avoid refetching on every screen visit.
-
-### 13.6 Deeper dive: what a strong answer sounds like
-
-A short sample of the opening minutes:
-
-- **Interviewer:** Design an offline-capable notes app.
-- **You:** Before designing, a few questions. Do notes sync across devices? Can two devices edit the same note at the same time? Do notes have attachments? Roughly how many notes per user? Which Android versions?
-- **Interviewer:** Yes, sync across devices; concurrent edits are possible but rare; images allowed; up to a few thousand notes.
-- **You:** Then the key problems are offline edits and conflicts. I will make Room the source of truth, give every note a `version` and an `updatedAt`, keep an outbox of local changes, and sync with WorkManager. For conflicts I propose last-write-wins per field for title and body, and if both changed I keep both versions and show a conflict copy, which is simple and loses no data. Shall I start with the high-level architecture, then go deep on sync?
-
-Why this works: it clarifies scope, names the hard problem early, proposes a concrete approach with a trade-off, and lets the interviewer steer.
+| Chat app | Outbox and idempotency, WebSocket lifecycle, push-triggered sync, ordering |
+| News feed | Cursor pagination, image loading, optimistic likes, cache limits |
+| Photo upload or gallery | WorkManager, resumable uploads, thumbnails, memory limits |
+| Ride-hailing | Location updates, foreground service, real-time tracking, battery |
+| Checkout | State machine, payment SDK, idempotency, process death mid-checkout |
+| Offline notes or to-do | Sync engine, conflict resolution, full-text search |
+| Video streaming | Media3, adaptive bitrate, downloads, picture-in-picture |
+| Analytics SDK | Batching, persistence, upload windows, small footprint, privacy |
+| Image loading library | Memory and disk LRU caches, request deduplication, cancellation, downsampling |
 
 ### Interview questions
 
-1. **How do you make sending a message reliable on flaky networks?** Local outbox, WorkManager with backoff, idempotency keys, explicit statuses, and a retry UI for `FAILED` messages. {Hard}
-2. **REST vs GraphQL vs gRPC for mobile?** REST is simple and cacheable; GraphQL lets the client fetch exactly what a screen needs in one round trip (good for many screens, varied data); gRPC/protobuf is compact and fast, with streaming, but has weaker tooling for browser/debugging. Choose based on team and backend. {Medium}
-3. **How would you design for 10 teams contributing to one app?** Feature modules owned per team, a shared design system, API contracts between modules, convention plugins, CODEOWNERS, feature flags, a release train, and per-module build/test in CI. {Hard}
+1. **How do you approach a mobile system design question?** Clarify requirements, sketch the high-level design, define the API and data model, go deep on two or three hard parts, and finish with trade-offs, metrics and rollout. {Easy}
+2. **How do you make sending a chat message reliable on a flaky network?** Save it locally as pending, send it with WorkManager and backoff, use the client-generated ID as an idempotency key, track status explicitly, and offer retry for failed messages. {Medium}
+3. **Why use cursor pagination for a feed?** New posts arriving at the top shift offsets and cause duplicates or gaps; a cursor points at a specific item, so pages stay stable. {Medium}
+4. **REST, GraphQL or gRPC for a mobile app?** REST is simple and cacheable; GraphQL fetches exactly what each screen needs in one request; gRPC is compact and fast with streaming but harder to debug. Choose based on the team and backend. {Medium}
+5. **How would you resolve conflicts when two devices edit the same note offline?** Give each record a version and timestamps, sync through an outbox, and use a clear rule, such as last-write-wins per field, keeping a conflict copy when both changed the same field so no data is lost. {Hard}
+6. **How would you design an app that 10 teams contribute to?** Feature modules owned by teams, a shared design system, clear module contracts, convention plugins, code owners, feature flags, a release train and per-module CI. {Hard}
+7. **How do you keep real-time updates battery-friendly?** Keep a WebSocket only while the app is in the foreground, use push messages to trigger syncs in the background, and reconnect with exponential backoff and jitter. {Medium}

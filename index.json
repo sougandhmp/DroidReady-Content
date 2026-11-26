@@ -98,14 +98,14 @@
       "number": 13,
       "title": "Mobile system design",
       "path": "topics/13-system-design.md",
-      "sha256": "8c44af05c5a965370468ea55d12ff171a0036369f1a814a7ff0042c962acf7e9"
+      "sha256": "bc63ccbc5276453e9076c8425240d43939c747881ef460d99a37a2d5e6a21d68"
     },
     {
       "id": "modern-platform",
       "number": 14,
       "title": "Modern platform topics",
       "path": "topics/14-modern-platform.md",
-      "sha256": "1fe8e6a754a2f348d0e180b2da88cc761ef99b66cb9395ea37d44295a49c61e0"
+      "sha256": "5cef19a96c39bdf9c3bdb3dded80e2eef1070aa1e7a13ab7eae7b4b20aceb34f"
     },
     {
       "id": "leadership",
