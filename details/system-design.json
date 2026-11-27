@@ -70,5 +70,14 @@
     "why": "Media uploads combine memory limits, WorkManager, and resumable networking.",
     "mistake": "Uploading inside `viewModelScope` or reading the whole file into memory.",
     "followUp": "How do you avoid uploading a 12-megapixel raw photo over cellular?"
+  },
+  "How do you design a client-side analytics SDK for Android?": {
+    "tracks": [
+      "senior",
+      "system-design"
+    ],
+    "why": "SDK design tests durability, battery/bandwidth batching, privacy, and non-blocking initialization.",
+    "mistake": "Sending one HTTP request per event or blocking Application.onCreate during SDK init.",
+    "followUp": "How do you prevent duplicate events on the server when a batch upload retries?"
   }
 }

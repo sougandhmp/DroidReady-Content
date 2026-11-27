@@ -21,7 +21,7 @@
       "number": 2,
       "title": "Coroutines and Flow",
       "path": "topics/02-coroutines-flow.md",
-      "sha256": "2bee002489679e8b969bd66267c98016f0e495ff312fea41adb0b38fa4be7432"
+      "sha256": "08e8efa4a9986cafae5eb61dae5301050eee849ff6fee509d42cd399e80cc312"
     },
     {
       "id": "android-fundamentals",
@@ -35,28 +35,28 @@
       "number": 4,
       "title": "Jetpack Compose",
       "path": "topics/04-jetpack-compose.md",
-      "sha256": "e80341704834be8ee9a4194e2d5d8d6e1653b56af7bfcbbf79ee52507b442cef"
+      "sha256": "7ec9ca844dc210f5a7198036a868e4d7f39db2927b54ba167f3d7bca9a521028"
     },
     {
       "id": "architecture",
       "number": 5,
       "title": "App architecture and data flow",
       "path": "topics/05-architecture.md",
-      "sha256": "6b4dbc92679aed55bd3cb4c02af8fe71bba2efdd7602f3fe3b06fa62da6566a2"
+      "sha256": "3b44fad04af7cdc95bce3e40863aa6ef2ba5456225019f15d456770aa649e8f1"
     },
     {
       "id": "dependency-injection",
       "number": 6,
       "title": "Dependency injection",
       "path": "topics/06-dependency-injection.md",
-      "sha256": "e7a2da954f7f724b2fcbd2c17f69e1d84224e7970cc7bbbf9e9c5deb218beb67"
+      "sha256": "eaa196e313747bf181d9dd6b7ca3e0c8e212724abee0d95f2e45e57e56b2ff9f"
     },
     {
       "id": "data-layer",
       "number": 7,
       "title": "Data layer: networking, storage and offline-first",
       "path": "topics/07-data-layer.md",
-      "sha256": "332f95add18b806b85569199d095ecd27c36ba11e353cdd76d3ab4edbf3fb31f"
+      "sha256": "15aaab2ce236636dca7314d94174dab13aa02d7f7df76b9ae34498ba3e8e5f0b"
     },
     {
       "id": "background-work",
@@ -70,14 +70,14 @@
       "number": 9,
       "title": "Performance",
       "path": "topics/09-performance.md",
-      "sha256": "e226464086baa28f6ef88de33aaa37b326c567a0e7bb74ef338ae7bea75476cc"
+      "sha256": "7578f82f8957b6a1262b7a082c83aadd088be06a791ee02c478c338e9aff3bcb"
     },
     {
       "id": "testing",
       "number": 10,
       "title": "Testing",
       "path": "topics/10-testing.md",
-      "sha256": "8aa50ad3c9aa22646ceab28c88cff29aafbebcee42b657276d575797d7156be0"
+      "sha256": "1b22ae7666d2f00c9dd98cbdc8e66e31f5fe42e13e4d780f22a5a90d96aa6a9a"
     },
     {
       "id": "security-privacy",
@@ -91,21 +91,21 @@
       "number": 12,
       "title": "Build, release and SDKs",
       "path": "topics/12-build-release.md",
-      "sha256": "7d54c510a211da970609d97d36733ae2b7ff2334562ebbf62b97bb9cddc4690a"
+      "sha256": "ba9a10e058f331f699aca4a44f1ef16eb899b60314f90d3ee11788500268c2d1"
     },
     {
       "id": "system-design",
       "number": 13,
       "title": "Mobile system design",
       "path": "topics/13-system-design.md",
-      "sha256": "7444c156329ecb0cbdb9bd6a7a94dfddbdca65679c0b47f8bd5d2d1b908ee859"
+      "sha256": "9dcecc3e1563dd73ffefb71be1339bfaf85ac7aca888d10de13fe50aad1e2c94"
     },
     {
       "id": "modern-platform",
       "number": 14,
       "title": "Modern platform topics",
       "path": "topics/14-modern-platform.md",
-      "sha256": "8bc045e5538f7a2e0f98dc9247c370843478fb2d594f75530d447a0a5f97c4dd"
+      "sha256": "62e66b55e6ce2bbee9781d9c27521ed5cba29668b841dc61d54c916913882de4"
     },
     {
       "id": "leadership",
@@ -133,11 +133,11 @@
       "number": 18,
       "title": "JVM, concurrency and design patterns",
       "path": "topics/18-jvm-concurrency-patterns.md",
-      "sha256": "1adbaa3fbdb88178ea02bd5d2680e42c0ea1a55e9e92a253652d0934f2df7f4e"
+      "sha256": "eff480fbbee8d2be66e9779b4b4331cf9e8273e74e1c44c09a32415b4d61f43b"
     }
   ],
   "quiz": {
     "path": "quiz.json",
-    "sha256": "6d1ea79a5f2c6e3562aa574b708c497eee4f8bbd2bda65d0467d2a8461a26818"
+    "sha256": "40c33c4bbf7c5a3a17951fd8005b74acf859592f17ee705473302d342840d968"
   }
 }

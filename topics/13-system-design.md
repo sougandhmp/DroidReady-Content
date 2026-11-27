@@ -144,6 +144,24 @@ POST /posts/{id}/like                   (idempotent)
 
 - *How do you keep progress accurate across process death?* Store `uploadedBytes` in Room or query the server's upload-status endpoint for the session offset before resuming.
 
+### 13.8 Worked example: client-side analytics SDK
+
+**In one line:** buffer events in memory, flush batches to a bounded local SQLite queue off the main thread, and upload via WorkManager with gzip compression and idempotency keys.
+
+**Say this in the interview:** "An analytics SDK must never block `Application.onCreate()`, never crash the host app, and never drain battery by opening the radio per event. I initialize lazily, buffer incoming events in a bounded `Channel` or ring buffer, and flush batches to a local SQLite table with a sequence/UUID per batch. A periodic or constrained WorkManager job (or foreground flush on app background via `ProcessLifecycleOwner`) uploads gzipped batches with `X-Idempotency-Key`, evicting oldest events if storage exceeds a cap (e.g., 5 MB), and respecting user opt-out/GDPR consent before recording."
+
+**Example:**
+
+1. **Non-blocking init:** register `ProcessLifecycleOwner` observer and create the background dispatcher lazily—zero disk I/O on the main thread.
+2. **Batching & persistence:** accumulate up to 20 events or 30 seconds in memory, then write a serialized batch row to Room/SQLite with a client-generated `batchId`.
+3. **Upload & eviction:** upload via WorkManager (`NetworkType.CONNECTED`) with `batchId` as the idempotency key; drop oldest rows if the local queue hits the disk cap.
+
+**Common mistake:** Writing every event synchronously to disk on the main thread or firing an HTTP request per `track()` call.
+
+**Follow-ups:**
+
+- *How do you prevent duplicate events when a batch upload times out after the server already committed it?* Attach a unique `batchId` per batch so the server deduplicates retries.
+
 ### Interview questions
 
 1. **How do you approach a mobile system design question?** Clarify requirements, sketch the high-level design, define the API and data model, go deep on two or three hard parts, and finish with trade-offs, metrics and rollout. {Easy}
@@ -154,3 +172,4 @@ POST /posts/{id}/like                   (idempotent)
 6. **How would you design an app that 10 teams contribute to?** Feature modules owned by teams, a shared design system, clear module contracts, convention plugins, code owners, feature flags, a release train and per-module CI. {Hard}
 7. **How do you keep real-time updates battery-friendly?** Keep a WebSocket only while the app is in the foreground, use push messages to trigger syncs in the background, and reconnect with exponential backoff and jitter. {Medium}
 8. **How do you design reliable background photo or video uploads on mobile?** Persist the job in Room, compress off the main thread into `cacheDir`, run the upload in WorkManager with network constraints, and use chunked resumable uploads so retries don't restart from zero. {Hard}
+9. **How do you design a client-side analytics SDK for Android?** Initialize lazily off the main thread, batch events in memory and persist to a bounded local SQLite queue, upload gzipped batches with `batchId` idempotency keys via WorkManager, and enforce opt-out/privacy controls before capture. {Hard}

@@ -6,16 +6,22 @@ The data layer owns your app's data. Interviewers check that you can load it eff
 
 **In one line:** OkHttp is the HTTP client that does the actual networking; Retrofit turns an annotated Kotlin interface into HTTP calls on top of it.
 
-**Say this in the interview:** "I declare the API as an interface with suspend functions, and Retrofit generates the implementation. OkHttp underneath handles connection pooling, HTTP/2, compression, caching and interceptors. I use kotlinx.serialization or Moshi rather than Gson, because Gson uses reflection and ignores Kotlin nullability and default values. Interceptors add things like auth headers and logging to every request."
+**Say this in the interview:** "I declare the API as an interface with suspend functions, and Retrofit generates the implementation. OkHttp underneath handles connection pooling, HTTP/2 multiplexing, compression, caching and interceptors. I use kotlinx.serialization or Moshi rather than Gson, because Gson uses reflection and ignores Kotlin nullability and default values. For timeouts, I configure both socket timeouts (`connectTimeout`, `readTimeout`) and an overall `callTimeout` covering redirects and retries."
 
-**Example:**
+**Retrofit:** Generates type-safe HTTP implementations from annotated Kotlin interfaces and pairs with `kotlinx.serialization` or Moshi for Kotlin-nullability-safe JSON parsing.
 
 ```kotlin
 interface ArticleApi {
     @GET("articles") suspend fun getArticles(@Query("page") page: Int, @Query("size") size: Int = 20): List<ArticleDto>
     @POST("articles/{id}/like") suspend fun like(@Path("id") id: String): Response<Unit>
 }
+```
 
+**OkHttp `ConnectionPool`, timeouts and Cronet:** Share one singleton `OkHttpClient` (or derive variants with `newBuilder()`) so sockets stay pooled and HTTP/2 streams multiplex. `callTimeout` caps the entire call (DNS + retries + redirects), whereas `readTimeout` only caps gaps between bytes. If HTTP/3 (QUIC) is needed on flaky mobile networks, Cronet can back OkHttp or Retrofit.
+
+**Interceptors:** Application interceptors (`addInterceptor`) run once per logical call; network interceptors (`addNetworkInterceptor`) run per wire attempt, seeing redirects and compressed headers.
+
+```kotlin
 class AuthInterceptor @Inject constructor(private val tokens: TokenStore) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response =
         chain.proceed(chain.request().newBuilder().header("Authorization", "Bearer ${tokens.accessToken()}").build())
@@ -59,9 +65,9 @@ override fun authenticate(route: Route?, response: Response): Request? {
 
 ### 7.3 Room
 
-**In one line:** Room is a SQLite library that checks your SQL at compile time and returns results as suspend functions or Flows.
+**In one line:** Room is a SQLite library that checks your SQL at compile time, uses WAL mode by default for concurrent reads, and returns results as suspend functions or Flows.
 
-**Say this in the interview:** "I define entities, DAOs and a database class. DAO queries that return `Flow` re-emit whenever the table changes, which is what makes the database a live single source of truth. I use `@Transaction` for multi-step writes and `@Relation` for one-to-many reads. For schema changes I write migrations, export the schema and test migrations with `MigrationTestHelper`; I never use destructive migration for user data."
+**Say this in the interview:** "I define entities, DAOs and a database class. Room enables Write-Ahead Logging (WAL) by default so readers don't block a writer. DAO `Flow` queries use `InvalidationTracker` at the *table* level, so any write to the table re-runs the query—which is why `distinctUntilChanged()` matters. For Kotlin Multiplatform (Room 2.7+), I configure `BundledSQLiteDriver` so Android and iOS share identical SQLite behaviour. For schema changes I export schemas and test migrations with `MigrationTestHelper`."
 
 **Example:**
 
@@ -83,19 +89,22 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
 
 **Follow-ups:**
 
-- *Room's Flow emits when unrelated rows change. Fix?* Add `distinctUntilChanged()` after mapping, or narrow the query.
+- *Room's Flow emits when unrelated rows change. Fix?* `InvalidationTracker` tracks tables, not rows; add `distinctUntilChanged()` after mapping, or narrow the query.
 - *Simple schema changes?* `@AutoMigration(from = 1, to = 2)` handles added columns and tables; renames need an `AutoMigrationSpec`.
 
 ### 7.4 DataStore vs SharedPreferences
 
-**In one line:** DataStore is the modern replacement for SharedPreferences: asynchronous, transactional and Flow-based.
+**In one line:** DataStore is the modern replacement for SharedPreferences: asynchronous, transactional, corruption-recoverable, and Flow-based.
 
-**Say this in the interview:** "SharedPreferences reads synchronously on first access and `apply()` can still block during lifecycle changes, which is a known ANR source, and it has no error handling. Preferences DataStore exposes data as a Flow and writes in transactions with coroutines; Proto DataStore adds a typed schema. The one rule is a single DataStore instance per file per process, so I create it as a top-level delegate or a singleton."
+**Say this in the interview:** "SharedPreferences reads synchronously on first access and `apply()` can still block during lifecycle changes, which is a known ANR source, and it has no error handling. Preferences DataStore exposes data as a Flow and writes atomically with coroutines; Proto DataStore adds a typed schema. I always configure a `ReplaceFileCorruptionHandler` so corrupted files reset cleanly instead of crashing, and keep a single DataStore instance per file per process."
 
 **Example:**
 
 ```kotlin
-val Context.settings by preferencesDataStore(name = "settings")
+val Context.settings by preferencesDataStore(
+    name = "settings",
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
+)
 val DARK_MODE = booleanPreferencesKey("dark_mode")
 
 val darkMode: Flow<Boolean> = context.settings.data.map { it[DARK_MODE] ?: false }
@@ -112,9 +121,11 @@ suspend fun setDarkMode(on: Boolean) = context.settings.edit { it[DARK_MODE] = o
 
 **In one line:** in an offline-first app the UI always reads from the local database, the network only updates the database, and local changes are queued and synced later.
 
-**Say this in the interview:** "For reads, the repository exposes Room as a Flow and refreshes from the network in the background, so cached data shows instantly. For writes, I save the change locally with a 'pending' flag, so the UI updates immediately, and a WorkManager job pushes pending changes when there's a connection. Each change carries an idempotency key, so a retry never applies it twice, and I resolve conflicts with timestamps or versions, choosing a strategy like last-write-wins per field."
+**Say this in the interview:** "I split offline-first into two paths. On the read path, the repository exposes Room as a Flow and refreshes from the network in the background, so cached data shows instantly. On the write path, I save the change locally with a `PENDING` flag and an idempotency key, then schedule a WorkManager job with a network constraint to push it and resolve conflicts via server version numbers or per-field timestamps."
 
-**Example:**
+**Read path (stale-while-revalidate):** UI collects Room's `Flow`, while a background refresh fetches from the API and upserts into Room.
+
+**Write path (outbox + idempotency):** Persist optimistic local state with a `PENDING` flag and unique `operationId` (idempotency key), so WorkManager retries never double-apply mutations on the server.
 
 ```kotlin
 override suspend fun setBookmarked(id: String, on: Boolean) {
