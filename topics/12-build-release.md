@@ -2,13 +2,15 @@
 
 Seniors often own build health and the release process. Expect questions on slow builds, safe rollouts, monitoring in production, and building libraries other teams depend on.
 
-### 12.1 Gradle essentials
+### 12.1 Gradle essentials and AGP 9.0
 
-**In one line:** Gradle builds in three phases, initialization, configuration and execution, and a modern setup uses the Kotlin DSL, a version catalog and convention plugins.
+**In one line:** Gradle builds in three phases—initialization, configuration, and execution—and modern setups use Kotlin DSL, version catalogs, convention plugins, and AGP 9.0's built-in Kotlin.
 
-**Say this in the interview:** "Gradle first decides which projects are in the build, then configures every task, then runs the tasks it needs. Configuration must be fast and free of side effects, which is what the configuration cache relies on. I keep dependency versions in `libs.versions.toml`, share module setup through convention plugins so a feature module's build file is a few lines, and use build types and flavours for debug/release and staging/production. I use KSP instead of kapt, because it's faster and works with the K2 compiler."
+**Say this in the interview:** "Gradle first decides which projects are in the build, then configures every task, then executes only the tasks needed. Configuration must be side-effect-free for the configuration cache—so external commands use `providers.exec` instead of `project.exec`. I centralize repositories in `settings.gradle.kts` (`FAIL_ON_PROJECT_REPOS`), keep versions in `libs.versions.toml`, and share module setup via convention plugins. With AGP 9.0, Kotlin support is built into the Android plugin so separate `kotlin("android")` plugins are no longer needed, and variant customization uses `androidComponents.onVariants`."
 
-**Example:**
+**Convention plugins and `dependencyResolutionManagement`:** Declare repositories once in `settings.gradle.kts` with `RepositoriesMode.FAIL_ON_PROJECT_REPOS` so subprojects can't slow down resolution with extra repos, and keep feature `build.gradle.kts` files to a few lines via convention plugins.
+
+**AGP 9.0 built-in Kotlin & `androidComponents`:** AGP 9.0 provides built-in Kotlin compilation without applying `org.jetbrains.kotlin.android` separately, and the `androidComponents.onVariants` API lets convention plugins configure tasks lazily without breaking configuration caching.
 
 ```kotlin
 // feature/settings/build.gradle.kts: everything shared lives in the convention plugin
@@ -16,7 +18,7 @@ plugins { id("example.android.feature") }
 android { namespace = "com.example.feature.settings" }
 ```
 
-**Common mistake:** Doing slow work during the configuration phase, which delays every build.
+**Common mistake:** Calling `project.exec` or reading files eagerly during configuration, which breaks the configuration cache.
 
 **Follow-ups:**
 

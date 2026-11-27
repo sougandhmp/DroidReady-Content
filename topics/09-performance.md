@@ -102,11 +102,11 @@ The main thread waits for a lock that a background thread holds while reading fr
 
 ### 9.5 Baseline profiles and R8
 
-**In one line:** a baseline profile tells the system which code to compile ahead of time, and R8 shrinks, obfuscates and optimises the release build.
+**In one line:** a baseline profile tells the system which code to compile ahead of time, and R8 Full Mode shrinks, obfuscates and optimises the release build.
 
-**Say this in the interview:** "Without a baseline profile, the first runs after install interpret and JIT-compile code, which is slow. A baseline profile lists the classes and methods used in key journeys, like startup and scrolling, so they're compiled at install time; that often makes startup around 20 to 30 percent faster. I generate it with the Baseline Profile Gradle plugin and a Macrobenchmark test. R8 removes unused code and resources and optimises the rest; I keep only what reflection needs with keep rules and upload the mapping file so crash reports are readable."
+**Say this in the interview:** "Without a baseline profile, the first runs after install interpret and JIT-compile code, which is slow. A baseline profile lists the classes and methods used in key journeys, so they're compiled at install time; that often makes startup 20 to 30 percent faster. R8 (in Full Mode by default since AGP 8.0) removes unused code, aggressively inlines and merges classes, and strips unreferenced attributes—so reflection-heavy code needs narrow keep rules and we upload `mapping.txt` for readable stack traces."
 
-**Example:**
+**Baseline profiles:** Generated via the Baseline Profile Gradle plugin and a Macrobenchmark test, then packaged inside the AAB so ART compiles hot paths AOT during install.
 
 ```kotlin
 @Test fun coldStart() = rule.measureRepeated(
@@ -117,19 +117,25 @@ The main thread waits for a lock that a background thread holds while reading fr
 ) { pressHome(); startActivityAndWait() }
 ```
 
-**Common mistake:** Testing only the debug build, so R8 problems first appear in release.
+**R8 Full Mode:** Unlike legacy ProGuard compatibility mode, R8 Full Mode assumes classes not explicitly kept can be merged, devirtualized, or stripped of default constructors. Keep only the exact reflection targets and `@Keep` entry points.
+
+**Common mistake:** Testing only the debug build, so R8 Full Mode stripping issues first appear in release.
 
 **Follow-ups:**
 
 - *Does a baseline profile replace R8?* No. A profile guides ahead-of-time compilation, while R8 shrinks and optimizes the code. Use both.
 
-### 9.6 Rendering, jank and garbage collection
+### 9.6 Rendering, jank, tracing and garbage collection
 
-**In one line:** jank happens when a frame takes longer than the display's frame time, often because of work on the main thread or too much allocation.
+**In one line:** jank happens when a frame exceeds the display budget; use Perfetto, `JankStats`, `Trace`, and `ProfilingManager` to pinpoint main-thread work or GC pressure.
 
-**Say this in the interview:** "I record a Perfetto system trace and look at what runs on the main thread and RenderThread in the slow frames. Fixes are usually moving work off the main thread, reducing recomposition in Compose, flattening view hierarchies, using `DiffUtil` for lists, and avoiding allocations in hot paths like `onDraw` or scroll callbacks, because constant allocation makes the garbage collector work harder."
+**Say this in the interview:** "I record a Perfetto system trace and inspect main-thread and RenderThread slices for slow frames. For production telemetry I use `JankStats` to log slow frames with screen context, and on Android 15+ (API 35+) `ProfilingManager` to capture on-device heap dumps or traces in the field. In code, I instrument key journeys with `Trace.beginSection` (or `beginAsyncSection` for suspend work) and avoid allocations in hot paths like `onDraw` or scroll callbacks."
 
-**Example:**
+**Tracing (`Trace.beginSection` vs `Trace.beginAsyncSection`):** `Trace.beginSection` / `endSection` must start and finish on the *same thread* (so never wrap a `suspend` call with it—the coroutine may resume on another thread). Use `Trace.beginAsyncSection(name, cookie)` / `endAsyncSection` for work that suspends across threads.
+
+**Production jank (`JankStats` and `ProfilingManager`):** `JankStats` attaches UI state (like `screen=Feed`) to slow-frame callbacks in production; `ProfilingManager` (API 35+) lets the app request system-managed Perfetto traces or heap profiles from real users.
+
+**Avoiding GC pressure in hot paths:**
 
 ```kotlin
 // Bad: a new Paint 60-120 times a second
@@ -140,7 +146,7 @@ private val paint = Paint().apply { color = Color.RED }
 override fun onDraw(canvas: Canvas) { canvas.drawText(label, x, y, paint) }
 ```
 
-**Common mistake:** Judging smoothness on a fast phone only.
+**Common mistake:** Wrapping a `suspend` function in `Trace.beginSection` / `endSection`, corrupting the trace stack when it resumes on a different thread.
 
 **Follow-ups:**
 
@@ -171,7 +177,7 @@ override fun onDraw(canvas: Canvas) { canvas.drawText(label, x, y, paint) }
 
 **In one line:** decode images at the size the screen actually displays, reuse caches via Coil, and align native libraries for 16 KB memory pages.
 
-**Say this in the interview:** "A 12-megapixel photo decoded at full size takes ~48 MB of RAM in ARGB_8888, even in a 100 dp thumbnail. I use Coil, which downsamples to the target view size, caches bitmaps in an LRU memory and disk cache, and cancels requests when a composable or view leaves the screen. On native performance and compatibility, newer Android devices use 16 KB memory pages instead of 4 KB, so any NDK or third-party `.so` library must be built with 16 KB ELF alignment."
+**Say this in the interview:** "A 12-megapixel photo decoded at full size takes ~48 MB of RAM in ARGB_8888, even in a 100 dp thumbnail. I use Coil, which downsamples to the target view size, caches bitmaps in an LRU memory and disk cache, and cancels requests when a composable or view leaves the screen. On native compatibility, newer Android devices use 16 KB memory pages instead of 4 KB, and Google Play enforces 16 KB alignment (starting February 1, 2027 for updates), so every NDK or third-party `.so` library must be built with 16 KB ELF alignment."
 
 **Example:**
 

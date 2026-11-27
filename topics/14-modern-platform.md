@@ -28,9 +28,9 @@ Interviewers check that you keep up with the platform. Know what changed in rece
 
 **In one line:** the app draws behind the status and navigation bars, and you use insets to keep text and buttons out of the system areas.
 
-**Say this in the interview:** "On Android 15 and later, apps are edge-to-edge by default, and on 16 the opt-out is gone. I call `enableEdgeToEdge()`, let `Scaffold` pass inset padding to the content, and use `WindowInsets.safeDrawing` for anything custom. Backgrounds go edge to edge, but text and touch targets stay inside the safe area. For input screens I add `imePadding()` so the field stays above the keyboard. I test with gesture and 3-button navigation, display cutouts in landscape, and the keyboard open."
+**Say this in the interview:** "On Android 15 and later, apps are edge-to-edge by default, and on 16 the opt-out is gone. I call `enableEdgeToEdge()`, let `Scaffold` pass inset padding to the content, and use `WindowInsets.safeDrawing` for anything custom. Backgrounds go edge to edge, but text and touch targets stay inside the safe area. For input screens I add `imePadding()` so the field stays above the keyboard, and for scrollable lists I pass `contentPadding` instead of outer padding so items scroll behind the navigation bar."
 
-**Example:**
+**`consumeWindowInsets` and the `LazyColumn` `contentPadding` trap:** `consumeWindowInsets(padding)` tells descendant modifiers that `Scaffold`'s inset padding has already been applied, preventing double-padding when combining `padding(padding)` with `imePadding()`. For `LazyColumn`, avoid outer `Modifier.padding(bottom = ...)` if you want items to scroll behind the translucent navigation bar—pass `contentPadding` and `consumeWindowInsets` instead.
 
 ```kotlin
 @Composable
@@ -47,9 +47,9 @@ fun ChatScreen(messages: List<Message>, onSend: (String) -> Unit) {
 }
 ```
 
-**How it works:** insets are sizes the system reports for the bars, the keyboard and cutouts. `consumeWindowInsets` tells children that the padding has already been applied, so they don't add it twice. In Views, use `ViewCompat.setOnApplyWindowInsetsListener`.
+**How it works:** insets are sizes the system reports for the bars, the keyboard and cutouts. In Views, use `ViewCompat.setOnApplyWindowInsetsListener`.
 
-**Common mistake:** Applying fixed padding for system bars, which breaks on other devices and navigation modes.
+**Common mistake:** Applying fixed padding for system bars, or forgetting `consumeWindowInsets(padding)` before `imePadding()`.
 
 **Follow-ups:**
 
@@ -237,7 +237,7 @@ val price = NumberFormat.getCurrencyInstance(Locale.getDefault()).format(amount)
 AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fr"))       // in-app language picker
 ```
 
-**How it works:** resource qualifiers (`values-fr`, `layout-sw600dp`, `drawable-xxhdpi`, `values-b+es+419`) are matched against the device configuration at runtime. `generateLocaleConfig = true` in Gradle builds the list of supported languages for the system settings. Changing the app locale recreates the Activity, and Compose's `stringResource` updates automatically.
+**How it works:** resource qualifiers (`values-fr`, `layout-sw600dp`, `drawable-xxhdpi`, `values-b+es+419`) are matched against the device configuration at runtime. `generateLocaleConfig = true` in Gradle builds the list of supported languages for Android 13+ system settings, while `AppCompatDelegate.setApplicationLocales` requires `AppCompatActivity` (not plain `ComponentActivity`) to backport per-app locales on API 32 and below. Changing the app locale recreates the Activity, and Compose's `stringResource` updates automatically.
 
 **Common mistake:** Building sentences by joining translated fragments.
 

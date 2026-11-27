@@ -159,11 +159,15 @@ Box(Modifier.graphicsLayer { alpha = fadeProvider() })   // read in draw phase: 
 
 ### 4.7 Layouts, modifiers and custom layouts
 
-**In one line:** modifiers decorate a composable in order, and a custom `Layout` measures and places children yourself.
+**In one line:** modifiers decorate a composable in order, `Modifier.Node` powers performant custom modifiers, and `Layout` measures children in a single pass.
 
-**Say this in the interview:** "Modifier order matters: `padding` then `background` differs from `background` then `padding`. When the built-in layouts aren't enough, I write a `Layout` that measures each child once and places it. Compose's single-pass measurement is why deep nesting is cheap, unlike nested weights in old View layouts. `CompositionLocal` passes ambient values like the theme down the tree, and I use it sparingly."
+**Say this in the interview:** "Modifier order matters: `padding` then `background` differs from `background` then `padding`. For custom modifiers I implement `Modifier.Node` instead of the older `composed { }` factory so they don't allocate per recomposition. For custom positioning I write a `Layout` that measures each child once; I reserve `SubcomposeLayout` for cases where content depends on measured size. For shared element transitions or moving stateful UI across containers, I use `LookaheadScope` and `movableContentOf`."
 
-**Example:**
+**Modifier order:** Modifiers wrap sequentially from outside in—`Modifier.padding(16.dp).clickable { }` excludes padding from the touch target, while `Modifier.clickable { }.padding(16.dp)` includes it.
+
+**`Modifier.Node` vs `composed {}`:** `composed {}` runs a `@Composable` factory per instance and is deprecated for performance reasons. `Modifier.Node` + `ModifierNodeElement` stays lightweight across recompositions and hooks directly into layout/draw/pointer phases.
+
+**`Layout` vs `SubcomposeLayout`:** Standard `Layout` measures every child in one pass, keeping deep nesting cheap. `SubcomposeLayout` (used by `Scaffold` and `LazyColumn`) defers composition until measurement constraints are known, which is heavier.
 
 ```kotlin
 Layout(content = content) { measurables, constraints ->
@@ -175,7 +179,9 @@ Layout(content = content) { measurables, constraints ->
 }
 ```
 
-**Common mistake:** Ignoring modifier order, then adding wrapper layouts to fix spacing or click areas.
+**`LookaheadScope` and `movableContentOf`:** `LookaheadScope` pre-computes target sizes/positions for smooth layout animations, while `movableContentOf` moves a composable (like a video player) between parents without resetting its `remember`ed state.
+
+**Common mistake:** Ignoring modifier order, or reaching for `SubcomposeLayout` when a normal `Layout` or `IntrinsicSize` would work.
 
 **Follow-ups:**
 

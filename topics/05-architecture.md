@@ -4,11 +4,15 @@ The architecture round asks one question: can you structure an app so many devel
 
 ### 5.1 The layers and the principles behind them
 
-**In one line:** split the app into a UI layer that shows data, an optional domain layer with business rules, and a data layer that owns the data, connected by one-way data flow.
+**In one line:** split the app into a UI layer that renders state, an optional domain layer for reusable business rules, and a data layer that owns data and main-safety.
 
-**Say this in the interview:** "I separate the app into layers with clear jobs. The UI layer, Compose screens plus ViewModels, only renders state and forwards user events. The domain layer, which is optional, holds reusable business rules as use cases. The data layer is repositories plus data sources like Room and Retrofit, and it owns the data. Three principles hold it together: separation of concerns, a single source of truth for each piece of data, usually the local database, and unidirectional data flow, where state goes down and events go up. Higher layers depend on interfaces, not implementations, so I can test with fakes."
+**Say this in the interview:** "I follow Google's layered architecture with unidirectional data flow: state flows down from Room through repositories and ViewModels to the UI, and user events flow up. Higher layers depend on interfaces so every layer can be tested with fakes."
 
-**Example:**
+**UI layer:** Composables/Fragments plus state holders (`ViewModel`). Renders immutable `UiState` and forwards user events.
+
+**Domain layer (optional):** Stateless `UseCase` classes encapsulating business rules shared across screens or combining multiple repositories.
+
+**Data layer:** Repositories and data sources (Room, Retrofit, DataStore). Owns caching, offline sync, and switching to `Dispatchers.IO`.
 
 | Layer | Contains | Knows about |
 | --- | --- | --- |
@@ -163,19 +167,27 @@ class GetFollowedArticlesUseCase @Inject constructor(
 
 ### 5.6 Models and errors between layers
 
-**In one line:** each layer has its own models, and errors are translated at each boundary, so a change in one layer doesn't ripple into the others.
+**In one line:** map models at layer boundaries (`DTO` -> `Domain` -> `Ui`) and translate exceptions into sealed domain errors without swallowing `CancellationException`.
 
-**Say this in the interview:** "I keep separate models: a DTO for the network, an entity for Room, a domain model, and a UI model with formatted text. Mapping is a few extension functions. It means a backend rename doesn't touch my screens. I do the same with errors: an `HttpException` becomes a domain error like `Unauthorized`, and the UI maps that to a string resource and decides what to do, like going to the login screen."
+**Say this in the interview:** "I keep DTOs, Room entities, domain models, and UI models separate so backend renames never ripple into Compose screens. For errors, I prefer a sealed domain error hierarchy over `kotlin.Result<T>` so the UI handles every failure exhaustively—and if I use `runCatching`, I always rethrow `CancellationException`."
 
-**Example:**
+**Layer model mapping:** Extension functions convert network DTOs and DB entities into pure domain models at the repository boundary.
+
+```kotlin
+fun ArticleEntity.toDomain() = Article(id = id, title = title, publishedAt = Instant.ofEpochMilli(epochMs))
+```
+
+**Sealed errors vs `kotlin.Result`:** `Result<T>` holds an untyped `Throwable` (and `runCatching` catches `CancellationException`, breaking coroutine cancellation!). A sealed `Outcome<T>` + `DataError` gives compile-time exhaustiveness.
 
 ```kotlin
 sealed interface DataError { data object NoNetwork : DataError; data object Unauthorized : DataError; data class Server(val code: Int) : DataError }
 
-fun Throwable.toDataError(): DataError = when (this) {
-    is IOException -> DataError.NoNetwork
-    is HttpException -> if (code() == 401) DataError.Unauthorized else DataError.Server(code())
-    else -> DataError.Server(-1)
+suspend inline fun <T> suspendRunCatching(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (ce: CancellationException) {
+    throw ce                                       // never swallow coroutine cancellation
+} catch (e: Throwable) {
+    Result.failure(e)
 }
 ```
 

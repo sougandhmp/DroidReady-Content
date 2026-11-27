@@ -1944,6 +1944,342 @@
         "junior",
         "senior"
       ]
+    },
+    {
+      "id": "bug-arch-runcatching-cancel",
+      "topic": "architecture",
+      "question": "What is the subtle bug in this suspend repository helper?",
+      "code": "suspend fun loadProfile(id: String): Result<Profile> = runCatching {\n    api.getProfile(id)\n}",
+      "options": [
+        "runCatching cannot be called inside a suspend function",
+        "runCatching catches CancellationException and wraps it as Result.failure, breaking structured cancellation",
+        "api.getProfile(id) must be wrapped in withContext(Dispatchers.Main)",
+        "Result<Profile> cannot be returned from a repository"
+      ],
+      "answer": 1,
+      "explanation": "Kotlin's runCatching catches Throwable, including CancellationException. If the caller's scope is cancelled, cancellation is swallowed and converted into a failure Result instead of propagating.",
+      "why": "Swallowing CancellationException inside repository helpers causes cancelled coroutines to keep executing or emit spurious error states.",
+      "mistake": "Using plain runCatching around suspend calls without rethrowing CancellationException.",
+      "kind": "bug",
+      "bugLines": [
+        1
+      ],
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-arch-sharedflow-rotation",
+      "topic": "architecture",
+      "question": "Why can users miss snackbar messages on configuration change with this ViewModel code?",
+      "code": "private val _events = MutableSharedFlow<String>()\nval events = _events.asSharedFlow()\nfun onSaveFailed() { viewModelScope.launch { _events.emit(\"Save failed\") } }",
+      "options": [
+        "MutableSharedFlow drops all values when replay is 0 and no collector is active during rotation",
+        "asSharedFlow() makes the flow cold",
+        "viewModelScope is cancelled on every configuration change",
+        "Strings cannot be emitted from a SharedFlow"
+      ],
+      "answer": 0,
+      "explanation": "With default replay = 0 and extraBufferCapacity = 0, _events.emit() suspends or drops if no collector is subscribed during the brief window when the UI stops/restarts on rotation. Model UI events as state cleared after display instead.",
+      "why": "One-off UI events modeled as fire-and-forget SharedFlow emissions are a classic source of lost snackbars and navigation events.",
+      "mistake": "Assuming SharedFlow buffers or replays events when the UI temporarily unsubscribes.",
+      "kind": "bug",
+      "bugLines": [
+        1
+      ],
+      "tracks": [
+        "mid",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-arch-statein-zero",
+      "topic": "architecture",
+      "question": "What performance issue does SharingStarted.WhileSubscribed(0) cause in a ViewModel?",
+      "code": "val uiState = repository.observeFeed()\n    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), FeedUiState.Loading)",
+      "options": [
+        "It never stops the upstream flow when backgrounded",
+        "Rotating the screen briefly drops subscribers to 0 and immediately restarts the upstream flow",
+        "It crashes if there are two collectors",
+        "It blocks the main thread for 5 seconds"
+      ],
+      "answer": 1,
+      "explanation": "With stopTimeoutMillis = 0, a configuration change (where the old Activity/Fragment unsubscribes and the new one subscribes milliseconds later) cancels and restarts the upstream flow. Use WhileSubscribed(5_000) to bridge rotation.",
+      "why": "Choosing the right SharingStarted timeout prevents redundant network/DB restarts across configuration changes while still stopping work in the background.",
+      "mistake": "Using WhileSubscribed(0) or Eagerly without considering rotation vs backgrounding.",
+      "kind": "bug",
+      "bugLines": [
+        2
+      ],
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-flow-launch-supervisorjob",
+      "topic": "coroutines-flow",
+      "question": "What happens when parentScope is cancelled in this coroutine setup?",
+      "code": "fun syncAll(parentScope: CoroutineScope) {\n    parentScope.launch(SupervisorJob()) {\n        launch { syncUsers() }\n        launch { syncPosts() }\n    }\n}",
+      "options": [
+        "syncUsers() and syncPosts() fail independently as expected",
+        "Passing SupervisorJob() breaks the parent-child link to parentScope, so cancelling parentScope does NOT cancel this coroutine",
+        "SupervisorJob() throws IllegalStateException inside launch",
+        "Both children run on Dispatchers.IO automatically"
+      ],
+      "answer": 1,
+      "explanation": "Passing a newly constructed SupervisorJob() in launch(SupervisorJob()) replaces the parent Job from parentScope, breaking structured concurrency and preventing parent cancellation from propagating. Use supervisorScope { } instead.",
+      "why": "Misusing SupervisorJob() as a launch argument is one of the most common structured-concurrency bugs in Kotlin.",
+      "mistake": "Assuming launch(SupervisorJob()) makes the children supervised under parentScope.",
+      "kind": "bug",
+      "bugLines": [
+        2
+      ],
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "output-di-lazy-vs-provider",
+      "topic": "dependency-injection",
+      "question": "Assuming Parser is unscoped, how many Parser instances are created when run() executes?",
+      "code": "class Runner @Inject constructor(\n    private val lazyParser: dagger.Lazy<Parser>,\n    private val parserProvider: Provider<Parser>\n) {\n    fun run() {\n        lazyParser.get(); lazyParser.get()\n        parserProvider.get(); parserProvider.get()\n    }\n}",
+      "options": [
+        "1 instance",
+        "2 instances",
+        "3 instances",
+        "4 instances"
+      ],
+      "answer": 2,
+      "explanation": "dagger.Lazy<T> creates one instance on the first get() and caches it (1). Provider<T> invokes the unscoped factory on every get() call (2). Total = 3 instances.",
+      "why": "Understanding Lazy<T> vs Provider<T> controls both startup cost and instance lifetimes in Dagger/Hilt.",
+      "mistake": "Thinking dagger.Lazy<T> creates a new instance every time or that Provider<T> caches unscoped bindings.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-di-hilt-worker-manifest",
+      "topic": "dependency-injection",
+      "question": "This @HiltWorker throws NoSuchMethodException at runtime even though Application implements Configuration.Provider with HiltWorkerFactory. What is missing?",
+      "code": "@HiltWorker\nclass SyncWorker @AssistedInject constructor(\n    @Assisted context: Context,\n    @Assisted params: WorkerParameters,\n    private val repo: ArticleRepository\n) : CoroutineWorker(context, params)",
+      "options": [
+        "@HiltWorker must extend Worker instead of CoroutineWorker",
+        "AndroidManifest.xml still has the default WorkManagerInitializer enabled instead of tools:node=\"remove\"",
+        "Context and WorkerParameters must be @Singleton",
+        "@HiltWorker cannot inject repositories"
+      ],
+      "answer": 1,
+      "explanation": "App Startup's default WorkManagerInitializer initializes WorkManager with the default WorkerFactory before Application.getWorkManagerConfiguration() is consulted, unless disabled in AndroidManifest.xml with tools:node=\"remove\".",
+      "why": "Every Android engineer integrating Hilt with WorkManager hits this manifest-merger trap.",
+      "mistake": "Implementing Configuration.Provider in Application without removing the default WorkManagerInitializer provider.",
+      "kind": "bug",
+      "bugLines": [
+        1
+      ],
+      "tracks": [
+        "mid",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-testing-sharedflow-race",
+      "topic": "testing",
+      "question": "Why does this runTest hang forever when testing a ViewModel's SharedFlow?",
+      "code": "@Test fun emitsEvent() = runTest {\n    val vm = CheckoutViewModel()\n    val collected = mutableListOf<Event>()\n    launch { vm.events.collect { collected.add(it) } }\n    vm.submit()\n    assertEquals(1, collected.size)\n}",
+      "options": [
+        "MutableList is not allowed inside runTest",
+        "launch { vm.events.collect(...) } never completes, so runTest waits forever for the child coroutine to finish",
+        "vm.submit() must run on Dispatchers.IO",
+        "SharedFlow cannot be collected in unit tests"
+      ],
+      "answer": 1,
+      "explanation": "runTest waits for all child coroutines in its main TestScope to finish before returning. Collecting a hot flow in launch never finishes; use backgroundScope.launch or Turbine's testIn(backgroundScope).",
+      "why": "Hanging runTest suites are a classic pitfall when testing hot StateFlow or SharedFlow streams.",
+      "mistake": "Launching an infinite flow collector on runTest's main scope instead of backgroundScope.",
+      "kind": "bug",
+      "bugLines": [
+        4
+      ],
+      "tracks": [
+        "mid",
+        "senior"
+      ]
+    },
+    {
+      "id": "output-testing-main-clock",
+      "topic": "testing",
+      "question": "What happens when composeTestRule.onNodeWithText(\"Done\").assertIsDisplayed() runs while an infinite CircularProgressIndicator is visible?",
+      "code": "composeTestRule.setContent {\n    CircularProgressIndicator()\n    Text(\"Done\")\n}\ncomposeTestRule.onNodeWithText(\"Done\").assertIsDisplayed()",
+      "options": [
+        "It passes immediately",
+        "It throws or times out waiting for Compose to become idle because the infinite animation keeps scheduling frames",
+        "CircularProgressIndicator is automatically paused by ComposeTestRule",
+        "It fails with a NullPointerException"
+      ],
+      "answer": 1,
+      "explanation": "Compose UI tests auto-advance the main clock until the tree is idle. An infinite animation continuously invalidates frames, causing synchronization timeouts unless mainClock.autoAdvance = false is used.",
+      "why": "Knowing how MainTestClock synchronization works prevents flaky or timed-out Compose UI tests.",
+      "mistake": "Assuming Compose assertions ignore infinite animations.",
+      "kind": "output",
+      "tracks": [
+        "mid",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-perf-trace-suspend",
+      "topic": "performance",
+      "question": "Why does this tracing code produce corrupted or mismatched Perfetto slices?",
+      "code": "suspend fun loadFeed(): List<Post> {\n    Trace.beginSection(\"loadFeed\")\n    return try { withContext(Dispatchers.IO) { api.feed() } } finally { Trace.endSection() }\n}",
+      "options": [
+        "Trace.beginSection cannot take a String literal",
+        "beginSection/endSection are thread-local, so resuming on another thread after suspension pairs endSection with the wrong thread",
+        "withContext(Dispatchers.IO) strips all Trace slices",
+        "Trace.endSection() must be called before api.feed()"
+      ],
+      "answer": 1,
+      "explanation": "Trace.beginSection/endSection record slices on the current OS thread's stack. Across a suspend point, a coroutine may resume on a different thread; use Trace.beginAsyncSection(name, cookie) and endAsyncSection instead.",
+      "why": "Thread-local tracing across suspend boundaries silently corrupts system traces.",
+      "mistake": "Using synchronous Trace.beginSection around suspending functions.",
+      "kind": "bug",
+      "bugLines": [
+        2,
+        3
+      ],
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "output-perf-bitmap-insamplesize",
+      "topic": "performance",
+      "question": "Roughly how much RAM does a 4000x3000 ARGB_8888 bitmap occupy when decoded with inSampleSize = 2?",
+      "code": "val opts = BitmapFactory.Options().apply { inSampleSize = 2 }\nval bmp = BitmapFactory.decodeFile(path, opts)",
+      "options": [
+        "~48 MB",
+        "~24 MB",
+        "~12 MB",
+        "~6 MB"
+      ],
+      "answer": 2,
+      "explanation": "inSampleSize = 2 halves both width and height (2000 x 1500 = 3,000,000 pixels), reducing memory by 4x. At 4 bytes per pixel (ARGB_8888), 3M * 4 bytes is ~12 MB (down from ~48 MB).",
+      "why": "inSampleSize scales both dimensions, reducing pixel count by the square of the sample size.",
+      "mistake": "Thinking inSampleSize = 2 cuts bitmap memory in half instead of by a factor of 4.",
+      "kind": "output",
+      "tracks": [
+        "mid",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-build-gradle-exec-config-cache",
+      "topic": "build-release",
+      "question": "Why does this Gradle snippet fail when org.gradle.configuration-cache=true is enabled?",
+      "code": "val gitSha = ByteArrayOutputStream().also { out ->\n    project.exec { commandLine(\"git\", \"rev-parse\", \"--short\", \"HEAD\"); standardOutput = out }\n}.toString().trim()",
+      "options": [
+        "git cannot run in build.gradle.kts",
+        "project.exec runs eagerly at configuration time and is incompatible with the configuration cache; use providers.exec instead",
+        "ByteArrayOutputStream is not supported in Kotlin DSL",
+        "Configuration cache requires kapt to be enabled"
+      ],
+      "answer": 1,
+      "explanation": "Calling project.exec directly during configuration executes side effects that break Gradle's configuration cache. Use providers.exec { ... }.standardOutput.asText so Gradle tracks it as a configuration input.",
+      "why": "Configuration-cache compatibility is one of the highest-impact Gradle build optimizations.",
+      "mistake": "Using legacy project.exec in build scripts instead of lazy providers.exec.",
+      "kind": "bug",
+      "bugLines": [
+        2
+      ],
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "output-build-variant-task-name",
+      "topic": "build-release",
+      "question": "What does androidComponents.onVariants let you do without hurting Gradle configuration time?",
+      "code": "androidComponents {\n    onVariants { variant ->\n        variant.instrumentation.transformClassesWith(MyVisitor::class.java, InstrumentationScope.PROJECT) {}\n    }\n}",
+      "options": [
+        "It eagerly creates all tasks for every variant during initialization",
+        "It configures variant-specific behavior lazily using the modern Variant API instead of deprecated applicationVariants.all",
+        "It disables R8 Full Mode for release builds",
+        "It runs unit tests inside the configuration phase"
+      ],
+      "answer": 1,
+      "explanation": "androidComponents.onVariants is AGP's lazy, configuration-cache-friendly Variant API that replaces eager legacy applicationVariants.all loops.",
+      "why": "Modern convention plugins use androidComponents.onVariants to stay compatible with AGP 9.0 and configuration caching.",
+      "mistake": "Using deprecated applicationVariants.all, which forces eager task realization.",
+      "kind": "output",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "design-analytics-idempotency",
+      "topic": "system-design",
+      "question": "In an Android analytics SDK, why should each persisted event batch carry a client-generated batchId?",
+      "options": [
+        "To bypass HTTPS TLS handshakes",
+        "So the server can deduplicate retried uploads if a batch succeeded on the server but timed out on the client",
+        "To run the upload on the main thread",
+        "To avoid needing WorkManager constraints"
+      ],
+      "answer": 1,
+      "explanation": "Mobile networks frequently drop responses after the server has already committed a batch. Sending a client-generated batchId (idempotency key) lets the server ignore duplicate retries.",
+      "why": "Idempotency keys are essential for at-least-once mobile delivery without inflating analytics metrics.",
+      "mistake": "Retrying failed HTTP uploads without an idempotency key, causing double-counted events.",
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-jvm-dcl-volatile",
+      "topic": "jvm-concurrency-patterns",
+      "question": "What subtle bug exists in this hand-written double-checked locking singleton?",
+      "code": "class Repo private constructor() {\n    companion object {\n        private var instance: Repo? = null\n        fun get(): Repo = instance ?: synchronized(this) {\n            instance ?: Repo().also { instance = it }\n        }\n    }\n}",
+      "options": [
+        "synchronized(this) is illegal inside a companion object",
+        "Without @Volatile, another thread can observe a non-null instance reference before Repo()'s constructor finishes",
+        "companion object cannot have a private var",
+        "The inner instance ?: check is redundant"
+      ],
+      "answer": 1,
+      "explanation": "Without @Volatile, instruction reordering can publish the reference to instance before the constructor completes, exposing a partially initialized object to another thread.",
+      "why": "Double-checked locking is the classic Java Memory Model interview check for happens-before visibility.",
+      "mistake": "Omitting @Volatile when implementing double-checked locking manually.",
+      "kind": "bug",
+      "bugLines": [
+        3
+      ],
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-jvm-abba-deadlock",
+      "topic": "jvm-concurrency-patterns",
+      "question": "Why can calling transfer(a, b, 10) and transfer(b, a, 5) concurrently deadlock?",
+      "code": "fun transfer(from: Account, to: Account, amount: Long) {\n    synchronized(from) {\n        synchronized(to) { from.debit(amount); to.credit(amount) }\n    }\n}",
+      "options": [
+        "synchronized cannot be nested in Kotlin",
+        "Thread 1 locks a then waits for b while Thread 2 locks b then waits for a (inconsistent lock ordering)",
+        "Long arithmetic is not atomic inside synchronized",
+        "to.credit(amount) throws StackOverflowError"
+      ],
+      "answer": 1,
+      "explanation": "Acquiring locks in caller-supplied argument order creates a classic AB-BA deadlock. Always acquire locks in a consistent canonical order (e.g., ordered by account ID).",
+      "why": "Consistent lock ordering is the fundamental defense against AB-BA deadlocks.",
+      "mistake": "Nesting locks in arbitrary parameter order.",
+      "kind": "bug",
+      "bugLines": [
+        2,
+        3
+      ],
+      "tracks": [
+        "mid",
+        "senior"
+      ]
     }
   ]
 }

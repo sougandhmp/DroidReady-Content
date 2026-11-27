@@ -52,11 +52,13 @@ verify { analytics.log(match { it.name == "checkout_success" }) }
 
 ### 10.3 Testing ViewModels and coroutines
 
-**In one line:** replace `Dispatchers.Main` with a test dispatcher, run tests in `runTest`, and check flows with Turbine.
+**In one line:** replace `Dispatchers.Main` with a test dispatcher, run tests in `runTest`, and check hot/cold flows with Turbine's `test` or `testIn(backgroundScope)`.
 
-**Say this in the interview:** "A ViewModel uses `Dispatchers.Main`, which doesn't exist on the JVM, so a JUnit rule swaps it for a test dispatcher. `runTest` uses virtual time, so delays are skipped. `StandardTestDispatcher` lets me check intermediate states like 'loading' by advancing time myself; `UnconfinedTestDispatcher` runs everything eagerly when I only care about the end result. I inject all dispatchers so they share one test scheduler."
+**Say this in the interview:** "A ViewModel uses `Dispatchers.Main`, which doesn't exist on the JVM, so a JUnit rule swaps it for a test dispatcher. `runTest` uses virtual time, so delays are skipped. `StandardTestDispatcher` lets me check intermediate states like 'loading' by advancing time myself; `UnconfinedTestDispatcher` runs everything eagerly when I only care about the end result. For testing multiple flows concurrently or `SharedFlow`s without hanging `runTest`, I use Turbine's `turbineScope` or `flow.testIn(backgroundScope)`."
 
-**Example:**
+**`StandardTestDispatcher` vs `UnconfinedTestDispatcher`:** `StandardTestDispatcher` queues coroutines on `TestScheduler` until `runCurrent()` or `advanceUntilIdle()` runs—essential for asserting loading states. `UnconfinedTestDispatcher` runs eagerly up to the first suspension point.
+
+**Turbine (`test` vs `testIn(backgroundScope)`):** `test { awaitItem() }` works for finite assertions; `testIn(backgroundScope)` or `turbineScope` lets you collect an infinite `StateFlow`/`SharedFlow` alongside actions without leaking an active collector into `runTest`.
 
 ```kotlin
 class MainDispatcherRule(val dispatcher: TestDispatcher = UnconfinedTestDispatcher()) : TestWatcher() {
@@ -71,7 +73,7 @@ class MainDispatcherRule(val dispatcher: TestDispatcher = UnconfinedTestDispatch
 }
 ```
 
-**Common mistake:** Using test dispatchers that don't share one scheduler, so virtual time doesn't control all the work.
+**Common mistake:** Using test dispatchers that don't share one scheduler, or collecting a `SharedFlow` in a `launch` instead of `backgroundScope` so `runTest` hangs.
 
 **Follow-ups:**
 
@@ -102,11 +104,13 @@ class MainDispatcherRule(val dispatcher: TestDispatcher = UnconfinedTestDispatch
 
 ### 10.5 UI and screenshot tests
 
-**In one line:** Compose UI tests find elements by semantics and interact with them; screenshot tests compare rendered components with saved images.
+**In one line:** Compose UI tests synchronize with `MainTestClock` or `waitUntil` against the semantics tree, while screenshot tests guard visual regressions.
 
-**Say this in the interview:** "Because my screens are stateless, I test them by passing fake state into `createComposeRule`, finding nodes by text or test tag, clicking, and asserting the callback fired. For visuals I use Roborazzi or Paparazzi on the JVM, recording golden images for each component in light, dark and large-font variants, and failing the PR if they change unexpectedly."
+**Say this in the interview:** "Because my screens are stateless, I test them by passing fake state into `createComposeRule`, finding nodes by text or content description, clicking, and asserting the callback fired. When testing animations or infinite spinners, I disable `autoAdvance` on `mainClock` and step frames manually, or use `waitUntil` for async conditions. For visuals, I use Compose Preview Screenshot Testing (`@PreviewTest` via `com.android.compose.screenshot`), Roborazzi, or Paparazzi in light, dark, and large-font variants."
 
-**Example:**
+**`MainTestClock` vs `waitUntil`:** Compose assertions automatically advance `mainClock` until idle—which hangs if an infinite animation (`CircularProgressIndicator`) keeps scheduling frames. Set `compose.mainClock.autoAdvance = false` and call `advanceTimeByFrame()` or `advanceTimeBy(ms)`, or use `compose.waitUntil { ... }` for asynchronous state.
+
+**Screenshot testing (`@PreviewTest`, Roborazzi, Paparazzi):** Reuse `@Preview` composables as golden visual tests on the JVM (`com.android.compose.screenshot` or Paparazzi/Roborazzi) so theme, spacing, and RTL regressions fail PRs.
 
 ```kotlin
 @Test fun showsArticleAndHandlesClick() {
@@ -117,7 +121,7 @@ class MainDispatcherRule(val dispatcher: TestDispatcher = UnconfinedTestDispatch
 }
 ```
 
-**Common mistake:** Finding nodes in ways tied to layout structure, so small UI changes break the tests.
+**Common mistake:** Finding nodes by layout structure or leaving `mainClock.autoAdvance = true` with an infinite loading animation.
 
 **Follow-ups:**
 

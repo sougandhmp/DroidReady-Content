@@ -33,22 +33,40 @@ suspend fun loadProfile(id: String): Profile {
 
 **Say this in the interview:** "Structured concurrency means coroutines form a tree: a scope owns its coroutines, and cancelling the scope cancels everything in it. On Android I use `viewModelScope`, which is cancelled when the ViewModel is cleared, and `lifecycleScope` for UI. I start work with `launch` when I don't need a result and `async` when I need one, mostly for running calls in parallel inside `coroutineScope`. With a normal `Job`, one failing child cancels its siblings; with `SupervisorJob` or `supervisorScope`, children fail independently."
 
-**Example:**
+**`launch`:** Starts a fire-and-forget coroutine and returns a `Job` without a result value. Uncaught exceptions propagate immediately up to the parent job.
 
 ```kotlin
-// Parallel calls; if one fails, the other is cancelled and the error is thrown here
+val job = viewModelScope.launch { repository.sync() }
+```
+
+**`async`:** Starts a coroutine that computes a result and returns a `Deferred<T>` whose value is retrieved via `await()`. Use it for parallel decomposition inside `coroutineScope`, not for single sequential calls.
+
+```kotlin
 suspend fun loadDashboard(): Dashboard = coroutineScope {
     val user = async { api.user() }
     val stats = async { api.stats() }
     Dashboard(user.await(), stats.await())
 }
+```
 
-// Independent jobs: one failing doesn't stop the other
+**`withContext(dispatcher)`:** Suspends the current coroutine, switches to the target context for the block, and returns its result directly without creating a separate `Deferred`.
+
+```kotlin
+suspend fun hashFile(file: File): String = withContext(Dispatchers.Default) { sha256(file) }
+```
+
+**`coroutineScope { }` vs `supervisorScope { }`:** Both suspend until every child finishes. `coroutineScope` cancels all siblings and rethrows if any child fails; `supervisorScope` lets children fail independently.
+
+```kotlin
 supervisorScope {
-    launch { syncContacts() }
+    launch { syncContacts() }   // failure here does not cancel syncPhotos()
     launch { syncPhotos() }
 }
 ```
+
+**`runBlocking`:** Bridges blocking world to coroutines by blocking the calling thread until completion—use only in `main()` or JUnit setup, never on Android's main thread or inside another coroutine.
+
+**The `launch(SupervisorJob())` trap:** Passing `SupervisorJob()` directly to `launch(SupervisorJob()) { ... }` creates a *single* `SupervisorJob` as the parent of the launched coroutine, not a supervisor for its children—and worse, it breaks cancellation from the outer scope. Wrap children in `supervisorScope { }` or give the `CoroutineScope` itself a `SupervisorJob()`.
 
 | Builder | Returns | Use for |
 | --- | --- | --- |
@@ -56,9 +74,10 @@ supervisorScope {
 | `async` | `Deferred<T>` (call `await()`) | Parallel work that returns a result |
 | `withContext(d)` | The block's result | Switching thread for a block |
 | `coroutineScope { }` | The block's result | Grouping children; fails if any child fails |
-| `runBlocking` | The block's result | Tests and `main` only; it blocks the thread |
+| `supervisorScope { }` | The block's result | Grouping children; independent failures |
+| `runBlocking` | The block's result | Tests and `main` only; blocks the thread |
 
-**Common mistake:** Launching in `GlobalScope`, or any scope nobody cancels, so the work outlives the screen that started it.
+**Common mistake:** Launching in `GlobalScope`, or passing `SupervisorJob()` directly to a single `launch { }` call instead of `supervisorScope { }`.
 
 **Follow-ups:**
 
@@ -70,20 +89,26 @@ supervisorScope {
 
 **Say this in the interview:** "`Dispatchers.Main` runs on the UI thread; `IO` is a large shared pool for blocking disk and network work; `Default` is sized to the CPU cores for heavy computation like parsing or sorting. My rule is that every suspend function should be main-safe: the function that does the blocking work switches with `withContext`, so callers never need to think about threads. I inject dispatchers so tests can replace them."
 
-**Example:**
+**`Dispatchers.Main` and `Main.immediate`:** Dispatches to Android's main Looper thread. `Main.immediate` (used by `viewModelScope` and `lifecycleScope`) executes immediately without posting a `Handler` message if already on the main thread, avoiding a 1-frame delay.
+
+**`Dispatchers.IO`:** Backed by an elastic shared pool (default 64 threads, or CPU count if higher) for blocking disk, file, or legacy socket I/O where threads spend most of their time waiting.
+
+**`Dispatchers.Default`:** Backed by a thread pool sized to the number of CPU cores (minimum 2) for CPU-bound work such as JSON parsing, diffing, sorting, or image processing.
+
+**`Dispatchers.Unconfined`:** Starts the coroutine on the caller's thread until the first suspension point, then resumes on whatever thread the suspending call finished on—avoid in production app code.
+
+**`limitedParallelism(n)`:** Creates a view over `Dispatchers.IO` or `Default` capped at `n` concurrent tasks without allocating a brand-new thread pool. On `IO`, it can even exceed 64 when isolating dedicated blocking work.
 
 ```kotlin
 class ArticleRepository(
     private val api: ArticleApi,
-    private val io: CoroutineDispatcher = Dispatchers.IO     // injectable for tests
+    private val io: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(4)
 ) {
     suspend fun fetch(id: String): Article = withContext(io) { api.getArticle(id) }
 }
 ```
 
-**How it works:** `viewModelScope` and `lifecycleScope` use `Dispatchers.Main.immediate`, which runs straight away if already on the main thread. `IO` allows 64 threads (or more on many-core devices) because those threads mostly wait.
-
-**Common mistake:** Running blocking I/O on `Dispatchers.Default`, which has only a few threads meant for CPU work.
+**Common mistake:** Running blocking I/O on `Dispatchers.Default`, which starves CPU-bound work across the app.
 
 **Follow-ups:**
 
@@ -145,19 +170,31 @@ scope.launch {
 
 **Say this in the interview:** "A Flow is the coroutine version of a stream. It's cold, so nothing happens until someone calls `collect`, and each collector gets its own run. I build pipelines with operators like `map`, `filter`, `debounce`, `combine` and `flatMapLatest`, use `flowOn` to move upstream work to another dispatcher, and Room gives me Flows that re-emit whenever the table changes."
 
-**Example:**
+**`map`, `filter`, `distinctUntilChanged`:** Transform, filter, and deduplicate consecutive emissions without launching extra coroutines.
 
 ```kotlin
-repository.observeArticles()                    // Flow<List<Article>> from Room
+repository.observeArticles()
     .map { list -> list.filter { it.isPublished } }
     .distinctUntilChanged()
-    .flowOn(Dispatchers.Default)                // the steps above run on Default
-    .collect { render(it) }
 ```
 
-**How it works:** `flowOn` changes the context of everything above it. Inside `flow { }` you must not emit from another context (for example inside `withContext`); use `flowOn` or `channelFlow`.
+**`flowOn(dispatcher)`:** Switches the coroutine context for all *upstream* operators above it, leaving downstream collection on the collector's context.
 
-**Common mistake:** Collecting the same cold flow twice and expecting the work to run only once.
+```kotlin
+flow { emit(heavyParse()) }
+    .flowOn(Dispatchers.Default)
+    .collect { render(it) }   // runs on collector's dispatcher (e.g. Main)
+```
+
+**`combine` vs `zip`:** `combine` re-emits whenever *any* source emits, pairing it with the latest value from the others (ideal for UI state from multiple streams). `zip` waits for a fresh item from *every* source and pairs them 1-to-1.
+
+```kotlin
+val uiState = combine(userFlow, filterFlow) { user, filter -> UiState(user, filter) }
+```
+
+**`flow { }` vs `channelFlow { }`:** `flow { }` enforces context preservation—you cannot call `emit` from another coroutine or `withContext`. `channelFlow { }` creates a concurrent send channel so multiple coroutines can call `send()` safely.
+
+**Common mistake:** Collecting the same cold flow twice and expecting the upstream producer to run only once.
 
 **Follow-ups:**
 
@@ -255,16 +292,27 @@ fun messageShown() = _state.update { it.copy(userMessage = null) }
 
 **Say this in the interview:** "The `catch` operator only sees exceptions from operators above it, not from `collect`, so I put work in `onEach` before `catch` and use `launchIn`. For flaky streams I use `retryWhen` with backoff. For flattening, `flatMapLatest` cancels the previous inner flow, which is perfect for search; `flatMapConcat` runs them one by one; `flatMapMerge` runs them in parallel. If the collector is slow, `conflate` keeps only the latest value, and `collectLatest` cancels the old work when a new value arrives."
 
-**Example:**
+**`catch` and `onCompletion`:** `catch` intercepts exceptions from *upstream* operators (never `CancellationException`, and never exceptions thrown inside `collect`). `onCompletion` runs in a `finally`-like block with the nullable `cause`.
 
 ```kotlin
-api.liveScores()
-    .retryWhen { cause, attempt -> (cause is IOException && attempt < 3).also { if (it) delay(1000L * (attempt + 1)) } }
-    .onCompletion { cause -> log("ended, cause=$cause") }   // runs on success, error or cancellation
-    .catch { emit(Scores.Unavailable) }                      // upstream errors only
+flow { emit(api.load()) }
+    .onCompletion { cause -> log("ended, cause=$cause") }
+    .catch { emit(FallbackData) }
     .onEach { render(it) }
     .launchIn(viewModelScope)
 ```
+
+**`retryWhen`:** Re-collects the upstream flow when the predicate returns `true`, giving you the `cause` and zero-based `attempt` for exponential backoff.
+
+```kotlin
+api.liveScores().retryWhen { cause, attempt ->
+    (cause is IOException && attempt < 3).also { if (it) delay(1_000L * (attempt + 1)) }
+}
+```
+
+**`flatMapLatest`, `flatMapConcat`, `flatMapMerge`:** `flatMapLatest` cancels the previous inner flow on each new emission (type-ahead search); `flatMapConcat` runs inner flows sequentially; `flatMapMerge` collects up to `concurrency` (default 16) inner flows in parallel.
+
+**`buffer()`, `conflate()`, `collectLatest`:** `buffer()` decouples producer and consumer into separate coroutines via a channel; `conflate()` drops intermediate emissions when the collector is slow, keeping only the latest; `collectLatest` cancels the active collector block itself when a new item arrives.
 
 | Operator | Behaviour | Use for |
 | --- | --- | --- |

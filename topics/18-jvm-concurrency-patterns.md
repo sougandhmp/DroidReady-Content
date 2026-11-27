@@ -16,7 +16,7 @@ object Cache {
 }
 ```
 
-**How it works:** most collection in ART is concurrent, so pauses are short, but heavy allocation in hot paths, such as creating objects in `onDraw` or during scrolling, still costs CPU and can cause jank. `ActivityManager.getMemoryClass()` reports the heap limit, often 256 to 512 MB on modern phones.
+**How it works:** ART uses a Concurrent Copying (CC) collector with Thread-Local Allocation Buffers (TLABs) so most allocations and collections happen concurrently with minimal stop-the-world pauses. Still, heavy allocation in hot paths (`onDraw`, scroll callbacks) causes CPU churn and jank. `ActivityManager.getMemoryClass()` reports the heap limit, often 256 to 512 MB on modern phones.
 
 **Common mistake:** Thinking garbage collection makes memory leaks impossible.
 
@@ -60,7 +60,7 @@ activityRef.get()?.showLocation(location)   // null if already collected
 
 **In one line:** sharing data between threads has two separate problems: other threads may not see a write (visibility), and multi-step updates can interleave and lose data (atomicity).
 
-**Say this in the interview:** "Visibility means one thread writes a value but another keeps reading an old copy from a CPU cache or a compiler optimisation. Atomicity means `count++` is really read, add, write, so two threads can lose an update. The Java Memory Model's happens-before rules say when a write is guaranteed visible: releasing a lock, writing a `volatile` field, and starting or joining a thread all create that guarantee. So `@Volatile` fixes visibility for a flag, atomics fix a single counter, and a lock or `Mutex` protects several fields that change together. Best of all is avoiding shared mutable state: immutable data or keeping state on one thread."
+**Say this in the interview:** "Visibility means one thread writes a value but another keeps reading an old copy from a CPU cache or a compiler optimisation. Atomicity means `count++` is really read, add, write, so two threads can lose an update. The Java Memory Model's happens-before rules say when a write is guaranteed visible: releasing a lock, writing a `volatile` field, and starting or joining a thread all create that guarantee. For a single variable I use `AtomicInteger` or `updateAndGet` (Compare-And-Swap, CAS, without locking); for a compound invariant I use a lock or coroutine `Mutex`. Best of all is avoiding shared mutable state."
 
 **Example:**
 
@@ -70,11 +70,11 @@ activityRef.get()?.showLocation(location)   // null if already collected
 fun cancel() { cancelled = true }
 fun loop() { while (!cancelled) doWork() }
 
-// Atomicity for one variable: never @Volatile alone for count++
+// Atomicity via CAS (Compare-And-Swap): never @Volatile alone for count++
 private val count = AtomicInteger()
-fun increment() = count.incrementAndGet()
+fun addCapped(max: Int) = count.updateAndGet { cur -> (cur + 1).coerceAtMost(max) }
 
-// Several fields that must change together: a lock
+// Several fields that must change together: a lock (or Mutex if suspending)
 private val lock = Any()
 private var balance = 0L
 private val history = mutableListOf<Long>()
@@ -126,13 +126,16 @@ class Database private constructor(context: Context) {
 
 **In one line:** threads are expensive operating-system resources, executors reuse a pool of them, and coroutines are lightweight tasks that share a few threads.
 
-**Say this in the interview:** "Each thread costs about a megabyte of stack, so I almost never create them directly. Java code uses executors and thread pools; `HandlerThread` gives a thread with a message loop for legacy callback APIs like the camera. In Kotlin, coroutines are the default: a suspended coroutine releases its thread, so 10,000 concurrent coroutines can run on a handful of threads, while 10,000 threads would exhaust memory. To bridge, I can wrap an executor with `asCoroutineDispatcher()`."
+**Say this in the interview:** "Each thread costs about a megabyte of stack, so I almost never create them directly. Java code uses executors and thread pools; `HandlerThread` gives a thread with a message loop for legacy callback APIs like the camera. In Kotlin, coroutines are the default: a suspended coroutine releases its thread, so 10,000 concurrent coroutines can run on a handful of threads, while 10,000 threads would exhaust memory. Note two traps: never use `synchronized` around a `suspend` call (use `Mutex` instead), and if you rely on a `ThreadLocal` across dispatcher switches, bridge it with `threadLocal.asContextElement()`."
 
 **Example:**
 
 ```kotlin
 val ioExecutor = Executors.newFixedThreadPool(4)
 val dispatcher = ioExecutor.asCoroutineDispatcher()     // use with withContext(dispatcher) { ... }
+
+val traceId = ThreadLocal<String>()
+withContext(Dispatchers.IO + traceId.asContextElement("req-42")) { api.fetch() }
 ```
 
 | Tool | What it is | When to use |

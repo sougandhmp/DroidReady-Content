@@ -62,13 +62,15 @@ abstract class DataModule {
 
 - *`@Binds` vs `@Provides`?* `@Binds` maps an interface to an implementation that has an `@Inject` constructor; it's abstract and cheaper. `@Provides` is a function where you write the construction code yourself.
 
-### 6.3 Components and scopes
+### 6.3 Components, scopes and lazy injection
 
-**In one line:** each Hilt component lives as long as an Android class, and a scope annotation makes a binding one shared instance within that component.
+**In one line:** each Hilt component lives as long as an Android class, a scope annotation shares one instance within that component, and `Lazy<T>`/`Provider<T>` control *when* creation happens.
 
-**Say this in the interview:** "Without a scope, Hilt creates a new instance every time something asks for it. `@Singleton` gives one per app, `@ViewModelScoped` one per ViewModel, `@ActivityRetainedScoped` one that survives rotation, and so on. I only scope objects that hold shared state or are expensive to create, because a scoped object stays in memory for the whole component's life."
+**Say this in the interview:** "Without a scope, Hilt creates a new instance every time something asks for it. `@Singleton` gives one per app, `@ViewModelScoped` one per ViewModel, and `@ActivityRetainedScoped` survives rotation. I also use `@Reusable` for stateless helpers that can be cached opportunistically, and `dagger.Lazy<T>` to defer expensive initialization until first `get()` call."
 
-**Example:**
+**`@Singleton` vs `@Reusable`:** `@Singleton` guarantees exactly one instance per `SingletonComponent` using `DoubleCheck` synchronization. `@Reusable` (from Dagger) caches the instance in the component if convenient without strict single-instance guarantees or locking—useful for stateless mappers.
+
+**`dagger.Lazy<T>` vs `Provider<T>`:** Injecting `dagger.Lazy<T>` defers creating `T` until `lazy.get()` is first called, then caches that instance for subsequent `get()` calls. Injecting `Provider<T>` calls the factory on *every* `provider.get()` (returning a new instance unless `T` is scoped).
 
 | Component | Scope | Lives as long as |
 | --- | --- | --- |
@@ -79,7 +81,7 @@ abstract class DataModule {
 | `FragmentComponent` | `@FragmentScoped` | One fragment |
 | `ServiceComponent` | `@ServiceScoped` | One service |
 
-**Common mistake:** Marking everything `@Singleton`, which keeps objects alive longer than they are needed.
+**Common mistake:** Marking everything `@Singleton`, which keeps objects alive longer than they are needed, or using `kotlin.Lazy` instead of `dagger.Lazy`.
 
 **Follow-ups:**
 
@@ -99,14 +101,15 @@ abstract class DataModule {
 @Provides @IoDispatcher fun io(): CoroutineDispatcher = Dispatchers.IO
 ```
 
-**Assisted injection (`@AssistedInject`):** Used when a class needs both Hilt-provided dependencies and caller-supplied runtime parameters (such as an `articleId`). Hilt generates an `@AssistedFactory` instead of a standard factory.
+**Assisted injection (`@AssistedInject`):** Used when a class needs both Hilt-provided dependencies and caller-supplied runtime parameters (such as an `articleId`). For ViewModels, use `@HiltViewModel(assistedFactory = ...)` with `hiltViewModel<DetailViewModel, DetailViewModel.Factory> { it.create(id) }`.
 
 ```kotlin
-class ArticleExporter @AssistedInject constructor(
-    private val repo: ArticleRepository,           // from Hilt graph
-    @Assisted private val articleId: String        // from caller at runtime
-) {
-    @AssistedFactory interface Factory { fun create(articleId: String): ArticleExporter }
+@HiltViewModel(assistedFactory = DetailViewModel.Factory::class)
+class DetailViewModel @AssistedInject constructor(
+    private val repo: ArticleRepository,
+    @Assisted private val articleId: String
+) : ViewModel() {
+    @AssistedFactory interface Factory { fun create(articleId: String): DetailViewModel }
 }
 ```
 
@@ -148,9 +151,9 @@ abstract class FakeDataModule {
 
 **In one line:** use `@EntryPoint` when a class Hilt can't inject directly needs something from the graph, and `@HiltWorker` for WorkManager workers.
 
-**Say this in the interview:** "Hilt can't generate code for classes it doesn't control, such as a `ContentProvider`, an App Startup `Initializer`, or a third-party library class. For those, I define an `@EntryPoint` interface installed in the right component, usually `SingletonComponent`, and fetch it with `EntryPointAccessors.fromApplication`. For WorkManager, I annotate the worker with `@HiltWorker`, use `@AssistedInject`, and configure `HiltWorkerFactory` in the Application class."
+**Say this in the interview:** "Hilt can't generate code for classes it doesn't control, such as a `ContentProvider`, an App Startup `Initializer`, or a third-party library class. For those, I define an `@EntryPoint` interface installed in the right component, usually `SingletonComponent`, and fetch it with `EntryPointAccessors.fromApplication`. For WorkManager, I annotate the worker with `@HiltWorker`, use `@AssistedInject`, implement `Configuration.Provider` with `HiltWorkerFactory`, and remove the default `WorkManagerInitializer` in the manifest."
 
-**Example:**
+**`@EntryPoint`:** Exposes Hilt bindings to non-Hilt classes via `EntryPointAccessors`.
 
 ```kotlin
 @EntryPoint
@@ -160,7 +163,18 @@ interface SyncEntryPoint { fun repository(): ArticleRepository }
 val repo = EntryPointAccessors.fromApplication(context, SyncEntryPoint::class.java).repository()
 ```
 
-**Common mistake:** Creating a custom `Worker` with `@Inject constructor` without `@HiltWorker` and `@AssistedInject`, so `Context` and `WorkerParameters` fail to bind.
+**`@HiltWorker` and the manifest trap:** `@HiltWorker` uses `@AssistedInject` with `@Assisted Context` and `@Assisted WorkerParameters`. If you forget to remove `androidx.work.WorkManagerInitializer` (`tools:node="remove"`) in `AndroidManifest.xml`, WorkManager initializes *before* `Application.getWorkManagerConfiguration()` runs and fails to instantiate your worker.
+
+```kotlin
+@HiltWorker
+class SyncWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val repo: ArticleRepository
+) : CoroutineWorker(context, params) { /* ... */ }
+```
+
+**Common mistake:** Creating a `@HiltWorker` without removing `WorkManagerInitializer` from `AndroidManifest.xml`, causing `NoSuchMethodException` at runtime.
 
 **Follow-ups:**
 
