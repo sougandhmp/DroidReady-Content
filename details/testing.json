@@ -73,5 +73,14 @@
     "why": "It reveals whether you value useful tests over numbers.",
     "mistake": "Chasing 100% with tests that assert nothing.",
     "followUp": "How do you find important untested code?"
+  },
+  "How does Compose UI testing find elements, and how do you automate accessibility checks?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Good Compose tests and good accessibility use the same semantics tree.",
+    "mistake": "Sprinkling `testTag` everywhere instead of testing real accessibility labels.",
+    "followUp": "When do you need `useUnmergedTree = true`?"
   }
 }

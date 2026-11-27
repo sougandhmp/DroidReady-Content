@@ -81,5 +81,39 @@
     "why": "Reviewers judge how clearly you explain your decisions.",
     "mistake": "Listing only run instructions and no trade-offs.",
     "followUp": "What would you build next, and why?"
+  },
+  "How do you merge overlapping intervals?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "It tests sorting plus a clean single-pass invariant.",
+    "mistake": "Forgetting to take `maxOf` on the end bound when one interval contains another.",
+    "followUp": "How would you insert one new interval into an already sorted list?"
+  },
+  "How would you implement a sliding-window rate limiter in Kotlin?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Rate limiting tests queue eviction, concurrency safety, and testable time.",
+    "mistake": "Hardcoding `System.currentTimeMillis()` so tests have to sleep.",
+    "followUp": "When would you switch to a token bucket?"
+  },
+  "How do you order tasks or initializers that have dependencies?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Topological sort shows up in build graphs, App Startup initializers, and task runners.",
+    "mistake": "Not checking whether a cycle prevented all nodes from being scheduled.",
+    "followUp": "How would you run independent tasks in parallel?"
+  },
+  "How do you build and test an in-memory cache with a TTL?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "TTL caches are a practical Android pattern for config and search results.",
+    "mistake": "Leaving the cache size unbounded or sleeping in unit tests.",
+    "followUp": "Should the clock use wall-clock time or `elapsedRealtime`?"
   }
 }

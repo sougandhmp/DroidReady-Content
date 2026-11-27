@@ -96,5 +96,13 @@
     "why": "It shows whether you follow the newer navigation library.",
     "mistake": "Describing the old `NavController` model as if nothing had changed.",
     "followUp": "How would you handle deep links with your own back stack?"
+  },
+  "How does Material 3 theming and dynamic color work in Jetpack Compose?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "Consistent theming and dark-mode support are core UI fundamentals.",
+    "mistake": "Hardcoding `Color` literals instead of semantic `MaterialTheme.colorScheme` tokens.",
+    "followUp": "How do you support dynamic color while keeping brand identity?"
   }
 }

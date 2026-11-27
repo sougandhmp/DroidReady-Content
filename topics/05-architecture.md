@@ -217,7 +217,32 @@ fun NavGraphBuilder.homeScreen(onArticleClick: (String) -> Unit) {
 
 **Follow-ups:**
 
-- *How do you introduce architecture changes in a large legacy app?* Write a short architecture decision record, pilot it on one feature, enforce boundaries with lint or dependency rules, migrate step by step, and measure build times and crash rates.
+- *How do you introduce architecture changes in a large legacy app?* Write a short architecture decision record, pilot it on one feature, add rules that enforce module boundaries, migrate step by step, and measure build times and crash rates.
+
+### 5.8 UI state holders and state lifespans
+
+**In one line:** use a `ViewModel` for screen-level business state that survives configuration changes, and a plain `@Stable` state-holder class for reusable UI-element logic.
+
+**Say this in the interview:** "Google's architecture guide distinguishes screen-level state holders (`ViewModel`) from plain UI state holders. A `ViewModel` lives as long as its navigation destination, accesses repositories or use cases, and survives rotation. A plain `@Stable` state-holder class—like `LazyListState` or a custom `SearchBarState`—is created with `remember`, manages pure UI logic such as animations, scroll position or drawer expansion, and has no business dependencies."
+
+**Example:**
+
+```kotlin
+@Stable
+class FilterBarState(initialQuery: String = "") {
+    var query by mutableStateOf(initialQuery)
+    var expanded by mutableStateOf(false)
+}
+
+@Composable
+fun rememberFilterBarState(initialQuery: String = "") = remember { FilterBarState(initialQuery) }
+```
+
+**Common mistake:** Putting pure UI animation or expand/collapse flags into a `ViewModel`, or injecting a repository into a plain UI state holder.
+
+**Follow-ups:**
+
+- *When is a `ViewModel` cleared?* When its `ViewModelStoreOwner` (Activity, Fragment, or navigation back-stack entry) is permanently finished or popped.
 
 ### Interview questions
 
@@ -231,3 +256,4 @@ fun NavGraphBuilder.homeScreen(onArticleClick: (String) -> Unit) {
 8. **Why keep separate models per layer?** So a backend change in a DTO doesn't break the UI, the database schema can evolve on its own, and UI models can hold formatted, display-ready values. {Easy}
 9. **How do feature modules navigate to each other without depending on each other?** Each feature exposes routes or navigation callbacks, and the app module wires them together; shared route types can live in a small API module. {Hard}
 10. **How do you introduce a new architecture into a large legacy app?** Document the decision, pilot it on one feature, add rules that enforce module boundaries, migrate incrementally, and track build times and crash rates. {Hard}
+11. **When do you use a plain state-holder class instead of a `ViewModel` in Compose?** Use a plain `@Stable` state holder with `remember` for reusable UI-element logic (like scroll, focus, or expand/collapse) that needs no repositories; use a `ViewModel` for screen-level business data and configuration-change survival. {Medium}
