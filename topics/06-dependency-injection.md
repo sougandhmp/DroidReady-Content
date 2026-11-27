@@ -87,25 +87,33 @@ abstract class DataModule {
 
 ### 6.4 Qualifiers, assisted injection and multibindings
 
-**In one line:** qualifiers tell apart two bindings of the same type, assisted injection mixes graph dependencies with runtime values, and multibindings collect many implementations into a set or map.
+**In one line:** qualifiers distinguish bindings of the same type, assisted injection mixes graph dependencies with runtime arguments, and multibindings collect implementations into a `Set` or `Map`.
 
-**Say this in the interview:** "When I need two `CoroutineDispatcher`s, I define qualifiers like `@IoDispatcher` and `@DefaultDispatcher`. When a class needs something only known at runtime, like an article ID, I use `@AssistedInject` with an `@AssistedFactory`. And when several modules each contribute an implementation, like app initializers or payment methods, I use `@IntoSet` or `@IntoMap` so no central list has to know about them all."
+**Say this in the interview:** "Each DI tool solves a specific wiring problem: `@Qualifier` disambiguates two `CoroutineDispatcher`s, `@AssistedInject` passes runtime parameters alongside graph dependencies, and `@IntoSet`/`@IntoMap` lets feature modules register plugins without central coupling."
 
-**Example:**
+**Qualifiers (`@Qualifier`):** Custom annotations that distinguish multiple bindings of the same return type (e.g., `@IoDispatcher` vs `@DefaultDispatcher`, or `@AuthClient` vs `@PublicClient`).
 
 ```kotlin
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class IoDispatcher
 
 @Provides @IoDispatcher fun io(): CoroutineDispatcher = Dispatchers.IO
+```
 
+**Assisted injection (`@AssistedInject`):** Used when a class needs both Hilt-provided dependencies and caller-supplied runtime parameters (such as an `articleId`). Hilt generates an `@AssistedFactory` instead of a standard factory.
+
+```kotlin
 class ArticleExporter @AssistedInject constructor(
-    private val repo: ArticleRepository,           // from the graph
-    @Assisted private val articleId: String        // from the caller
+    private val repo: ArticleRepository,           // from Hilt graph
+    @Assisted private val articleId: String        // from caller at runtime
 ) {
     @AssistedFactory interface Factory { fun create(articleId: String): ArticleExporter }
 }
+```
 
-@Binds @IntoSet abstract fun analyticsInit(i: AnalyticsInitializer): AppInitializer   // collected into Set<AppInitializer>
+**Multibindings (`@IntoSet` / `@IntoMap`):** Collects bindings from multiple modules into a `Set<T>` or `Map<K, T>`—ideal for app initializers, analytics sinks, or payment strategy maps.
+
+```kotlin
+@Binds @IntoSet abstract fun analyticsInit(i: AnalyticsInitializer): AppInitializer
 ```
 
 **Common mistake:** Providing two bindings of the same type without a qualifier, then being surprised by a duplicate binding error.

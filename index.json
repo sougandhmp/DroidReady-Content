@@ -14,28 +14,28 @@
       "number": 1,
       "title": "Kotlin",
       "path": "topics/01-kotlin.md",
-      "sha256": "f99eb5bfe2e23634f8b8fb2b86946164e16654ac539ef72ee03463eaf1f127e3"
+      "sha256": "d2f34ad89e4476da15389628e33ae3a87cd518fcc33a8a066890248bb90ee731"
     },
     {
       "id": "coroutines-flow",
       "number": 2,
       "title": "Coroutines and Flow",
       "path": "topics/02-coroutines-flow.md",
-      "sha256": "05c8acbf2517dea2e89181aabb261b5d43cf27fd535bfaec23d40886a6d2678c"
+      "sha256": "2bee002489679e8b969bd66267c98016f0e495ff312fea41adb0b38fa4be7432"
     },
     {
       "id": "android-fundamentals",
       "number": 3,
       "title": "Android fundamentals",
       "path": "topics/03-android-fundamentals.md",
-      "sha256": "c7bb82e21b1ffbcc594e37a9b655ef2c1adf11ece4eb5e12c722ea96c9a7efa1"
+      "sha256": "6d94a701526b3d20a0711dbfd0fcf6876bdf06605d3c9ba07be7a4548f03167f"
     },
     {
       "id": "jetpack-compose",
       "number": 4,
       "title": "Jetpack Compose",
       "path": "topics/04-jetpack-compose.md",
-      "sha256": "3382d0bc9da9b1475187e51440394d7792a253bae79b09eac3c5ec96e2924ad3"
+      "sha256": "e80341704834be8ee9a4194e2d5d8d6e1653b56af7bfcbbf79ee52507b442cef"
     },
     {
       "id": "architecture",
@@ -49,7 +49,7 @@
       "number": 6,
       "title": "Dependency injection",
       "path": "topics/06-dependency-injection.md",
-      "sha256": "679fbbad9223b38bc34104f486154d3bde713bcec8e3f45cc1fe6c7701e75817"
+      "sha256": "e7a2da954f7f724b2fcbd2c17f69e1d84224e7970cc7bbbf9e9c5deb218beb67"
     },
     {
       "id": "data-layer",
@@ -133,7 +133,7 @@
       "number": 18,
       "title": "JVM, concurrency and design patterns",
       "path": "topics/18-jvm-concurrency-patterns.md",
-      "sha256": "62cc12d66aba82c04b9410852b7e2be5a03fae9145ec51f8f00a88f5b487fece"
+      "sha256": "1adbaa3fbdb88178ea02bd5d2680e42c0ea1a55e9e92a253652d0934f2df7f4e"
     }
   ],
   "quiz": {
