@@ -446,6 +446,38 @@ abstract class BaseAdapter(protected val tag: String)   // holds shared state
 
 - *Can a Kotlin interface have properties?* Yes—abstract properties or properties with custom `get()` accessors, as long as they have no backing field.
 
+### 1.16 Preconditions: require vs check
+
+**In one line:** `require` validates caller arguments (`IllegalArgumentException`), while `check` validates the object's or program's current state (`IllegalStateException`).
+
+**Say this in the interview:** "I use Kotlin's standard-library preconditions to fail fast with clear messages instead of letting bad inputs or invalid state corrupt data downstream. `require` and `requireNotNull` guard arguments passed in by the caller—a failure means 'you called me wrong'. `check` and `checkNotNull` guard the object's own state—a failure means 'I'm not ready for this call right now'. Both also use Kotlin contracts, so a successful `requireNotNull` or `checkNotNull` smart-casts the variable to non-null."
+
+**Example:**
+
+| | `require` / `requireNotNull` | `check` / `checkNotNull` |
+| --- | --- | --- |
+| Guards | Arguments passed in by the caller | State of the object or program |
+| Throws | `IllegalArgumentException` | `IllegalStateException` |
+| A failure means | "You called me wrong" | "I'm not ready for this call right now" |
+
+```kotlin
+class Player {
+    private var prepared = false
+
+    fun seekTo(positionMs: Long) {
+        require(positionMs >= 0) { "positionMs must be >= 0, was $positionMs" } // bad input
+        check(prepared) { "Call prepare() before seekTo()" }                     // bad state
+        // ...
+    }
+}
+```
+
+**Common mistake:** Using `require` for internal state checks or `check` for parameter validation, which throws the wrong exception type for callers and crash triage.
+
+**Follow-ups:**
+
+- *Why pass a lazy lambda `{ "..." }` to `require` or `check`?* The message string is only built when the condition fails, avoiding string allocation on every valid call.
+
 ### Interview questions
 
 1. **Why should you avoid `!!`, and what do you use instead?** `!!` throws a NullPointerException at runtime, which throws away Kotlin's compile-time safety. Use a safe call with a default, an early return, or `requireNotNull` with a clear message. {Easy}
@@ -464,3 +496,4 @@ abstract class BaseAdapter(protected val tag: String)   // holds shared state
 14. **Explain `out` and `in` in Kotlin generics.** `out T` means the type only produces `T`, so `Source<Cat>` can be used as `Source<Animal>`. `in T` means it only consumes `T`, so `Sink<Animal>` can be used as `Sink<Cat>`. Without either, the type is invariant. {Hard}
 15. **When would you use a sequence instead of a list?** For long chains of operations over large data, or when you only need the first few results, because sequences are lazy and avoid intermediate lists. For small lists, plain collections are simpler and often faster. {Medium}
 16. **When do you choose an interface over an abstract class in Kotlin?** Use an interface for capabilities a class can combine with others (multiple inheritance, no backing fields); use an abstract class when subclasses share state, backing fields or constructor setup. {Easy}
+17. **When do you use `require` vs `check` in Kotlin?** Use `require` (or `requireNotNull`) to validate caller arguments, throwing `IllegalArgumentException` when the caller passed bad input; use `check` (or `checkNotNull`) to validate the object's or program's state, throwing `IllegalStateException` when it isn't ready for the call. {Easy}

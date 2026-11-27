@@ -132,5 +132,14 @@
     "why": "It checks OOP fundamentals in Kotlin where interfaces can also have default implementations.",
     "mistake": "Claiming interfaces cannot contain any method bodies in Kotlin.",
     "followUp": "Can a Kotlin interface declare a property?"
+  },
+  "When do you use `require` vs `check` in Kotlin?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Using the right precondition makes API contracts explicit and crash reports immediately clear.",
+    "mistake": "Using `check` for bad arguments or `require` for invalid object state, or building the message eagerly without a lambda.",
+    "followUp": "How do `requireNotNull` and `checkNotNull` help with nullability?"
   }
 }

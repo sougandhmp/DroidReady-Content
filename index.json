@@ -14,7 +14,7 @@
       "number": 1,
       "title": "Kotlin",
       "path": "topics/01-kotlin.md",
-      "sha256": "82d7f08096eb475e1b5911ebc33f6001b7997ff403082153085ec973c9d051dd"
+      "sha256": "62449b9b30efe9b8d9d5cc3a8e65b4baf4d500a4fe268ff46eed5725c6465973"
     },
     {
       "id": "coroutines-flow",
