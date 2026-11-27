@@ -183,5 +183,22 @@
     "why": "This is a widespread Kotlin anti-pattern that causes both branches to run.",
     "mistake": "Treating `?.let { } ?: run { }` as equivalent to `if (x != null) ... else ...`.",
     "followUp": "When is `?.let { } ?: default` actually safe?"
+  },
+  "What is the difference between a nested class and an `inner class` in Kotlin?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Using `inner` unnecessarily is a common source of Activity memory leaks on Android.",
+    "mistake": "Assuming nested classes in Kotlin hold an outer reference by default, like Java non-static inner classes.",
+    "followUp": "How do you safely access an outer `Activity` from a callback?"
+  },
+  "What does `data object` add over a plain `object`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks awareness of Kotlin 1.9+ improvements for sealed hierarchies.",
+    "mistake": "Using plain `object` in sealed states and getting `Loading@1a2b3c` in logs.",
+    "followUp": "Can a `data object` have constructor parameters?"
   }
 }

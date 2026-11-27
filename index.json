@@ -14,7 +14,7 @@
       "number": 1,
       "title": "Kotlin",
       "path": "topics/01-kotlin.md",
-      "sha256": "d2f34ad89e4476da15389628e33ae3a87cd518fcc33a8a066890248bb90ee731"
+      "sha256": "cc01cfe169fa90471fadfd2bf7dadb39af8706b8fdc5b4a2b22fdfccce84df8d"
     },
     {
       "id": "coroutines-flow",
@@ -138,6 +138,6 @@
   ],
   "quiz": {
     "path": "quiz.json",
-    "sha256": "3d00e07552f0e80dc92f337a9aaced78ba9ae894a5d596c04fc516b223f39447"
+    "sha256": "6d1ea79a5f2c6e3562aa574b708c497eee4f8bbd2bda65d0467d2a8461a26818"
   }
 }

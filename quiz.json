@@ -1920,6 +1920,30 @@
       "tracks": [
         "senior"
       ]
+    },
+    {
+      "id": "bug-kotlin-inner-class-leak",
+      "topic": "kotlin",
+      "question": "Why does registering this callback leak MainActivity?",
+      "code": "class MainActivity : ComponentActivity() {\n    inner class SyncListener {\n        fun onDone() = refreshUi()\n    }\n    override fun onStart() { super.onStart(); SyncManager.add(SyncListener()) }\n}",
+      "options": [
+        "inner class cannot have methods",
+        "An inner class holds an implicit reference to the outer MainActivity, keeping it alive in SyncManager",
+        "onStart() runs on a background thread",
+        "SyncManager must be a data object"
+      ],
+      "answer": 1,
+      "explanation": "Unlike a plain nested class, an inner class holds an implicit reference to its outer instance. Remove inner (or unregister on stop) so SyncManager doesn't retain MainActivity.",
+      "why": "Java-style inner classes are a frequent source of Activity memory leaks on Android.",
+      "mistake": "Marking a nested helper or listener as inner when it doesn't need the outer instance (or forgetting to unregister it).",
+      "kind": "bug",
+      "bugLines": [
+        2
+      ],
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     }
   ]
 }

@@ -377,10 +377,18 @@ class ArticleFragment : Fragment() {
 }
 ```
 
-**`object` declaration (singleton):** Declares a class and its single instance in one step, initialized lazily and thread-safely on first access.
+**`object` declaration (singleton):** Declares a class and its single instance in one step, initialized lazily and thread-safely on first access. Cannot have constructors.
 
 ```kotlin
 object Analytics { fun track(event: String) { } }
+```
+
+**`data object` (Kotlin 1.9+):** A singleton that generates a clean `toString()` (returning the simple class name instead of `ClassName@hash`), `equals()`, and `hashCode()`—ideal for empty states in `sealed` hierarchies.
+
+```kotlin
+sealed interface UiState {
+    data object Loading : UiState   // println(Loading) -> "Loading"
+}
 ```
 
 **`object` expression (anonymous object):** Creates an ad-hoc implementation of one or more interfaces or classes.
@@ -390,6 +398,13 @@ val watcher = object : TextWatcher { /* ... */ }
 ```
 
 **How it works:**
+
+| | `object` declaration | `companion object` |
+| --- | --- | --- |
+| Belongs to | Package or enclosing scope | Its enclosing class (`1` per class) |
+| Accessed as | `Analytics.track(...)` | `MyClass.create()` (or `MyClass.Companion.create()` in Java) |
+| Initialized | Lazily on first access | When the enclosing class is loaded |
+| Private access | Cannot see another class's `private` members | Can access `private` constructors and members of its class |
 
 | Kotlin | Compiled to |
 | --- | --- |
@@ -580,6 +595,51 @@ class Player {
 
 - *Why pass a lazy lambda `{ "..." }` to `require` or `check`?* The message string is only built when the condition fails, avoiding string allocation on every valid call.
 
+### 1.17 Nested, inner, open and annotation classes
+
+**In one line:** Kotlin classes are `final` and nested classes are static by default; `open` enables inheritance, `inner` holds a reference to the outer instance, and `annotation class` attaches metadata.
+
+**Say this in the interview:** "Kotlin makes classes `final` and nested classes static by default so you don't accidentally allow fragile inheritance or leak an outer `Activity`. I only add `open` when a class is designed for subclassing, only add `inner` when a nested class truly needs its outer instance, and use `annotation class` for Hilt qualifiers or compile-time metadata."
+
+**Regular (`final`) vs. `open class`:** Classes and methods in Kotlin are `final` by default. Mark a class `open` to allow subclassing, and mark individual methods/properties `open` to allow `override`.
+
+```kotlin
+open class BaseScreen { open fun onReady() {} }
+class HomeScreen : BaseScreen() { override fun onReady() {} }
+```
+
+**Nested `class` (static by default):** Declared inside another class without `inner`. Holds no reference to the outer instance, so it cannot leak an `Activity` or `Fragment` (e.g. `RecyclerView.ViewHolder`).
+
+```kotlin
+class Outer {
+    private val secret = 1
+    class Nested { fun greet() = "hi" }          // cannot access secret; no Outer reference
+}
+```
+
+**`inner class`:** Holds an implicit reference to its enclosing instance (`this@Outer`), letting it access outer properties and methods—but if an `inner class` listener outlives an `Activity`, it leaks the `Activity`.
+
+```kotlin
+class Outer {
+    private val secret = 1
+    inner class Inner { fun read() = secret }    // holds implicit reference to Outer
+}
+```
+
+**`annotation class`:** Defines metadata tags (`@Target`, `@Retention`) read by compilers, Hilt, Room, or reflection.
+
+```kotlin
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class IoDispatcher
+```
+
+**Common mistake:** Marking a nested listener or adapter `inner` when it doesn't need the outer instance, creating a hidden memory leak.
+
+**Follow-ups:**
+
+- *How is Kotlin's nested class different from Java's?* In Java, a nested class without `static` holds an outer reference by default; in Kotlin, it's the reverse—nested classes are static unless marked `inner`.
+
 ### Interview questions
 
 1. **Why should you avoid `!!`, and what do you use instead?** `!!` throws a NullPointerException at runtime, which throws away Kotlin's compile-time safety. Use a safe call with a default, an early return, or `requireNotNull` with a clear message. {Easy}
@@ -604,3 +664,5 @@ class Player {
 20. **Why does smart-casting fail on a `var` property, and how do you solve it?** A `var` (or `val` with a custom getter) can change between the null check and its usage, so the compiler can't guarantee it stays non-null. Capture a local snapshot (`val current = x; if (current != null) ...`) or use `x?.let { ... }`. {Medium}
 21. **What is the difference between `<T>` and `<T : Any>` in Kotlin generics?** An unconstrained `<T>` has an implicit upper bound of `Any?`, allowing nullable types like `Box<String?>`, while `<T : Any>` restricts `T` to non-null types (and `T & Any` represents definitely non-nullable types for Java interop). {Medium}
 22. **How does `?.let { ... } ?: run { ... }` behave as an if-else replacement, and what is the hidden trap?** If the `?.let` block evaluates to `null` (for example calling a function returning `Unit?` or nullable), the `?: run` branch executes even though the receiver was non-null. Use a standard `if (x != null) ... else ...` instead. {Medium}
+23. **What is the difference between a nested class and an `inner class` in Kotlin?** A nested class has no reference to the outer class (static by default, safer against leaks); an `inner class` holds an implicit reference to the outer instance and can access its members. {Easy}
+24. **What does `data object` add over a plain `object`?** Since Kotlin 1.9, `data object` generates a clean `toString()` returning the class name (instead of `ClassName@hash`) plus `equals()` and `hashCode()`, making it ideal for empty states in `sealed` hierarchies. {Easy}
