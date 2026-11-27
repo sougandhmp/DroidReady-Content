@@ -27,14 +27,25 @@ fun Greeting(name: String) {
 
 ### 4.2 State: remember, rememberSaveable and derivedStateOf
 
-**In one line:** `remember` keeps a value across recompositions, `rememberSaveable` also keeps it across rotation and process death, and `derivedStateOf` creates state that changes less often than its inputs.
+**In one line:** `remember` survives recomposition, `rememberSaveable` also survives rotation and process death, and `derivedStateOf` reduces recompositions from fast-changing inputs.
 
-**Say this in the interview:** "A composable's local variables reset on every recomposition, so I wrap state in `remember { mutableStateOf(...) }`. That survives recomposition but not rotation; `rememberSaveable` stores it in the saved Bundle so it survives both. When I compute something from fast-changing state, like whether to show a 'scroll to top' button from the scroll position, I use `derivedStateOf`, so the UI only recomposes when the result flips, not on every pixel."
+**Say this in the interview:** "Local variables reset on every recomposition. I use `remember` for transient UI state, `rememberSaveable` when it must survive configuration changes and process death, and `derivedStateOf` when a computed boolean or summary changes less often than the input state it reads."
 
-**Example:**
+**`remember`:** Stores an object in the composition slot table across recompositions, but resets on rotation, process death, or when the composable leaves the tree.
 
 ```kotlin
-var query by rememberSaveable { mutableStateOf("") }               // survives rotation
+var expanded by remember { mutableStateOf(false) }
+```
+
+**`rememberSaveable`:** Saves state into the `Bundle` via `SavedStateRegistry`, surviving recomposition, configuration changes, and process death. Custom types need `@Parcelize` or a `Saver`.
+
+```kotlin
+var query by rememberSaveable { mutableStateOf("") }
+```
+
+**`derivedStateOf`:** Wraps a calculation over fast-changing `State` (such as scroll offset) and notifies readers only when the *output* value changes, preventing per-frame recompositions.
+
+```kotlin
 val listState = rememberLazyListState()
 val showScrollToTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
 ```

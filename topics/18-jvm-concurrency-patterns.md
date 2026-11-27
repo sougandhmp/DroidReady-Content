@@ -26,20 +26,22 @@ object Cache {
 
 ### 18.2 Reference types
 
-**In one line:** strong references keep objects alive; weak references let the collector free the object; soft references are freed only under memory pressure.
+**In one line:** strong references keep objects alive, `WeakReference` allows collection at the next GC, `SoftReference` holds until memory is low, and `PhantomReference` schedules post-mortem cleanup.
 
-**Say this in the interview:** "Normal references are strong. A `WeakReference` doesn't stop collection, so a long-lived object can point at an Activity without leaking it. But a weak reference is a safety net, not a design: the real fix is usually to unregister in the right lifecycle callback, or expose a `Flow` collected with the lifecycle. For caches I use `LruCache` rather than `SoftReference`, because soft references give poor control over what's evicted."
+**Say this in the interview:** "Normal references are strong. A `WeakReference` lets the GC free an Activity or View if nothing else holds it, though proper lifecycle cleanup or Flows are better than hiding leaks. For caches I use `LruCache` instead of `SoftReference`, because ART clears soft references unpredictably."
 
-**Example:**
+**Strong reference:** The default (`val x = Foo()`). An object reachable by strong references from a GC root is never collected.
+
+**`WeakReference`:** Collected at the next GC cycle once no strong references remain. Useful for non-owning caches or avoiding leaks in callbacks.
 
 ```kotlin
-class LocationCallbackWrapper(activity: MapActivity) : LocationCallback() {
-    private val activityRef = WeakReference(activity)          // doesn't keep the activity alive
-    override fun onLocationResult(result: LocationResult) {
-        activityRef.get()?.showLocation(result.lastLocation)  // null if the activity was collected
-    }
-}
+private val activityRef = WeakReference(activity)
+activityRef.get()?.showLocation(location)   // null if already collected
 ```
+
+**`SoftReference`:** Kept in memory longer and cleared only when the runtime needs heap space. Avoid for caches on Android—prefer `LruCache` with an explicit byte/count limit.
+
+**`PhantomReference`:** `get()` always returns `null`; enqueued to a `ReferenceQueue` after the object becomes unreachable so native resources can be cleaned up (the mechanism behind `java.lang.ref.Cleaner`).
 
 | Type | Collected when | Android use |
 | --- | --- | --- |

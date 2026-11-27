@@ -1849,6 +1849,101 @@
         "junior",
         "senior"
       ]
+    },
+    {
+      "id": "bug-kotlin-let-elvis-trap",
+      "topic": "kotlin",
+      "question": "When user is non-null and save(user) returns null, what happens?",
+      "code": "user?.let { save(it) } ?: run {\n    logMissing()\n}",
+      "options": [
+        "Only save(user) runs",
+        "Both save(user) AND logMissing() run",
+        "Only logMissing() runs",
+        "It does not compile"
+      ],
+      "answer": 1,
+      "explanation": "?.let returns the lambda's result. Because save(user) returns null, the Elvis ?: operator triggers and runs logMissing() too. Use if (user != null) ... else ... instead.",
+      "why": "Using ?.let { } ?: run { } as an if-else replacement is a subtle, common Kotlin bug.",
+      "mistake": "Assuming the ?: branch only runs when the receiver (user) is null.",
+      "kind": "bug",
+      "bugLines": [
+        1
+      ],
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-kotlin-var-smart-cast",
+      "topic": "kotlin",
+      "question": "Why does the compiler reject name.length here?",
+      "code": "class Profile {\n    var name: String? = \"Sam\"\n    fun printLength() {\n        if (name != null) println(name.length)\n    }\n}",
+      "options": [
+        "String? has no length property",
+        "name is a mutable var property that could change between the null check and name.length",
+        "if cannot check null in a class",
+        "println requires a non-null Any"
+      ],
+      "answer": 1,
+      "explanation": "A var property (or val with a custom getter) can be mutated by another thread or function between the check and use. Capture a local val current = name or use name?.let.",
+      "why": "Understanding why smart-casts fail prevents people from reaching for !!.",
+      "mistake": "Fixing the compiler error by writing name!!.length instead of a local val.",
+      "kind": "bug",
+      "bugLines": [
+        4
+      ],
+      "tracks": [
+        "junior",
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-kotlin-unchecked-cast-list",
+      "topic": "kotlin",
+      "question": "What happens when items is listOf(1, 2, 3)?",
+      "code": "val items: Any = listOf(1, 2, 3)\nval names = items as? List<String>\nprintln(names?.firstOrNull()?.length)",
+      "options": [
+        "Prints null safely",
+        "The cast succeeds with an unchecked-cast warning, and reading .length throws ClassCastException at runtime",
+        "as? throws ClassCastException on line 2",
+        "It does not compile"
+      ],
+      "answer": 1,
+      "explanation": "Because of JVM type erasure, as? List<String> only checks that items is a List at runtime. Use (items as? List<*>)?.filterIsInstance<String>() to check elements safely.",
+      "why": "Type erasure makes generic safe casts deceptive if you don't check the elements.",
+      "mistake": "Assuming as? List<String> verifies that every element inside the list is a String.",
+      "kind": "bug",
+      "bugLines": [
+        2
+      ],
+      "tracks": [
+        "senior"
+      ]
+    },
+    {
+      "id": "bug-kotlin-inner-class-leak",
+      "topic": "kotlin",
+      "question": "Why does registering this callback leak MainActivity?",
+      "code": "class MainActivity : ComponentActivity() {\n    inner class SyncListener {\n        fun onDone() = refreshUi()\n    }\n    override fun onStart() { super.onStart(); SyncManager.add(SyncListener()) }\n}",
+      "options": [
+        "inner class cannot have methods",
+        "An inner class holds an implicit reference to the outer MainActivity, keeping it alive in SyncManager",
+        "onStart() runs on a background thread",
+        "SyncManager must be a data object"
+      ],
+      "answer": 1,
+      "explanation": "Unlike a plain nested class, an inner class holds an implicit reference to its outer instance. Remove inner (or unregister on stop) so SyncManager doesn't retain MainActivity.",
+      "why": "Java-style inner classes are a frequent source of Activity memory leaks on Android.",
+      "mistake": "Marking a nested helper or listener as inner when it doesn't need the outer instance (or forgetting to unregister it).",
+      "kind": "bug",
+      "bugLines": [
+        2
+      ],
+      "tracks": [
+        "junior",
+        "senior"
+      ]
     }
   ]
 }

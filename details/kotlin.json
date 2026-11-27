@@ -132,5 +132,73 @@
     "why": "It checks OOP fundamentals in Kotlin where interfaces can also have default implementations.",
     "mistake": "Claiming interfaces cannot contain any method bodies in Kotlin.",
     "followUp": "Can a Kotlin interface declare a property?"
+  },
+  "When do you use `require` vs `check` in Kotlin?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Using the right precondition makes API contracts explicit and crash reports immediately clear.",
+    "mistake": "Using `check` for bad arguments or `require` for invalid object state, or building the message eagerly without a lambda.",
+    "followUp": "How do `requireNotNull` and `checkNotNull` help with nullability?"
+  },
+  "How can you still get a `NullPointerException` in pure Kotlin without using `!!`?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It tests whether you know where Kotlin's compile-time null safety can still be bypassed at runtime.",
+    "mistake": "Saying an NPE is impossible in Kotlin without `!!` or Java code.",
+    "followUp": "How do Moshi and kotlinx.serialization avoid Gson's null-property bug?"
+  },
+  "Why does `list as? List<String>` generate an 'Unchecked cast' warning?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "It combines JVM generic type erasure with Kotlin's safe-cast operator.",
+    "mistake": "Assuming `as? List<String>` returns `null` if the list contains `Int`s.",
+    "followUp": "How do you safely extract only `String` elements from an `Any`?"
+  },
+  "Why does smart-casting fail on a `var` property, and how do you solve it?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Every Kotlin developer hits this compiler error and needs to know why it happens.",
+    "mistake": "Adding `!!` inside the `if (x != null)` block instead of capturing a local `val`.",
+    "followUp": "Why does it also fail on a `val` with a custom `get()`?"
+  },
+  "What is the difference between `<T>` and `<T : Any>` in Kotlin generics?": {
+    "tracks": [
+      "senior"
+    ],
+    "why": "Many developers forget that `<T>` defaults to `Any?`, allowing nullable type arguments.",
+    "mistake": "Assuming generic `<T>` is non-null by default like normal Kotlin types.",
+    "followUp": "What are definitely non-nullable types (`T & Any`) used for?"
+  },
+  "How does `?.let { ... } ?: run { ... }` behave as an if-else replacement, and what is the hidden trap?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "This is a widespread Kotlin anti-pattern that causes both branches to run.",
+    "mistake": "Treating `?.let { } ?: run { }` as equivalent to `if (x != null) ... else ...`.",
+    "followUp": "When is `?.let { } ?: default` actually safe?"
+  },
+  "What is the difference between a nested class and an `inner class` in Kotlin?": {
+    "tracks": [
+      "junior",
+      "senior"
+    ],
+    "why": "Using `inner` unnecessarily is a common source of Activity memory leaks on Android.",
+    "mistake": "Assuming nested classes in Kotlin hold an outer reference by default, like Java non-static inner classes.",
+    "followUp": "How do you safely access an outer `Activity` from a callback?"
+  },
+  "What does `data object` add over a plain `object`?": {
+    "tracks": [
+      "junior"
+    ],
+    "why": "It checks awareness of Kotlin 1.9+ improvements for sealed hierarchies.",
+    "mistake": "Using plain `object` in sealed states and getting `Loading@1a2b3c` in logs.",
+    "followUp": "Can a `data object` have constructor parameters?"
   }
 }

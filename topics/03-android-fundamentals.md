@@ -4,11 +4,33 @@ These questions check that you understand how Android treats your app: component
 
 ### 3.1 The four app components
 
-**In one line:** Android apps are built from four kinds of entry points the system can start: Activities, Services, BroadcastReceivers and ContentProviders.
+**In one line:** Android apps are built from four entry points the system can start: `Activity`, `Service`, `BroadcastReceiver`, and `ContentProvider`.
 
-**Say this in the interview:** "An Activity is a screen the user interacts with. A Service does work without a UI, like playing music. A BroadcastReceiver reacts to system or app events, like the device finishing boot. A ContentProvider shares structured data with other apps, or files through `FileProvider`. All four are declared in the manifest, and since Android 12 any component with an intent filter must say whether it's `exported` to other apps."
+**Say this in the interview:** "Each component serves a distinct role and is declared in `AndroidManifest.xml`. Since Android 12, any component with an `<intent-filter>` must explicitly declare `android:exported`."
 
-**Example:** a music app uses an Activity for the player screen, a foreground Service for playback, a BroadcastReceiver for headphones being unplugged, and a ContentProvider (`FileProvider`) to share a playlist file.
+**`Activity`:** Represents a single screen with a UI window (modern apps typically use one `ComponentActivity` hosting Compose or Fragment destinations).
+
+```kotlin
+class MainActivity : ComponentActivity() { override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState) } }
+```
+
+**`Service`:** Performs longer-running operations without a UI—either started/foreground (with a notification) or bound to a client. Runs on the main thread by default.
+
+```kotlin
+class PlayerService : Service() { override fun onBind(intent: Intent?): IBinder? = null }
+```
+
+**`BroadcastReceiver`:** Responds to system-wide or app-internal broadcast events (such as boot completed or timezone change). `onReceive()` runs on the main thread and must finish quickly.
+
+```kotlin
+class BootReceiver : BroadcastReceiver() { override fun onReceive(ctx: Context, intent: Intent) { /* enqueue WorkManager */ } }
+```
+
+**`ContentProvider`:** Manages access to a structured dataset or shares files safely across apps via `content://` URIs (most commonly through `FileProvider`).
+
+```kotlin
+val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+```
 
 **Common mistake:** Assuming a component runs on its own thread. Service and BroadcastReceiver callbacks normally run on the main thread.
 
@@ -158,16 +180,24 @@ ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObser
 
 ### 3.7 Intents, PendingIntents and App Links
 
-**In one line:** an Intent describes an action to perform; an explicit Intent names the target class, an implicit one names an action and lets the system find an app.
+**In one line:** an `Intent` triggers an action or screen, a `PendingIntent` lets another app run an intent as your app, and an App Link is a verified HTTPS deep link.
 
-**Say this in the interview:** "I use explicit intents inside my app and implicit ones like `ACTION_VIEW` to hand off to other apps. A PendingIntent is a token that lets another app, like the notification shade, run an intent as my app; since Android 12 it must be marked `FLAG_IMMUTABLE` or `FLAG_MUTABLE`. For links, a normal deep link may show a chooser, but a verified App Link opens my app directly: I add `autoVerify` to the intent filter and host `assetlinks.json` with the signing certificate fingerprint on my domain."
+**Say this in the interview:** "I use explicit intents inside my app, implicit intents to delegate to other apps, immutable `PendingIntent`s for notifications, and verified App Links so web URLs open directly without a chooser."
 
-**Example:**
+**Explicit vs. Implicit `Intent`:** Explicit intents target a specific class (`DetailActivity::class.java`); implicit intents declare an action (`ACTION_VIEW`) and let the OS resolve a matching app.
 
 ```kotlin
 startActivity(Intent(this, CheckoutActivity::class.java))                       // explicit
 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=Opera+House")))   // implicit
 ```
+
+**`PendingIntent`:** A token handed to another process (like the NotificationManager or AlarmManager) to execute an `Intent` with your app's identity and permissions. Since Android 12 (API 31), you must specify `FLAG_IMMUTABLE` (preferred) or `FLAG_MUTABLE`.
+
+```kotlin
+val pi = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+```
+
+**App Links:** HTTP/HTTPS deep links verified against `https://<domain>/.well-known/assetlinks.json` (containing your Play app signing certificate SHA-256) using `android:autoVerify="true"`, so your app opens directly without a disambiguation dialog.
 
 **Common mistake:** Using a mutable PendingIntent with an implicit intent, which lets another app change where it goes.
 
@@ -305,11 +335,15 @@ class ResultsActivity : ComponentActivity() {
 
 ### 3.12 Services
 
-**In one line:** a Service runs work without a UI; it can be started, bound, or run in the foreground with a notification.
+**In one line:** a `Service` runs UI-less work in three modes—started, foreground, or bound—and always executes callbacks on the main thread unless you offload work.
 
-**Say this in the interview:** "A started service runs until it stops itself, but since Android 8 background services are stopped soon after the app leaves the foreground, so for background work I use WorkManager instead. A foreground service shows a notification and is for ongoing work the user knows about, like music or navigation; since Android 14 it must declare a type. A bound service offers a call interface to clients while they're bound, through a `Binder` in the same app or AIDL across apps. Note that service callbacks run on the main thread."
+**Say this in the interview:** "Background started services are restricted since Android 8, so deferrable work goes to WorkManager. I use a foreground service for ongoing user-visible work (with a required `foregroundServiceType` since Android 14), and a bound service when clients need a live call interface."
 
-**Example:**
+**Started (background) service:** Launched with `startService()`; runs until `stopSelf()` or `stopService()`, but the OS stops it shortly after the app backgrounds on Android 8+. Prefer WorkManager.
+
+**Foreground service:** Started with `startForegroundService()` and must call `startForeground(id, notification)` promptly. Requires `FOREGROUND_SERVICE` plus a specific type (`mediaPlayback`, `location`, `dataSync`—which has a 6-hour limit in Android 15+) in the manifest.
+
+**Bound service:** Clients connect via `bindService()` and receive an `IBinder` interface; the service stays alive only while at least one client is bound.
 
 ```kotlin
 class PlayerService : Service() {

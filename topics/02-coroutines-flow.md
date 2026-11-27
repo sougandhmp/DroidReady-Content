@@ -165,19 +165,30 @@ repository.observeArticles()                    // Flow<List<Article>> from Room
 
 ### 2.7 Hot flows: StateFlow, SharedFlow and Channel
 
-**In one line:** hot streams are active whether or not anyone collects: `StateFlow` always holds a current value, `SharedFlow` broadcasts events, and a `Channel` delivers each item to exactly one receiver.
+**In one line:** `StateFlow` holds a current state value, `SharedFlow` broadcasts events to multiple collectors, and `Channel` sends each item to one receiver.
 
-**Say this in the interview:** "For UI state I use `StateFlow`: it always has a value, gives the latest one to new collectors and skips duplicates, which matches what a screen needs. `SharedFlow` is for broadcasting to many collectors with a configurable replay. A `Channel` is a queue where each item is received once. To turn a cold Flow into a StateFlow in a ViewModel, I use `stateIn` with `SharingStarted.WhileSubscribed(5_000)`, which keeps the upstream alive for 5 seconds so a rotation doesn't restart the work, but stops it when the app goes to the background."
+**Say this in the interview:** "For UI state I use `StateFlow`: it always has a value, replays the latest to new collectors, and skips duplicates (`distinctUntilChanged` built in). `SharedFlow` broadcasts events to multiple collectors with configurable `replay` and buffer. A `Channel` is a one-to-one queue where each item is consumed once. To convert a cold Flow in a ViewModel, I use `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)` so rotation keeps the upstream alive for 5 seconds while backgrounding stops it."
 
-**Example:**
+**`StateFlow`:** Always has an initial value, exposes `.value`, replays 1 (the latest) to new collectors, and conflates equal values.
 
 ```kotlin
 val uiState: StateFlow<SearchUiState> = query
-    .debounce(300)
-    .filter { it.length >= 2 }
     .flatMapLatest { repo.search(it) }
-    .map { SearchUiState.Results(it) }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState.Idle)
+```
+
+**`SharedFlow`:** Has no initial value, does *not* skip equal values, and supports configurable `replay`, `extraBufferCapacity`, and `onBufferOverflow` for broadcasting events.
+
+```kotlin
+private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
+val events = _events.asSharedFlow()
+```
+
+**`Channel`:** A hot suspending queue where each element is delivered to a single consumer—ideal for worker queues or single-consumer pipelines.
+
+```kotlin
+private val jobs = Channel<SyncJob>(capacity = Channel.BUFFERED)
+// Producer: jobs.send(job)   |   Consumer: for (job in jobs) process(job)
 ```
 
 | | StateFlow | SharedFlow | Channel |
