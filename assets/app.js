@@ -136,14 +136,26 @@
     }).join('') + '</ul>';
   }
 
-  // Each page returns { tab, title, html, wide, bind }.
+  // A side column of links, shown on wide screens only.
+  function rail(label, links, current) {
+    return '<nav class="rail" aria-label="' + label + '"><span class="eyebrow">' + label + '</span><ol>' + links.map(function (l) {
+      return '<li><a href="' + l.href + '"' + (l.id === current ? ' aria-current="page"' : '') + '>' + l.html + '</a></li>';
+    }).join('') + '</ol></nav>';
+  }
+  // Scrolls only the side column, so the current link is in sight.
+  function showCurrent() {
+    var box = view.querySelector('.rail'), here = box && box.querySelector('[aria-current]');
+    if (here) box.scrollTop += here.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 2;
+  }
+
+  // Each page returns { tab, title, html, focused, bind }.
   function home() {
     track.home = usableTrack(questions, track.home);
     var last = byId[state.last] || topics[0];
     var done = learnedCount(last.questions);
     var days = streak();
     return {
-      tab: 'home', title: 'Android interview prep', wide: true,
+      tab: 'home', title: 'Android interview prep',
       html: '<div class="stack">' +
         '<div class="row between"><h1>Walk into your Android interview ready.</h1>' + (days ? '<span class="pill Hard">' + days + '-day streak</span>' : '') + '</div>' +
         '<div class="cards2"><a class="card hero" href="#/topic/' + last.id + '"><span class="eyebrow">' + (byId[state.last] ? 'Continue where you left off' : 'Start here') + '</span><span class="display" style="font-size:21px;font-weight:600">' + esc(last.title) + '</span>' +
@@ -188,6 +200,7 @@
       (quiz.some(function (q) { return q.topic === id; }) ? '<a class="chip" href="#/practice/' + id + '">Practice quiz</a>' : '') + '</div>';
     var pager = '<div class="row between">' + (prev ? '<a class="btn" href="#/topic/' + prev.id + '">← Previous</a>' : '<span></span>') + (next ? '<a class="btn" href="#/topic/' + next.id + '">Next topic →</a>' : '') + '</div>';
     var page = { tab: 'home', title: t.title };
+    var topicRail = rail('Topics', topics.map(function (o) { return { id: o.id, href: '#/topic/' + o.id, html: esc(o.title) }; }), id);
     if (asking) {
       var level = 'All';
       // A track chosen on the home page applies here too.
@@ -196,11 +209,12 @@
         var list = inTrack(t.questions, track.topic).filter(function (q) { return level === 'All' || q.level === level; });
         return list.length ? questionList(list) : '<p class="muted">No questions match these filters.</p>';
       };
-      page.html = '<div class="stack">' + head + trackChips(t.questions, track.topic) +
+      page.html = '<div class="split with-rail">' + topicRail + '<div class="stack">' + head + trackChips(t.questions, track.topic) +
         '<div class="row" role="group" aria-label="Filter by difficulty">' +
         ['All', 'Easy', 'Medium', 'Hard'].map(function (l) { return '<button type="button" class="chip" data-level="' + l + '" aria-pressed="' + (l === 'All') + '">' + (l === 'All' ? 'All levels' : l) + '</button>'; }).join('') +
-        '</div><div id="results">' + shown() + '</div></div>';
+        '</div><div id="results">' + shown() + '</div></div></div>';
       page.bind = function () {
+        showCurrent();
         var redraw = function () { document.getElementById('results').innerHTML = shown(); };
         bindTrackChips(view, function (chosen) {
           // The question pages step through the same selection.
@@ -218,10 +232,14 @@
     } else {
       var doc = Markdown.render(t.body);
       var sections = doc.headings.filter(function (h) { return h.level === 3; });
-      page.html = '<div class="stack">' + head +
-        (sections.length > 1 ? '<details class="card"><summary><b>On this page</b></summary><div class="toc" style="margin-top:12px">' + sections.map(function (h) { return '<button type="button" class="chip" data-jump="' + h.id + '">' + inline(h.text) + '</button>'; }).join('') + '</div></details>' : '') +
-        '<article class="prose">' + doc.html + '</article>' + pager + '</div>';
+      var contents = sections.length > 1;
+      var jumps = function (cls) { return sections.map(function (h) { return '<button type="button"' + cls + ' data-jump="' + h.id + '">' + inline(h.text) + '</button>'; }); };
+      page.html = '<div class="split with-rail' + (contents ? ' with-toc' : '') + '">' + topicRail + '<div class="stack">' + head +
+        (contents ? '<details class="card toc-inline"><summary><b>On this page</b></summary><div class="toc" style="margin-top:12px">' + jumps(' class="chip"').join('') + '</div></details>' : '') +
+        '<article class="prose">' + doc.html + '</article>' + pager + '</div>' +
+        (contents ? '<nav class="rail on-this-page" aria-label="On this page"><span class="eyebrow">On this page</span><ol><li>' + jumps('').join('</li><li>') + '</li></ol></nav>' : '') + '</div>';
       page.bind = function () {
+        showCurrent();
         view.querySelectorAll('[data-jump]').forEach(function (b) {
           b.onclick = function () { document.getElementById(b.dataset.jump).scrollIntoView({ block: 'start' }); };
         });
@@ -239,7 +257,8 @@
     var after = next ? '#/question/' + next.id : '#/topic/' + q.topic.id + '/questions';
     return {
       tab: 'home', title: q.topic.title,
-      html: '<div class="stack"><div class="row between"><a href="#/topic/' + q.topic.id + '/questions">← Questions</a><span class="muted small">' + (at + 1) + ' of ' + list.length + '</span>' +
+      html: '<div class="split with-rail">' + rail('Questions', list.map(function (o) { return { id: o.id, href: '#/question/' + o.id, html: (state.learned[o.id] ? '✓ ' : '') + inline(o.question) }; }), id) +
+        '<div class="stack"><div class="row between"><a href="#/topic/' + q.topic.id + '/questions">← Questions</a><span class="muted small">' + (at + 1) + ' of ' + list.length + '</span>' +
         '<button type="button" class="btn" id="bookmark" aria-pressed="' + !!state.saved[id] + '">Bookmark</button></div>' +
         '<div class="row"><span class="pill">' + esc(q.topic.title) + '</span>' + pill(q.level) + '</div><h1>' + inline(q.question) + '</h1>' +
         '<div class="card reveal" id="hidden"><p class="muted">Say your answer out loud first, like you would in the interview.</p><button type="button" class="btn solid" id="reveal">Show answer</button></div>' +
@@ -249,8 +268,9 @@
         note('Why they ask this', q.why, 'why') + note('Common mistake', q.mistake, 'mistake') +
         (reviewedOn(q.reviewed) ? '<p class="muted small">Last reviewed ' + reviewedOn(q.reviewed) + '</p>' : '') + '</div>' +
         reportLink(q.appId, q.topic.title, q.question) +
-        '<div class="cards2"><button type="button" class="btn" id="learning">Still learning</button><button type="button" class="btn primary" id="known">✓ I know this</button></div></div>',
+        '<div class="cards2"><button type="button" class="btn" id="learning">Still learning</button><button type="button" class="btn primary" id="known">✓ I know this</button></div></div></div>',
       bind: function () {
+        showCurrent();
         document.getElementById('reveal').onclick = function () {
           document.getElementById('hidden').remove();
           var a = document.getElementById('answer');
@@ -358,7 +378,7 @@
         };
       });
     }
-    return { tab: 'practice', title: label, html: '<a href="#/practice">← Practice</a><div class="stack" id="quiz" style="margin-top:18px"></div>', bind: draw };
+    return { tab: 'practice', title: label, focused: true, html: '<a href="#/practice">← Practice</a><div class="stack" id="quiz" style="margin-top:18px"></div>', bind: draw };
   }
 
   var query = '';
@@ -398,9 +418,9 @@
     var max = Math.max.apply(null, week.map(function (d) { return d.n; }).concat(1));
     return {
       tab: 'saved', title: 'Your progress',
-      html: '<div class="stack"><h1>Your progress</h1><div class="stats"><div class="card"><strong>' + learnedCount(questions) + '</strong><span class="muted small">Learned</span></div><div class="card"><strong>' + streak() + '</strong><span class="muted small">Day streak</span></div><div class="card"><strong>' + (state.quiz.total ? Math.round(state.quiz.right / state.quiz.total * 100) + '%' : '–') + '</strong><span class="muted small">Quiz score</span></div></div>' +
+      html: '<div class="stack"><h1>Your progress</h1><div class="summary"><div class="stats"><div class="card"><strong>' + learnedCount(questions) + '</strong><span class="muted small">Learned</span></div><div class="card"><strong>' + streak() + '</strong><span class="muted small">Day streak</span></div><div class="card"><strong>' + (state.quiz.total ? Math.round(state.quiz.right / state.quiz.total * 100) + '%' : '–') + '</strong><span class="muted small">Quiz score</span></div></div>' +
         '<div class="card"><b class="small">This week</b><div class="week" role="img" aria-label="Answers per day over the last seven days: ' + week.map(function (d) { return d.n; }).join(', ') + '">' +
-        week.map(function (d) { return '<div><i style="height:' + Math.max(4, Math.round(d.n / max * 60)) + 'px"></i>' + d.day + '</div>'; }).join('') + '</div></div>' +
+        week.map(function (d) { return '<div><i style="height:' + Math.max(4, Math.round(d.n / max * 60)) + 'px"></i>' + d.day + '</div>'; }).join('') + '</div></div></div>' +
         '<div class="row"><a class="chip" href="#/saved"' + (learning ? '' : ' aria-current="page"') + '>Bookmarked (' + bookmarks.length + ')</a><a class="chip" href="#/saved/learning"' + (learning ? ' aria-current="page"' : '') + '>Still learning (' + unsure.length + ')</a></div>' +
         (list.length ? questionList(list, true) : '<p class="muted">' + (learning ? 'Questions you mark “Still learning” show up here.' : 'Bookmark a question to find it here.') + '</p>') + '</div>'
     };
@@ -419,7 +439,7 @@
       : p[0] === 'search' ? search()
       : p[0] === 'saved' ? saved(p[1])
       : missing();
-    view.className = page.wide ? '' : 'narrow';
+    view.className = page.focused ? 'focused' : '';
     view.innerHTML = page.html;
     document.title = page.title + ' – DroidReady';
     document.querySelectorAll('[data-tab]').forEach(function (a) {
