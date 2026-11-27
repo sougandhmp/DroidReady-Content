@@ -34,8 +34,8 @@ fun transfer(from: Account?, amount: Long) {
 **Follow-ups:**
 
 - *Why is `!!` a code smell?* It throws an NPE at runtime; prefer an early return, a default, or `requireNotNull` with a message.
-- *`require` vs `check`?* `require` validates arguments (the caller's fault); `check` validates the object's own state.
-- *When is `!!` acceptable?* Rarely: when a null truly means a bug and you want to crash fast, e.g. a required Fragment argument, and even then `requireNotNull(..) { "message" }` is clearer.
+- *`require` vs `check`?* `require` validates arguments (the caller's fault); `check` validates the object's own state (see section 1.16).
+- *When is `!!` acceptable?* Only when `null` strictly means a programmer bug and crashing immediately is intended: in unit tests (to fail fast), for proven invariants the compiler can't smart-cast (such as `_binding!!` between `onCreateView` and `onDestroyView`, or an entry just inserted into a map), or for required screen/contract arguments—though `requireNotNull(arg) { "message" }` or `checkNotNull(...)` is still preferred for clearer crash diagnostics. Never use `!!` on network, database, user-input, or unannotated Java values.
 
 ### 1.2 val, var, immutability and data classes
 
