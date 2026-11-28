@@ -131,6 +131,13 @@ tr:last-child td { border-bottom: 0; }
 .note.mistake .eyebrow { color: var(--on-warn); }
 #answer[hidden] { display: none; }
 #answer:focus { outline: none; }
+.listen { align-self: flex-start; min-height: 44px; font-size: 14px; }
+/* Stays in reach while long notes are being read. */
+.stack > .listen:has(+ .prose) { position: sticky; top: 8px; z-index: 3; box-shadow: 0 2px 10px rgba(20, 32, 26, 0.12); }
+.listen.play { min-height: 44px; padding: 0 16px; }
+/* The one that is playing follows along, below "Read notes aloud". */
+.prose .listen[aria-pressed="true"] { position: sticky; top: 60px; z-index: 2; }
+#feedback .listen { margin-bottom: 14px; }
 .report { align-self: center; font-size: 14px; font-weight: 600; padding: 10px; }
 .chip { min-height: 44px; }
 footer { margin-top: 40px; }
