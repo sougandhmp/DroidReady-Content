@@ -503,7 +503,7 @@ class Tracker @JvmOverloads constructor(          // Java gets Tracker(String), 
 **How it works:**
 
 - **Collections:** Kotlin's read-only `List` is just `java.util.List` in Java—return defensive copies or `Collections.unmodifiableList(...)` from public APIs if Java callers might mutate them.
-- **Interop lint checks:** Android Studio / Gradle `lintOptions { enable("Interoperability") }` flags Java APIs missing nullability annotations, non-standard property prefixes, Kotlin hard keywords (like `when`), and SAM parameters not placed last.
+- **Interop lint checks:** Android Studio / Gradle `android { lint { enable += "Interoperability" } }` flags Java APIs missing nullability annotations, non-standard property prefixes, Kotlin hard keywords (like `when`), and SAM parameters not placed last.
 
 **Common mistake:** Trusting values from unannotated Java as non-null, or exposing `(T) -> Unit` lambdas to Java callers.
 
