@@ -478,24 +478,34 @@ typealias OnArticleClick = (articleId: String) -> Unit
 
 ### 1.13 Java interoperability
 
-**In one line:** Kotlin and Java call each other directly; a few annotations make Kotlin APIs feel natural from Java.
+**In one line:** Kotlin and Java call each other directly; a few annotations and API habits make Kotlin feel natural from Java and keep Java safe from Kotlin.
 
-**Say this in the interview:** "Most big codebases mix both languages. From Java, a Kotlin companion function looks like `Foo.Companion.create()` and default arguments don't exist, so for Java-facing APIs I add `@JvmStatic`, `@JvmOverloads`, `@JvmField` and `@Throws`. In the other direction, Java types without nullability annotations become platform types, so I annotate Java code I own or treat its values as nullable."
+**Say this in the interview:** "Most big codebases mix both languages. From Java, a Kotlin companion function looks like `Foo.Companion.create()` and default arguments don't exist, so for Java-facing APIs I add `@JvmStatic`, `@JvmField`, `@JvmOverloads`, `@JvmName`, and `@Throws`, and prefer `fun interface` over `(T) -> Unit` so Java callers don't have to return `Unit.INSTANCE`. In the other direction, Java types without nullability annotations become platform types (`String!`), so I annotate Java APIs I own and enable Android's `Interoperability` lint checks."
 
 **Example:**
 
 ```kotlin
 @file:JvmName("Analytics")                       // Java sees Analytics.xyz(), not AnalyticsKt.xyz()
 
+fun interface EventListener { fun onEvent(name: String) } // SAM: Java avoids returning Unit.INSTANCE
+
 class Tracker @JvmOverloads constructor(          // Java gets Tracker(String), Tracker(String, int), ...
     val endpoint: String, val batchSize: Int = 20
 ) {
-    companion object { @JvmStatic fun createDefault() = Tracker("https://events.example.com") }
-    @Throws(IOException::class) fun flush() { }   // Java can now catch IOException
+    companion object {
+        @JvmField val DEFAULT_TIMEOUT_MS = 5_000L // exposed as static field (not Companion.get...)
+        @JvmStatic fun createDefault() = Tracker("https://events.example.com")
+    }
+    @Throws(IOException::class) fun flush() { }   // Java can now catch checked IOException
 }
 ```
 
-**Common mistake:** Trusting values from unannotated Java as non-null.
+**How it works:**
+
+- **Collections:** Kotlin's read-only `List` is just `java.util.List` in Java—return defensive copies or `Collections.unmodifiableList(...)` from public APIs if Java callers might mutate them.
+- **Interop lint checks:** Android Studio / Gradle `lintOptions { enable("Interoperability") }` flags Java APIs missing nullability annotations, non-standard property prefixes, Kotlin hard keywords (like `when`), and SAM parameters not placed last.
+
+**Common mistake:** Trusting values from unannotated Java as non-null, or exposing `(T) -> Unit` lambdas to Java callers.
 
 **Follow-ups:**
 
