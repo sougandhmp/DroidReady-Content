@@ -236,10 +236,12 @@
       var jumps = function (cls) { return sections.map(function (h) { return '<button type="button"' + cls + ' data-jump="' + h.id + '">' + inline(h.text) + '</button>'; }); };
       page.html = '<div class="split with-rail' + (contents ? ' with-toc' : '') + '">' + topicRail + '<div class="stack">' + head +
         (contents ? '<details class="card toc-inline"><summary><b>On this page</b></summary><div class="toc" style="margin-top:12px">' + jumps(' class="chip"').join('') + '</div></details>' : '') +
+        Speech.button('Read notes aloud', '.prose') +
         '<article class="prose">' + doc.html + '</article>' + pager + '</div>' +
         (contents ? '<nav class="rail on-this-page" aria-label="On this page"><span class="eyebrow">On this page</span><ol><li>' + jumps('').join('</li><li>') + '</li></ol></nav>' : '') + '</div>';
       page.bind = function () {
         showCurrent();
+        Speech.addSectionButtons(view.querySelector('.prose'));
         view.querySelectorAll('[data-jump]').forEach(function (b) {
           b.onclick = function () { document.getElementById(b.dataset.jump).scrollIntoView({ block: 'start' }); };
         });
@@ -260,13 +262,14 @@
       html: '<div class="split with-rail">' + rail('Questions', list.map(function (o) { return { id: o.id, href: '#/question/' + o.id, html: (state.learned[o.id] ? '✓ ' : '') + inline(o.question) }; }), id) +
         '<div class="stack"><div class="row between"><a href="#/topic/' + q.topic.id + '/questions">← Questions</a><span class="muted small">' + (at + 1) + ' of ' + list.length + '</span>' +
         '<button type="button" class="btn" id="bookmark" aria-pressed="' + !!state.saved[id] + '">Bookmark</button></div>' +
-        '<div class="row"><span class="pill">' + esc(q.topic.title) + '</span>' + pill(q.level) + '</div><h1>' + inline(q.question) + '</h1>' +
+        '<div class="row"><span class="pill">' + esc(q.topic.title) + '</span>' + pill(q.level) + '</div><h1 id="asked">' + inline(q.question) + '</h1>' +
+        Speech.button('Read question', '#asked') +
         '<div class="card reveal" id="hidden"><p class="muted">Say your answer out loud first, like you would in the interview.</p><button type="button" class="btn solid" id="reveal">Show answer</button></div>' +
-        '<div class="stack" id="answer" hidden tabindex="-1"><div class="card"><span class="eyebrow">Answer</span><p>' + inline(q.answer) + '</p>' +
+        '<div class="stack" id="answer" hidden tabindex="-1">' + Speech.button('Read answer', '#answer .card') + '<div class="card"><span class="eyebrow">Answer</span><p>' + inline(q.answer) + '</p>' +
         (q.code ? '<pre tabindex="0"><code>' + esc(q.code) + '</code></pre>' : '') +
         (q.followUp ? '<p class="muted small">Follow-up they may ask: ' + inline(q.followUp) + '</p>' : '') + '</div>' +
         note('Why they ask this', q.why, 'why') + note('Common mistake', q.mistake, 'mistake') +
-        (reviewedOn(q.reviewed) ? '<p class="muted small">Last reviewed ' + reviewedOn(q.reviewed) + '</p>' : '') + '</div>' +
+        (reviewedOn(q.reviewed) ? '<p class="muted small no-read">Last reviewed ' + reviewedOn(q.reviewed) + '</p>' : '') + '</div>' +
         reportLink(q.appId, q.topic.title, q.question) +
         '<div class="cards2"><button type="button" class="btn" id="learning">Still learning</button><button type="button" class="btn primary" id="known">✓ I know this</button></div></div></div>',
       bind: function () {
@@ -340,6 +343,7 @@
     var label = (daily ? 'Daily 5' : byId[set].title) + (chosen ? ' · ' + trackLabel(chosen) : '');
     var at = 0, score = 0;
     function draw() {
+      Speech.stop();
       var q = pool[at];
       var box = document.getElementById('quiz');
       box.innerHTML = '<div class="row" style="flex-wrap:nowrap"><div class="steps" aria-hidden="true">' + pool.map(function (_, i) { return '<i class="' + (i < at ? 'done' : i === at ? 'now' : '') + '"></i>'; }).join('') + '</div><b class="small">' + (at + 1) + '/' + pool.length + '</b></div>' +
@@ -347,6 +351,7 @@
         (KINDS[q.kind] ? '<div><span class="pill Medium">' + KINDS[q.kind] + '</span></div>' : '') +
         '<h1 tabindex="-1" style="font-size:22px">' + inline(q.question) + '</h1>' +
         (q.code ? '<pre tabindex="0"><code>' + esc(q.code) + '</code></pre>' : '') +
+        Speech.button('Read question', '#quiz h1, #quiz .option') +
         '<div class="options">' + q.options.map(function (o, i) { return '<button type="button" class="option" data-i="' + i + '"><b>' + 'ABCDEF'[i] + '</b><span>' + inline(o) + '</span></button>'; }).join('') + '</div>' +
         '<div id="feedback" aria-live="polite"></div>' +
         reportLink('quiz-' + q.id, byId[q.topic] ? byId[q.topic].title : '', q.question);
@@ -364,10 +369,11 @@
           studied();
           save();
           var last = at === pool.length - 1;
-          document.getElementById('feedback').innerHTML = '<p class="feedback' + (right ? '' : ' no') + '"><b>' + (right ? 'Correct.' : 'Not quite. The answer is ' + 'ABCDEF'[q.answer] + '.') + '</b> ' + inline(q.explanation) + '</p>' +
+          document.getElementById('feedback').innerHTML = '<p class="feedback' + (right ? '' : ' no') + '"><b>' + (right ? 'Correct.' : 'Not quite. The answer is ' + 'ABCDEF'[q.answer] + '.') + '</b> ' + inline(q.explanation) + '</p>' + Speech.button('Read explanation', '#feedback .feedback, #feedback .note') +
             '<div class="stack notes">' + note('Why they ask this', q.why, 'why') + note('Common mistake', q.mistake, 'mistake') + '</div><button type="button" class="btn primary" id="next" style="width:100%">' + (last ? 'See score' : 'Next question') + '</button>';
           document.getElementById('next').onclick = function () {
             if (last) {
+              Speech.stop();
               box.innerHTML = '<div class="card reveal"><span class="eyebrow">' + esc(label) + '</span><h1 tabindex="-1">' + score + ' of ' + pool.length + ' correct</h1><a class="btn primary" href="#/practice">Back to practice</a></div>';
             } else {
               at++;
@@ -439,6 +445,7 @@
       : p[0] === 'search' ? search()
       : p[0] === 'saved' ? saved(p[1])
       : missing();
+    Speech.stop();
     view.className = page.focused ? 'focused' : '';
     view.innerHTML = page.html;
     document.title = page.title + ' – DroidReady';
@@ -448,6 +455,8 @@
     if (page.bind) page.bind();
     window.scrollTo(0, 0);
   }
+
+  Speech.listen(view);
 
   load().then(function () {
     window.addEventListener('hashchange', function () { route(); view.focus({ preventScroll: true }); });
